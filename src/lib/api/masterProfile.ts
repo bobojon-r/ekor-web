@@ -12,6 +12,12 @@ export type MasterProfileData = {
   exp: number;
   about: string;
   showPhone: boolean;
+  langs?: string[];
+  avatar?: boolean;
+  /** Портфолио: id фото (файлы хранит сервер) */
+  photos?: number[];
+  /** Профессии, добавленные после одобрения и ждущие модерации */
+  pendingProfs?: string[];
 };
 
 const KEY = 'ekor_master_profile';
@@ -32,6 +38,13 @@ export const masterProfile = {
       localStorage.setItem(KEY, JSON.stringify(v));
     } catch {}
     return delay(v);
+  },
+  /** Сохранение из редактора. Новая профессия уходит на модерацию, цены и тексты — сразу */
+  save(p: MasterProfileData) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(p));
+    } catch {}
+    return delay(p, 600);
   },
   /** Демо: модератор одобрил */
   approve() {
