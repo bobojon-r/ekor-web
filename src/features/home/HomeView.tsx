@@ -25,14 +25,17 @@ export function HomeView() {
   const c = useDict(common);
   const { lang } = useLang();
   const { user } = useSession();
-  const [region, setRegion] = useRegion();
+  const [region, setRegion, regionReady] = useRegion();
   const [regionOpen, setRegionOpen] = useState<null | 'm' | 'd'>(null);
   const [tab, setTab] = useState<'client' | 'master'>('client');
 
   const R = api.region(region);
   const regionName = R.name[lang];
-  const { data, showSkeleton, loading } = useLoad(() => api.home(region), [region]);
+  const { data, showSkeleton, loading } = useLoad(() => api.home(region), [region], regionReady);
   const empty = !loading && data?.localCount === 0;
+  // Место под контент резервируется с первого кадра; анимация скелетона — только после 300 мс
+  const sk = (base: string) => (showSkeleton ? base : `${base} ${s.ph}`);
+  const mastersBusy = loading || !data;
 
   const findSub = R.masters > 0 ? (lang === 'tj' ? `${R.masters} усто дар ${regionName}` : `${countMasters(lang, R.masters)} — ${regionName}`) : t.onlyOnline;
   const pickRegion = (k: RegionKey) => {
@@ -130,20 +133,21 @@ export function HomeView() {
 
         <SectionHead title={t.nearby} href="/masters" link={t.seeAll} />
         <div className={s.mList}>
-          {showSkeleton && [1, 2, 3].map((i) => <MasterRowSkeleton key={i} />)}
+          {mastersBusy && [1, 2, 3].map((i) => <MasterRowSkeleton key={i} cls={sk(s.skRow)} />)}
           {empty && (
             <>
               <EmptyRegion title={t.emptyTitle(regionName)} body={t.emptyBody} action={c.postTask} />
               <div className={s.overline}>{t.onlineMasters}</div>
             </>
           )}
-          {!loading && data?.masters.slice(0, 3).map((m) => <MasterRow key={m.id} m={m} lang={lang} />)}
+          {!mastersBusy && data.masters.slice(0, 3).map((m) => <MasterRow key={m.id} m={m} lang={lang} />)}
         </div>
 
         <SectionHead title={t.tasksTitle} href="/tasks" link={t.allTasks} />
         <div className={s.mList}>
-          {!loading &&
-            data?.tasks.slice(0, 2).map((k) => (
+          {!data && [1, 2].map((i) => <div key={i} className={sk(s.skTask)} />)}
+          {data &&
+            data.tasks.slice(0, 2).map((k) => (
               <Link key={k.id} href={`/tasks/${k.id}`} className={s.mTask}>
                 <span className={s.taskTop}>
                   <span className={s.taskTitle}>{k.title}</span>
@@ -155,7 +159,6 @@ export function HomeView() {
                 </span>
               </Link>
             ))}
-          {showSkeleton && [1, 2].map((i) => <div key={i} className={s.skTask} />)}
         </div>
 
         <div className={s.secHeadCol}>
@@ -163,6 +166,7 @@ export function HomeView() {
           <div className={s.secNote}>{t.reviewsNote}</div>
         </div>
         <div className={s.mReviews}>
+          {!data && [1, 2].map((i) => <div key={i} className={sk(s.skReviewM)} />)}
           {data?.reviews.map((v, i) => (
             <div key={i} className={s.mReview}>
               <div className={s.revTop}>
@@ -288,9 +292,9 @@ export function HomeView() {
                   {t.live} · {regionName}
                 </span>
               </div>
-              {showSkeleton && [1, 2, 3, 4].map((i) => <div key={i} className={s.skLive} />)}
-              {!loading &&
-                data?.tasks.slice(0, 4).map((k) => (
+              {!data && [1, 2, 3, 4].map((i) => <div key={i} className={sk(s.skLive)} />)}
+              {data &&
+                data.tasks.slice(0, 4).map((k) => (
                   <Link key={k.id} href={`/tasks/${k.id}`} className={s.dLiveItem}>
                     <span className={s.taskTop}>
                       <span className={s.taskTitle}>{k.title}</span>
@@ -357,8 +361,8 @@ export function HomeView() {
             </div>
           )}
           <div className={s.grid4}>
-            {showSkeleton && [1, 2, 3, 4].map((i) => <MasterCardSkeleton key={i} />)}
-            {!loading && data?.masters.slice(0, 4).map((m) => <MasterCardD key={m.id} m={m} lang={lang} offer={t.offerWork} />)}
+            {mastersBusy && [1, 2, 3, 4].map((i) => <MasterCardSkeleton key={i} cls={sk(s.skCard)} />)}
+            {!mastersBusy && data.masters.slice(0, 4).map((m) => <MasterCardD key={m.id} m={m} lang={lang} offer={t.offerWork} />)}
           </div>
         </section>
 
@@ -371,6 +375,7 @@ export function HomeView() {
             </div>
           </div>
           <div className={s.grid3}>
+            {!data && [1, 2, 3].map((i) => <div key={i} className={sk(s.skReviewD)} />)}
             {data?.reviews.map((v, i) => (
               <div key={i} className={s.dReview}>
                 <div className={s.revTop}>
@@ -645,9 +650,9 @@ function MasterCardD({ m, lang, offer }: { m: Master; lang: Lang; offer: string 
   );
 }
 
-function MasterRowSkeleton() {
+function MasterRowSkeleton({ cls }: { cls: string }) {
   return (
-    <div className={s.skRow}>
+    <div className={cls}>
       <div className={s.skCircle} style={{ width: 56, height: 56 }} />
       <div className={s.skLines}>
         <div className={s.skLine} style={{ width: '60%', height: 14 }} />
@@ -658,9 +663,9 @@ function MasterRowSkeleton() {
   );
 }
 
-function MasterCardSkeleton() {
+function MasterCardSkeleton({ cls }: { cls: string }) {
   return (
-    <div className={s.skCard}>
+    <div className={cls}>
       <div className={s.skCircle} style={{ width: 64, height: 64 }} />
       <div className={s.skLine} style={{ width: '70%', height: 16 }} />
       <div className={s.skLineLight} style={{ width: '50%' }} />

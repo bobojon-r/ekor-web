@@ -27,7 +27,7 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
   const t = useDict(mastersDict);
   const c = useDict(common);
   const { lang } = useLang();
-  const [region, setRegion] = useRegion();
+  const [region, setRegion, regionReady] = useRegion();
   const validCat = CATALOG_CATS.some((x) => x.k === initialCat) ? (initialCat as CatalogCategory) : null;
   const [f, setF] = useState<Filters>({ ...F0, cat: validCat });
   const [q, setQ] = useState(initialQ ?? '');
@@ -42,7 +42,7 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
   }, [q]);
 
   const query = toQuery(f, region, qDeb, sort);
-  const { data, loading, showSkeleton } = useLoad(() => api.masters(query), [JSON.stringify(query)]);
+  const { data, loading, showSkeleton } = useLoad(() => api.masters(query), [JSON.stringify(query)], regionReady);
   const results = data ?? [];
   const empty = !loading && results.length === 0;
   const near = empty ? api.mastersElsewhere({ ...query, onlineOnly: false }).slice(0, 3) : [];

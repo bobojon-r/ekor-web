@@ -255,3 +255,10 @@
 .dSupportTitle { font-weight: 600; font-size: 18px; }
 .dSupport .supportBtn { font-size: 15px; }
 .dSupportNote { font-size: 14px; color: var(--ink-500); }
+
+/* Плейсхолдер держит высоту, но невидим до 300 мс */
+.ph { visibility: hidden; animation: none; }
+.skLive { height: 80px; }
+.skTask { height: 92px; }
+.skReviewM { flex: none; width: 286px; height: 236px; border-radius: var(--radius-lg); background: var(--white); border: 1px solid var(--line-200); animation: sk 1.2s ease-in-out infinite; }
+.skReviewD { height: 214px; border-radius: var(--radius-xl); background: var(--white); border: 1px solid var(--line-200); animation: sk 1.2s ease-in-out infinite; }

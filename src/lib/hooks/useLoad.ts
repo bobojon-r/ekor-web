@@ -8,7 +8,7 @@ export type LoadPhase = 'idle' | 'skeleton' | 'slow' | 'timeout' | 'done' | 'err
  * Правила загрузки из «Состояния системы»:
  * < 300 мс — ничего не показываем; далее скелетон; 15 с — «дольше обычного»; 30 с — «сервер не ответил».
  */
-export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]) {
+export function useLoad<T>(fn: () => Promise<T>, deps: unknown[], enabled = true) {
   const [data, setData] = useState<T | null>(null);
   const [phase, setPhase] = useState<LoadPhase>('idle');
   const [nonce, setNonce] = useState(0);
@@ -16,6 +16,7 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]) {
   fnRef.current = fn;
 
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     setPhase('idle');
     const t1 = setTimeout(() => alive && setPhase((p) => (p === 'idle' ? 'skeleton' : p)), 300);
@@ -36,9 +37,10 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]) {
       clearTimeout(t3);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, nonce]);
+  }, [...deps, nonce, enabled]);
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
   const loading = phase === 'idle' || phase === 'skeleton' || phase === 'slow';
+  /** data — последние полученные данные: при перезагрузке не сбрасываются, чтобы блоки не прыгали */
   return { data, phase, loading, showSkeleton: phase === 'skeleton' || phase === 'slow', retry };
 }
