@@ -39,6 +39,9 @@ export const api = {
     return delay(m ? { master: m, reviews: m.reviews ? MASTER_REVIEWS : [] } : null, 300);
   },
 
+  /** Счётчик для кнопки «Показать N» — до применения фильтров */
+  mastersCount: (q: MastersQuery) => filterMasters(q).length,
+
   /** Сколько мастеров нашлось бы в других городах по тем же фильтрам (для пустого состояния) */
   mastersElsewhere(q: MastersQuery) {
     return REGIONS.map((r) => ({ region: r, n: filterMasters({ ...q, region: r.key }).filter((m) => !m.online).length })).filter((x) => x.region.key !== q.region && x.n > 0);
