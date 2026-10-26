@@ -129,3 +129,32 @@ export const TASK_CATEGORIES = [
   { k: 'it', i: 'Laptop', ru: 'IT и онлайн', tj: 'IT ва онлайн', p: 300, sr: ['Сайт', 'Telegram-бот', 'Ремонт компьютера'], st: ['Сомона', 'Telegram-бот', 'Таъмири компютер'], er: ['Сделать сайт-визитку для кафе', 'Настроить Telegram-бот для заказов'], et: ['Барои қаҳвахона сомона сохтан', 'Telegram-бот барои фармоишҳо'] },
   { k: 'other', i: 'CircleEllipsis', ru: 'Другое', tj: 'Дигар', p: null, sr: [], st: [], er: [], et: [] },
 ] as const;
+
+type FT = import('./types').FeedTask;
+const ago = (m: number) => new Date(Date.now() - m * 60000).toISOString();
+
+/** Открытые задания для ленты мастеров */
+export const FEED: FT[] = [
+  { id: 1, category: 'electric', title: 'Заменить 3 розетки и выключатель в спальне', region: 'dushanbe', district: 'Сино', bmin: 80, bmax: 150, when: 1, tod: 2, responses: 2, createdAt: ago(25), views: 31, photos: 2, status: 'open', client: 'Мавзуна', clientSince: 2025, clientDone: 3, match: true,
+    desc: 'Старые советские розетки, одна искрит. Нужно заменить 3 розетки и выключатель, розетки куплю сама — Legrand, белые.\nКвартира в новостройке, 5 этаж, лифт есть.' },
+  { id: 2, category: 'appliances', title: 'Ремонт кондиционера Samsung, не охлаждает', region: 'dushanbe', district: 'Шохмансур', bmin: null, bmax: 300, when: 0, tod: null, responses: 4, createdAt: ago(40), views: 58, photos: 1, status: 'open', client: 'Ольга', clientSince: 2026, clientDone: 1,
+    desc: 'Кондиционер работает, но дует тёплым воздухом. Модель примерно 2019 года. Возможно, нужна заправка.' },
+  { id: 3, category: 'plumbing', title: 'Установить смеситель на кухне', region: 'dushanbe', district: 'Фирдавсӣ', bmin: 150, bmax: 250, when: 1, tod: 0, responses: 3, createdAt: ago(60), views: 22, photos: 0, status: 'open', client: 'Фаридун', clientSince: 2024, clientDone: 7,
+    desc: 'Старый смеситель течёт, новый уже куплен. Нужно снять старый и поставить новый, проверить шланги.' },
+  { id: 4, category: 'electric', title: 'Повесить 2 люстры и 4 бра в новой квартире', region: 'dushanbe', district: 'Исмоили Сомонӣ', bmin: null, bmax: null, when: 2, tod: null, responses: 0, createdAt: ago(120), views: 9, photos: 3, status: 'open', client: 'Шахло', clientSince: 2026, clientDone: 0, match: true,
+    desc: 'Потолок 3 м, бетон. Люстры тяжёлые, около 8 кг. Нужна своя стремянка.' },
+  { id: 5, category: 'cleaning', title: 'Тоза кардани хонаи 3-ҳуҷрагӣ пеш аз Наврӯз', region: 'dushanbe', district: 'Сино', bmin: 300, bmax: null, when: 2, tod: 0, responses: 5, createdAt: ago(180), views: 74, photos: 0, status: 'chosen', client: 'Гулчеҳра', clientSince: 2025, clientDone: 4,
+    desc: 'Тозакунии умумӣ: тирезаҳо, ошхона, ду ҳаммом. Воситаҳои тозакунӣ ҳаст.' },
+  { id: 6, category: 'repair', title: 'Положить плитку в ванной, около 6 м²', region: 'dushanbe', district: 'Сино', bmin: null, bmax: null, when: 3, tod: null, responses: 1, createdAt: ago(300), views: 18, photos: 2, status: 'open', client: 'Бахром', clientSince: 2026, clientDone: 0,
+    desc: 'Стены уже выровнены, плитка и клей куплены. Нужно положить на пол и стены до половины.' },
+  { id: 7, category: 'plumbing', title: 'Течёт труба под раковиной', region: 'khujand', district: '12 мкр.', bmin: 100, bmax: null, when: 0, tod: null, responses: 1, createdAt: ago(15), views: 12, photos: 1, status: 'open', client: 'Ғулом', clientSince: 2025, clientDone: 2,
+    desc: 'Капает из-под сифона, подставил тазик. Нужно срочно.' },
+  { id: 8, category: 'cargo', title: 'Перевезти холодильник и диван', region: 'bokhtar', district: 'Центр', bmin: 200, bmax: 200, when: 1, tod: 1, responses: 0, createdAt: ago(120), views: 6, photos: 0, status: 'open', client: 'Нилуфар', clientSince: 2026, clientDone: 1,
+    desc: 'С 3 этажа без лифта на 1 этаж в соседний дом. Нужны 2 грузчика.' },
+  { id: 9, category: 'electric', title: 'Заменить проводку в двух комнатах', region: 'kulob', district: 'Центр', bmin: 700, bmax: 900, when: 3, tod: null, responses: 1, createdAt: ago(1440), views: 15, photos: 0, status: 'open', client: 'Рустам', clientSince: 2025, clientDone: 2,
+    desc: 'Дом старый, алюминиевая проводка. Нужно заменить на медь, штробить можно.' },
+  { id: 10, category: 'tutors', title: 'Репетитор по математике для 9 класса', online: true, bmin: 50, bmax: 60, when: 3, tod: 2, responses: 3, createdAt: ago(180), views: 40, photos: 0, status: 'open', client: 'Фирӯз', clientSince: 2024, clientDone: 5,
+    desc: 'Занятия 2 раза в неделю по видеосвязи, подготовка к выпускным экзаменам.' },
+  { id: 11, category: 'it', title: 'Сделать сайт-визитку для кафе в Худжанде', online: true, bmin: 1500, bmax: 3000, when: 3, tod: null, responses: 2, createdAt: ago(360), views: 27, photos: 0, status: 'open', client: 'Камол', clientSince: 2026, clientDone: 0,
+    desc: 'Меню, адрес, кнопка Telegram. Тексты и фото есть, на двух языках: таджикский и русский.' },
+];

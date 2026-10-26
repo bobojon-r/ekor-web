@@ -54,3 +54,29 @@ export type TaskSummary = {
 };
 
 export type Page<T> = { items: T[]; total: number };
+
+export type FeedTask = {
+  id: number;
+  category: CatalogCategory;
+  title: string;
+  region?: RegionKey;
+  district?: string;
+  online?: boolean;
+  bmin: number | null;
+  bmax: number | null;
+  when: number; // 0 сегодня · 1 завтра · 2 на этой неделе · 3 не срочно
+  tod: number | null; // 0 утро · 1 день · 2 вечер
+  responses: number;
+  createdAt: string;
+  views: number;
+  photos: number;
+  status: 'open' | 'chosen';
+  client: string;
+  clientSince: number;
+  clientDone: number;
+  /** Подходит мастеру по профессиям и районам — считает сервер */
+  match?: boolean;
+  desc: string;
+};
+
+export type Proposal = { price: number | null; term: number; msg: string };

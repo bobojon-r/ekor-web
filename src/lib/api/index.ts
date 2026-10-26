@@ -2,11 +2,12 @@
  * Слой данных. Сейчас — моки с задержкой сети; при подключении бэкенда
  * заменить тела функций на fetch к API (контракт — backend/README.md), сигнатуры сохранить.
  */
-import { CATEGORY_TREE, DISTRICTS, FEATURED, TASK_CATEGORIES, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
-import type { CatalogCategory, Master, RegionKey } from './types';
+import { CATEGORY_TREE, DISTRICTS, FEATURED, FEED, TASK_CATEGORIES, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
+import type { CatalogCategory, FeedTask, Master, RegionKey } from './types';
 
 export * from './types';
 export { invites, type Invite, type InviteStatus } from './invites';
+export { proposals, DAILY_LIMIT } from './proposals';
 
 const delay = <T,>(v: T, ms = 450) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
@@ -45,6 +46,11 @@ export const api = {
       700,
     );
   },
+
+  /** Лента открытых заданий для мастеров */
+  feed: (q: FeedQuery) => delay(filterFeed(q)),
+  feedTask: (id: number) => delay(FEED.find((k) => k.id === id) ?? null, 300),
+  feedTaskSync: (id: number) => FEED.find((k) => k.id === id) ?? null,
 
   tasks: {
     /** Создание → статус «На проверке» (модерация до 30 мин) */
@@ -99,4 +105,14 @@ function filterMasters(f: MastersQuery): Master[] {
   if (f.sort === 'rev') r.sort((a, b) => b.reviews - a.reviews);
   if (f.sort === 'act') r.sort((a, b) => Number(b.available) - Number(a.available) || b.reviews - a.reviews);
   return r;
+}
+
+export type FeedQuery = { region: RegionKey; online?: boolean; category?: CatalogCategory | null; sort?: 'new' | 'few' | 'high' };
+
+function filterFeed(q: FeedQuery): FeedTask[] {
+  const list = FEED.filter((k) => (q.online ? k.online : k.region === q.region || k.online) && (!q.category || k.category === q.category));
+  if (!q.sort || q.sort === 'new') list.sort((a, b) => Number(!!a.online) - Number(!!b.online) || +new Date(b.createdAt) - +new Date(a.createdAt));
+  if (q.sort === 'few') list.sort((a, b) => a.responses - b.responses);
+  if (q.sort === 'high') list.sort((a, b) => (b.bmax || b.bmin || 0) - (a.bmax || a.bmin || 0));
+  return list;
 }
