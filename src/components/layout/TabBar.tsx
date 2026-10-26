@@ -17,7 +17,7 @@ export function TabBar({ chatBadge = 0 }: { chatBadge?: number }) {
   const items = [
     { href: '/', icon: House, match: (p: string) => p === '/' },
     { href: '/masters', icon: Search, match: (p: string) => p.startsWith('/masters') || p.startsWith('/categories') },
-    { href: '/tasks', icon: ClipboardList, match: (p: string) => p.startsWith('/tasks') },
+    { href: '/tasks', icon: ClipboardList, match: (p: string) => p.startsWith('/tasks') && p !== '/tasks/new' },
     { href: '/chats', icon: MessageCircle, match: (p: string) => p.startsWith('/chats') },
     { href: profile, icon: User, match: (p: string) => ['/client', '/master', '/login', '/notifications'].some((x) => p.startsWith(x)) },
   ];

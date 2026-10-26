@@ -28,7 +28,7 @@ export function SiteHeader({ max = 1280 }: { max?: number }) {
         </Link>
         <nav className={s.headerNav}>
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className={[s.headerLink, path.startsWith(l.href) && s.headerLinkOn].filter(Boolean).join(' ')}>
+            <Link key={l.href} href={l.href} className={[s.headerLink, isActive(path, l.href) && s.headerLinkOn].filter(Boolean).join(' ')}>
               {l.label}
             </Link>
           ))}
@@ -63,4 +63,10 @@ export function SiteHeader({ max = 1280 }: { max?: number }) {
       </div>
     </header>
   );
+}
+
+/** «Разместить задание» (/tasks/new) — действие клиента, а не раздел «Задания» */
+function isActive(path: string, href: string) {
+  if (path === '/tasks/new') return false;
+  return path === href || path.startsWith(href + '/');
 }

@@ -2,7 +2,7 @@
  * Слой данных. Сейчас — моки с задержкой сети; при подключении бэкенда
  * заменить тела функций на fetch к API (контракт — backend/README.md), сигнатуры сохранить.
  */
-import { CATEGORY_TREE, FEATURED, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
+import { CATEGORY_TREE, DISTRICTS, FEATURED, TASK_CATEGORIES, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
 import type { CatalogCategory, Master, RegionKey } from './types';
 
 export * from './types';
@@ -26,6 +26,8 @@ export const api = {
   regions: () => REGIONS,
   region: (k: RegionKey) => REGIONS.find((r) => r.key === k)!,
   featuredCategories: () => FEATURED,
+  districts: (r: RegionKey) => DISTRICTS[r] ?? [],
+  taskCategories: () => TASK_CATEGORIES,
   categoryTree: () => CATEGORY_TREE,
 
   async home(region: RegionKey) {
@@ -41,6 +43,11 @@ export const api = {
       },
       700,
     );
+  },
+
+  tasks: {
+    /** Создание → статус «На проверке» (модерация до 30 мин) */
+    create: (draft: unknown) => delay({ id: Math.floor(1000 + Math.random() * 9000), status: 'review' as const, draft }, 700),
   },
 
   async masters(q: MastersQuery) {
