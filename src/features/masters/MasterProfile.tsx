@@ -10,6 +10,7 @@ import { common } from '@/lib/i18n/common';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { SiteHeader } from '@/components/layout';
 import { ButtonLink, EmptyState, Skeleton, useToast } from '@/components/ui';
+import { InviteSheet } from '@/features/invite/InviteSheet';
 import { mastersDict } from './i18n';
 import s from './Profile.module.css';
 
@@ -22,7 +23,8 @@ function distribution(m: Master) {
   return [share5, rest * 0.7, rest * 0.2, rest * 0.07, rest * 0.03].map((v, i) => ({ n: 5 - i, w: Math.round(v * 100), c: Math.round(v * m.reviews) }));
 }
 
-export function MasterProfile({ id }: { id: number }) {
+/** inviteOpen — открыт по адресу /invite/[id]: профиль + шторка «Предложить работу» */
+export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOpen?: boolean }) {
   const t = useDict(mastersDict);
   const c = useDict(common);
   const { lang } = useLang();
@@ -30,6 +32,11 @@ export function MasterProfile({ id }: { id: number }) {
   const toast = useToast();
   const { data, loading, showSkeleton } = useLoad(() => api.master(id), [id]);
   const [phoneShown, setPhoneShown] = useState(false);
+  const [invite, setInvite] = useState(inviteOpen);
+  const closeInvite = () => {
+    setInvite(false);
+    if (inviteOpen) router.replace(`/masters/${id}`, { scroll: false });
+  };
 
   const share = async () => {
     try {
@@ -68,6 +75,8 @@ export function MasterProfile({ id }: { id: number }) {
   return (
     <div className={s.page}>
       <SiteHeader max={1200} />
+
+      {m && <InviteSheet master={m} open={invite} onClose={closeInvite} />}
 
       {/* ============ MOBILE ============ */}
       <div className="mob-only">
@@ -175,9 +184,9 @@ export function MasterProfile({ id }: { id: number }) {
               {phoneShown && <div className={s.phoneNote}>{t.phoneNote}</div>}
               <div className={s.mBottomRow}>
                 {phoneBtn}
-                <Link href={`/invite/${m.id}`} className={s.offerM}>
+                <button type="button" onClick={() => setInvite(true)} className={s.offerM}>
                   {t.offer}
-                </Link>
+                </button>
               </div>
             </div>
           </>
@@ -254,9 +263,9 @@ export function MasterProfile({ id }: { id: number }) {
                   <span className={s.dPriceLabel}>{t.priceFrom}</span>
                   <span className={s.dPrice}>{priceShort}</span>
                 </div>
-                <Link href={`/invite/${m.id}`} className={s.offerD}>
+                <button type="button" onClick={() => setInvite(true)} className={s.offerD}>
                   {t.offer}
-                </Link>
+                </button>
                 {phoneBtn && <div className={s.dPhone}>{phoneBtn}</div>}
                 {phoneShown && <div className={s.phoneNoteD}>{t.phoneNote}</div>}
                 <div className={s.dFacts}>

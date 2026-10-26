@@ -95,7 +95,7 @@
 .mBottomRow { display: flex; gap: 8px; }
 .phoneBtn { flex: 1; height: 52px; border-radius: var(--radius-lg); border: 1px solid var(--line-300); background: var(--white); font: 600 15px var(--font); color: var(--ink-900); display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
 .phoneBtn a { color: inherit; text-decoration: none; }
-.offerM { flex: 1.4; height: 52px; border-radius: var(--radius-lg); background: var(--brand-600); color: var(--white); font: 600 16px var(--font); display: flex; align-items: center; justify-content: center; text-decoration: none; }
+.offerM { border: none; flex: 1.4; height: 52px; border-radius: var(--radius-lg); background: var(--brand-600); color: var(--white); font: 600 16px var(--font); display: flex; align-items: center; justify-content: center; text-decoration: none; }
 .offerM:hover { color: var(--white); background: var(--brand-700); }
 
 .skM { padding: 20px 16px; display: flex; gap: 14px; align-items: center; background: var(--white); }
@@ -124,7 +124,7 @@
 .dPriceBlock { display: flex; flex-direction: column; gap: 2px; }
 .dPriceLabel { font-size: 14px; color: var(--ink-500); }
 .dPrice { font-size: 28px; font-weight: 600; }
-.offerD { height: 54px; border-radius: var(--radius-lg); background: var(--brand-600); color: var(--white); font: 600 17px var(--font); display: flex; align-items: center; justify-content: center; text-decoration: none; }
+.offerD { border: none; height: 54px; border-radius: var(--radius-lg); background: var(--brand-600); color: var(--white); font: 600 17px var(--font); display: flex; align-items: center; justify-content: center; text-decoration: none; }
 .offerD:hover { background: var(--brand-700); color: var(--white); }
 .dPhone { display: flex; }
 .dPhone .phoneBtn { height: 50px; font-size: 16px; gap: 8px; }

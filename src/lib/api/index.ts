@@ -6,6 +6,7 @@ import { CATEGORY_TREE, DISTRICTS, FEATURED, TASK_CATEGORIES, HOME_REVIEWS, HOME
 import type { CatalogCategory, Master, RegionKey } from './types';
 
 export * from './types';
+export { invites, type Invite, type InviteStatus } from './invites';
 
 const delay = <T,>(v: T, ms = 450) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
@@ -53,6 +54,9 @@ export const api = {
   async masters(q: MastersQuery) {
     return delay(filterMasters(q));
   },
+
+  /** Короткая карточка мастера без задержки — для подписей в списках */
+  masterSync: (id: number) => MASTERS.find((x) => x.id === id) ?? null,
 
   async master(id: number) {
     const m = MASTERS.find((x) => x.id === id) ?? null;
