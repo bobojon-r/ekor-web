@@ -16,6 +16,7 @@ import { Footer, TabBar } from '@/components/layout';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Icon, LangSwitch, Segmented, VerifiedBadge } from '@/components/ui';
 import { homeDict } from './i18n';
+import { LoadState } from '@/features/system/SystemStates';
 import s from './Home.module.css';
 
 const MAX = 1200;
@@ -31,7 +32,7 @@ export function HomeView() {
 
   const R = api.region(region);
   const regionName = R.name[lang];
-  const { data, showSkeleton, loading } = useLoad(() => api.home(region), [region], regionReady);
+  const { data, showSkeleton, loading, phase, retry } = useLoad(() => api.home(region), [region], regionReady);
   const empty = !loading && data?.localCount === 0;
   // Место под контент резервируется с первого кадра; анимация скелетона — только после 300 мс
   const sk = (base: string) => (showSkeleton ? base : `${base} ${s.ph}`);
@@ -133,6 +134,7 @@ export function HomeView() {
 
         <SectionHead title={t.nearby} href="/masters" link={t.seeAll} />
         <div className={s.mList}>
+          <LoadState phase={phase} retry={retry} />
           {mastersBusy && [1, 2, 3].map((i) => <MasterRowSkeleton key={i} cls={sk(s.skRow)} />)}
           {empty && (
             <>
@@ -360,6 +362,7 @@ export function HomeView() {
               </Link>
             </div>
           )}
+          <LoadState phase={phase} retry={retry} />
           <div className={s.grid4}>
             {mastersBusy && [1, 2, 3, 4].map((i) => <MasterCardSkeleton key={i} cls={sk(s.skCard)} />)}
             {!mastersBusy && data.masters.slice(0, 4).map((m) => <MasterCardD key={m.id} m={m} lang={lang} offer={t.offerWork} />)}

@@ -14,6 +14,7 @@ import { useSession } from '@/lib/session/SessionProvider';
 import { SiteHeader, TabBar } from '@/components/layout';
 import { Button, ButtonLink, EmptyState, LangSwitch, Sheet, Skeleton, useToast } from '@/components/ui';
 import { feedDict } from './i18n';
+import { LoadState } from '@/features/system/SystemStates';
 import s from './Tasks.module.css';
 
 type T = (typeof feedDict)['ru'];
@@ -50,7 +51,7 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
   useEffect(() => setStore(proposals.state()), []);
 
   const query: FeedQuery = { region, online, category: cat, sort };
-  const { data, loading, showSkeleton } = useLoad(() => api.feed(query), [JSON.stringify(query)], regionReady);
+  const { data, loading, showSkeleton, phase, retry } = useLoad(() => api.feed(query), [JSON.stringify(query)], regionReady);
   const list = data ?? [];
   const regionName = api.region(region).name[lang];
   const matchN = list.filter((k) => k.match).length;
@@ -222,7 +223,8 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
           </label>
         </div>
         <div className={s.mList}>
-          {showSkeleton && [1, 2, 3, 4].map((i) => <div key={i} className={s.skM} />)}
+          <LoadState phase={phase} retry={retry} />
+          {showSkeleton && phase !== 'slow' && [1, 2, 3, 4].map((i) => <div key={i} className={s.skM} />)}
           {empty}
           {!loading && cards(false)}
         </div>
@@ -264,7 +266,8 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
         <div className={s.dGrid}>
           <div className={s.dList}>
             <span className={s.found}>{t.found(list.length)}</span>
-            {showSkeleton && [1, 2, 3, 4].map((i) => <div key={i} className={s.skD} />)}
+            <LoadState phase={phase} retry={retry} />
+            {showSkeleton && phase !== 'slow' && [1, 2, 3, 4].map((i) => <div key={i} className={s.skD} />)}
             {empty}
             {!loading && cards(true)}
           </div>

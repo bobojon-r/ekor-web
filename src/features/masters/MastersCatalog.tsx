@@ -11,6 +11,7 @@ import { useRegion } from '@/lib/hooks/useRegion';
 import { SiteHeader, TabBar } from '@/components/layout';
 import { LangSwitch, Sheet } from '@/components/ui';
 import { CATALOG_CATS, mastersDict } from './i18n';
+import { LoadState } from '@/features/system/SystemStates';
 import s from './Masters.module.css';
 
 type Filters = { cat: CatalogCategory | null; price: number; rating: number; online: boolean; avail: boolean };
@@ -42,7 +43,7 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
   }, [q]);
 
   const query = toQuery(f, region, qDeb, sort);
-  const { data, loading, showSkeleton } = useLoad(() => api.masters(query), [JSON.stringify(query)], regionReady);
+  const { data, loading, showSkeleton, phase, retry } = useLoad(() => api.masters(query), [JSON.stringify(query)], regionReady);
   const results = data ?? [];
   const empty = !loading && results.length === 0;
   const near = empty ? api.mastersElsewhere({ ...query, onlineOnly: false }).slice(0, 3) : [];
@@ -165,7 +166,8 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
           </label>
         </div>
         <div className={s.mList}>
-          {showSkeleton && [1, 2, 3, 4].map((i) => <div key={i} className={s.skM} />)}
+          <LoadState phase={phase} retry={retry} />
+          {showSkeleton && phase !== 'slow' && [1, 2, 3, 4].map((i) => <div key={i} className={s.skM} />)}
           {empty && emptyBlock(false)}
           {!loading && results.map((m) => <MasterCardM key={m.id} m={m} lang={lang} />)}
         </div>
@@ -314,7 +316,8 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
                 {sortSelect(s.dSortSelect)}
               </label>
             </div>
-            {showSkeleton && [1, 2, 3, 4].map((i) => <div key={i} className={s.skD} />)}
+            <LoadState phase={phase} retry={retry} />
+            {showSkeleton && phase !== 'slow' && [1, 2, 3, 4].map((i) => <div key={i} className={s.skD} />)}
             {empty && emptyBlock(true)}
             {!loading && results.map((m) => <MasterCardD key={m.id} m={m} lang={lang} />)}
           </div>

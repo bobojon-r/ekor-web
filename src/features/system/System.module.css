@@ -1,0 +1,10 @@
+.bar { position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabbar-h) + 10px + env(safe-area-inset-bottom)); z-index: 95; border-radius: var(--radius-lg); box-shadow: var(--shadow-toast); display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; background: var(--ink-900); color: var(--white); font-size: 14px; line-height: 1.35; text-align: center; }
+@media (min-width: 1024px) { .bar { left: 0; right: 0; bottom: auto; top: var(--header-desk-h); border-radius: 0; box-shadow: none; } }
+.full { min-height: 60dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px 24px; text-align: center; }
+.ico { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+.title { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.25; }
+.text { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-700); max-width: 360px; }
+.cta { margin-top: 8px; min-width: 200px; }
+.foot { font-size: 13px; color: var(--ink-500); }
+.footLink { color: inherit; }
+.footLink:hover { color: var(--brand-600); }
