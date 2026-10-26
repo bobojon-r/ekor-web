@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile
+.dockerignore
+deploy.sh
+README.md
