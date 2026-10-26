@@ -8,6 +8,12 @@ npm run dev        # http://localhost:3000
 npm run typecheck
 ```
 
+## Вход по SMS: тестовый режим
+SMS-шлюз пока не подключён. Вход — по номеру +992 и коду **123456**: на экранах есть плашка «Тестовый режим» и кнопка «Подставить 123456».
+То же во всех местах с кодом: вход, создание задания, приглашение мастера, смена телефона.
+
+Когда шлюз будет готов: `NEXT_PUBLIC_SMS_ENABLED=true` (см. `.env.example`) — плашки исчезнут, а проверку кода в `src/lib/api/index.ts` (`api.auth`) нужно перевести на запрос к бэкенду.
+
 ## Структура
 - `src/styles/tokens.css` — токены 1:1 из `../tokens.css`; `globals.css` — производные значения из макетов, брейкпоинт 1024px (`.mob-only` / `.desk-only`).
 - `src/components/ui` — библиотека по дизайн-системе: Button (primary/secondary/danger/danger-outline/success, lg/md/sm/xs, busy «Отправляем…»), поля (TextField, TextArea, PhoneField +992 2-3-2-2, PriceField + «Договорная», OtpInput, SearchField), Chip, Segmented, LangSwitch, Switch/SwitchRow, Checkbox, RadioCard, StatusBadge (единый словарь статусов, подписи по роли), VerifiedBadge, Rating, Banner, Toast (2.4 с), Sheet/ConfirmSheet (шторка на мобильном, диалог на десктопе), EmptyState, Skeleton, Avatar, Card, Stepper.

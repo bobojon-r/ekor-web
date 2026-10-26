@@ -4,11 +4,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronLeft, ShieldCheck } from 'lucide-react';
-import { api, IS_MOCK } from '@/lib/api';
+import { api } from '@/lib/api';
 import { phoneMask, useDict } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useSession } from '@/lib/session/SessionProvider';
-import { Button, ButtonLink, LangSwitch, OtpInput, PhoneField, TextField } from '@/components/ui';
+import { Button, ButtonLink, LangSwitch, OtpInput, PhoneField, TestCodeNotice, TextField } from '@/components/ui';
 import s from './Login.module.css';
 
 const dict = {
@@ -20,7 +20,7 @@ const dict = {
     codeT: 'Введите код из SMS', codeS: (p: string) => `Отправили на +992 ${p}.`, changeNum: 'Изменить номер', checking: 'Проверяем…',
     errCode: (n: number) => (n > 0 ? `Неверный код. Осталось попыток: ${n}` : 'Попытки закончились. Запросите новый код'),
     timer: (sec: number) => `Новый код можно запросить через 0:${String(sec).padStart(2, '0')}`,
-    resend: 'Отправить код ещё раз', demoHint: 'Демо: верный код — 123456',
+    resend: 'Отправить код ещё раз',
     nameT: 'Как к вам обращаться?', nameS: 'Имя увидят мастера и клиенты. Спросим один раз.', nameL: 'Имя', namePh: 'Например, Мадина', nameErr: 'Введите имя — от 2 букв', save: 'Продолжить',
     hello: (n: string) => `Добро пожаловать, ${n}!`, doneB: 'Вы вошли. Черновик задания, если он был, сохранился — можно продолжить с того же места.', toHome: 'На главную', cont: 'Продолжить',
   },
@@ -32,7 +32,7 @@ const dict = {
     codeT: 'Рамзи SMS-ро ворид кунед', codeS: (p: string) => `Ба +992 ${p} фиристодем.`, changeNum: 'Иваз кардани рақам', checking: 'Месанҷем…',
     errCode: (n: number) => (n > 0 ? `Рамз нодуруст. Кӯшишҳои боқимонда: ${n}` : 'Кӯшишҳо тамом шуданд. Рамзи навро дархост кунед'),
     timer: (sec: number) => `Рамзи навро баъд аз 0:${String(sec).padStart(2, '0')} дархост кардан мумкин`,
-    resend: 'Боз фиристодани рамз', demoHint: 'Демо: рамзи дуруст — 123456',
+    resend: 'Боз фиристодани рамз',
     nameT: 'Шуморо чӣ гуна номем?', nameS: 'Номро устоҳо ва мизоҷон мебинанд. Як бор мепурсем.', nameL: 'Ном', namePh: 'Масалан, Мадина', nameErr: 'Номро ворид кунед — аз 2 ҳарф', save: 'Идома додан',
     hello: (n: string) => `Хуш омадед, ${n}!`, doneB: 'Шумо ворид шудед. Сиёҳнависи супориш, агар буд, нигоҳ дошта шуд — аз ҳамон ҷо идома диҳед.', toHome: 'Ба саҳифаи асосӣ', cont: 'Идома додан',
   },
@@ -138,6 +138,7 @@ export function LoginView({ next }: { next?: string }) {
           hint={t.phoneHint}
           autoFocus
         />
+        <TestCodeNotice step="phone" />
         <div className={s.privacy}>
           <ShieldCheck size={20} color="var(--success-700)" aria-hidden className={s.noShrink} />
           <span>{t.privacy}</span>
@@ -172,7 +173,7 @@ export function LoginView({ next }: { next?: string }) {
             </button>
           )}
         </div>
-        {IS_MOCK && <div className={s.demo}>{t.demoHint}</div>}
+        <TestCodeNotice step="code" onFill={onCode} />
       </>
     );
   if (step === 'name')

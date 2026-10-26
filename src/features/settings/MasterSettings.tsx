@@ -4,11 +4,11 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, CircleHelp, Eye, FileText, Globe, Lock, LogOut, MapPin, Pause, Phone, Plus, Repeat, ShieldCheck, Wrench, X } from 'lucide-react';
-import { api, IS_MOCK, masterProfile, type MasterProfileData } from '@/lib/api';
+import { api, masterProfile, type MasterProfileData } from '@/lib/api';
 import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
 import { useSession } from '@/lib/session/SessionProvider';
 import { SideNav, SiteHeader, TabBar } from '@/components/layout';
-import { Button, ConfirmSheet, OtpInput, PhoneField, Segmented, Sheet, Switch, useToast } from '@/components/ui';
+import { Button, ConfirmSheet, OtpInput, PhoneField, Segmented, Sheet, Switch, TestCodeNotice, useToast } from '@/components/ui';
 import { masterSideItems } from '@/features/master/MasterCabinet';
 import { masterDict } from '@/features/master/i18n';
 import { PROFS } from '@/features/onboarding/i18n';
@@ -427,7 +427,7 @@ function PhoneChange({ open, current, onClose, onDone }: { open: boolean; curren
           <>
             <OtpInput value={code} onChange={(v) => (setCode(v), setErr(null))} error={err === 'code'} autoFocus />
             {err === 'code' && <span className={s.err}>{t.errCode}</span>}
-            {IS_MOCK && <span className={s.muted13}>{t.demo}</span>}
+            <TestCodeNotice step="code" onFill={(v) => (setCode(v), setErr(null))} />
           </>
         )}
         <Button size="lg" block busy={busy} onClick={next}>

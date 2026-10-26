@@ -1,0 +1,7 @@
+.box { display: flex; gap: 10px; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--warn-100); border: 1px dashed var(--warn-border); color: var(--warn-800); font-size: 14px; line-height: 1.45; }
+.icon { flex: none; margin-top: 1px; }
+.body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.title { font-weight: 600; }
+.code { font-family: ui-monospace, Menlo, monospace; font-size: 15px; letter-spacing: 0.08em; background: var(--white); padding: 1px 6px; border-radius: 6px; color: var(--ink-900); }
+.fill { align-self: flex-start; margin-top: 4px; height: 36px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--warn-border); background: var(--white); color: var(--warn-800); font: 600 14px var(--font); }
+.fill:hover { background: var(--surface-50); }

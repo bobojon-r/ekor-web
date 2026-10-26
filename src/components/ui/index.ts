@@ -4,3 +4,4 @@ export * from './Select';
 export * from './Status';
 export * from './Feedback';
 export * from './Icon';
+export * from './TestCodeNotice';

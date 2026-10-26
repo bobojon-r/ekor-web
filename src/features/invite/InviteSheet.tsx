@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, CircleCheck, Info, Lock } from 'lucide-react';
-import { api, invites, IS_MOCK, type Master } from '@/lib/api';
+import { api, invites, type Master } from '@/lib/api';
 import { phoneMask, useDict } from '@/lib/i18n';
 import { useSession } from '@/lib/session/SessionProvider';
-import { Button, OtpInput, PhoneField, Sheet, TextField } from '@/components/ui';
+import { Button, OtpInput, PhoneField, Sheet, TestCodeNotice, TextField } from '@/components/ui';
 import { inviteDict } from './i18n';
 import s from './Invite.module.css';
 
@@ -195,6 +195,7 @@ export function InviteSheet({ master, open, onClose }: { master: Master; open: b
           </div>
           <div className={s.muted15}>{t.phoneHint}</div>
           <PhoneField value={phone} onChange={(v) => (setPhone(v), setPhoneErr(null))} error={phoneErr === 'len' ? t.errPhone : phoneErr === 'op' ? t.errOp : undefined} autoFocus />
+          <TestCodeNotice step="phone" />
           <Button size="lg" block busy={sending} onClick={submitPhone}>
             {t.getCode}
           </Button>
@@ -233,7 +234,7 @@ export function InviteSheet({ master, open, onClose }: { master: Master; open: b
           <Button size="lg" block busy={sending} onClick={submitCode}>
             {t.confirm}
           </Button>
-          {IS_MOCK && <div className={s.demo}>{t.demo}</div>}
+          <TestCodeNotice step="code" onFill={(v) => (setCode(v), setCodeErr(false))} />
         </div>
       )}
 

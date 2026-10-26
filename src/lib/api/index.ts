@@ -17,8 +17,13 @@ export { clientTasks, isArchived, type ClientTask, type ClientTaskStatus, type T
 
 const delay = <T,>(v: T, ms = 450) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
-/** Пока true — показываем демо-подсказки (код 123456). Уберётся с подключением API */
-export const IS_MOCK = true;
+/**
+ * SMS-шлюз. Пока не подключён (NEXT_PUBLIC_SMS_ENABLED не 'true') — тестовый режим:
+ * SMS не отправляются, для входа подходит TEST_OTP, и на экранах видна плашка с кодом.
+ */
+export const SMS_ENABLED = process.env.NEXT_PUBLIC_SMS_ENABLED === 'true';
+export const IS_MOCK = !SMS_ENABLED;
+export const TEST_OTP = process.env.NEXT_PUBLIC_TEST_OTP || '123456';
 
 /** Префиксы операторов Таджикистана */
 const OPERATORS = ['00', '01', '10', '11', '12', '20', '50', '55', '70', '77', '88', '90', '91', '92', '93', '94', '98', '99'];
@@ -28,7 +33,7 @@ export const api = {
     validPhone: (p: string): 'len' | 'op' | null => (p.length < 9 ? 'len' : OPERATORS.includes(p.slice(0, 2)) ? null : 'op'),
     sendCode: (phone: string) => delay({ phone, resendIn: 60, tries: 3 }, 700),
     /** ok:false — неверный код; name:null — новый пользователь, спросим имя */
-    verify: (_phone: string, code: string) => delay(code === '123456' ? { ok: true as const, name: null as string | null } : { ok: false as const, name: null }, 600),
+    verify: (_phone: string, code: string) => delay(code === TEST_OTP ? { ok: true as const, name: null as string | null } : { ok: false as const, name: null }, 600),
   },
 
   regions: () => REGIONS,

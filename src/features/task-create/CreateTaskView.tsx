@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation';
 import {
   Bell, CalendarDays, Camera, Check, ChevronLeft, CircleCheck, Globe, Info, Lock, MapPin, ShieldCheck, TrendingUp, Wallet, X,
 } from 'lucide-react';
-import { api, IS_MOCK, type RegionKey } from '@/lib/api';
+import { api, type RegionKey } from '@/lib/api';
 import { phoneMask, useDict, useLang } from '@/lib/i18n';
 import { useRegion } from '@/lib/hooks/useRegion';
 import { useSession } from '@/lib/session/SessionProvider';
 import { SiteHeader } from '@/components/layout';
-import { Button, Icon, LangSwitch, OtpInput, PhoneField, TextField } from '@/components/ui';
+import { Button, Icon, LangSwitch, OtpInput, PhoneField, TestCodeNotice, TextField } from '@/components/ui';
 import { EMPTY, clearDraft, loadDraft, saveDraft, validate, type Draft, type Errors } from './draft';
 import { createDict } from './i18n';
 import s from './CreateTask.module.css';
@@ -653,6 +653,9 @@ function StepBody({
         <div className={s.narrowField}>
           <PhoneField value={auth.phone} onChange={auth.setPhone} error={auth.phoneErr === 'len' ? t.errPhone : auth.phoneErr === 'op' ? t.errOp : undefined} autoFocus />
         </div>
+        <div className={s.narrowField}>
+          <TestCodeNotice step="phone" />
+        </div>
         <span className={s.note}>
           <Lock size={16} aria-hidden className={s.noShrink} />
           {t.phonePriv}
@@ -688,7 +691,9 @@ function StepBody({
             {t.resend}
           </button>
         )}
-        {IS_MOCK && <div className={s.demo}>{t.demo}</div>}
+        <div className={s.narrowField}>
+          <TestCodeNotice step="code" onFill={auth.setCode} />
+        </div>
       </div>
     );
 
