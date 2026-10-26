@@ -9,6 +9,7 @@ import type { CatalogCategory, FeedTask, Master, RegionKey } from './types';
 export * from './types';
 export { invites, type Invite, type InviteStatus } from './invites';
 export { proposals, DAILY_LIMIT } from './proposals';
+export { masterProfile, type MasterProfileData } from './masterProfile';
 export { masterCabinet, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus } from './masterCabinet';
 export { clientTasks, isArchived, type ClientTask, type ClientTaskStatus, type TaskResponse } from './clientTasks';
 
