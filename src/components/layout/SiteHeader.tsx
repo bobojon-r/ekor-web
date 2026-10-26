@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { BellPanel } from '@/features/notifications/Notifications';
 import { useDict } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useSession } from '@/lib/session/SessionProvider';
@@ -37,10 +38,7 @@ export function SiteHeader({ max = 1280 }: { max?: number }) {
         <LangSwitch />
         {user ? (
           <>
-            <Link href="/notifications" aria-label={c.notifications} className={s.bell}>
-              <Bell size={20} aria-hidden />
-              <span className={s.bellDot} />
-            </Link>
+            <BellPanel />
             <Link href={isMaster ? '/master' : '/client'} className={s.me} aria-label={user.name}>
               {user.name[0]}
             </Link>
