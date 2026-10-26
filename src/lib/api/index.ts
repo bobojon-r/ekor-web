@@ -9,7 +9,20 @@ export * from './types';
 
 const delay = <T,>(v: T, ms = 450) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
+/** Пока true — показываем демо-подсказки (код 123456). Уберётся с подключением API */
+export const IS_MOCK = true;
+
+/** Префиксы операторов Таджикистана */
+const OPERATORS = ['00', '01', '10', '11', '12', '20', '50', '55', '70', '77', '88', '90', '91', '92', '93', '94', '98', '99'];
+
 export const api = {
+  auth: {
+    validPhone: (p: string): 'len' | 'op' | null => (p.length < 9 ? 'len' : OPERATORS.includes(p.slice(0, 2)) ? null : 'op'),
+    sendCode: (phone: string) => delay({ phone, resendIn: 60, tries: 3 }, 700),
+    /** ok:false — неверный код; name:null — новый пользователь, спросим имя */
+    verify: (_phone: string, code: string) => delay(code === '123456' ? { ok: true as const, name: null as string | null } : { ok: false as const, name: null }, 600),
+  },
+
   regions: () => REGIONS,
   region: (k: RegionKey) => REGIONS.find((r) => r.key === k)!,
   featuredCategories: () => FEATURED,
