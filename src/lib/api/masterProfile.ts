@@ -18,6 +18,12 @@ export type MasterProfileData = {
   photos?: number[];
   /** Профессии, добавленные после одобрения и ждущие модерации */
   pendingProfs?: string[];
+  /** Настройки мастера */
+  accepting?: boolean;
+  freeToday?: boolean;
+  notifyTasks?: boolean;
+  notifyChat?: boolean;
+  channel?: 'sms' | 'tg';
 };
 
 const KEY = 'ekor_master_profile';
@@ -45,6 +51,16 @@ export const masterProfile = {
       localStorage.setItem(KEY, JSON.stringify(p));
     } catch {}
     return delay(p, 600);
+  },
+  /** Мгновенное сохранение переключателя в настройках */
+  patch(p: Partial<MasterProfileData>) {
+    const cur = masterProfile.get();
+    if (!cur) return null;
+    const v = { ...cur, ...p };
+    try {
+      localStorage.setItem(KEY, JSON.stringify(v));
+    } catch {}
+    return v;
   },
   /** Демо: модератор одобрил */
   approve() {
