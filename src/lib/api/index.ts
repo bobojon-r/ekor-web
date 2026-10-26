@@ -2,12 +2,14 @@
  * Слой данных. Сейчас — моки с задержкой сети; при подключении бэкенда
  * заменить тела функций на fetch к API (контракт — backend/README.md), сигнатуры сохранить.
  */
+import { clientTasks } from './clientTasks';
 import { CATEGORY_TREE, DISTRICTS, FEATURED, FEED, TASK_CATEGORIES, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
 import type { CatalogCategory, FeedTask, Master, RegionKey } from './types';
 
 export * from './types';
 export { invites, type Invite, type InviteStatus } from './invites';
 export { proposals, DAILY_LIMIT } from './proposals';
+export { clientTasks, isArchived, type ClientTask, type ClientTaskStatus, type TaskResponse } from './clientTasks';
 
 const delay = <T,>(v: T, ms = 450) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
@@ -54,7 +56,12 @@ export const api = {
 
   tasks: {
     /** Создание → статус «На проверке» (модерация до 30 мин) */
-    create: (draft: unknown) => delay({ id: Math.floor(1000 + Math.random() * 9000), status: 'review' as const, draft }, 700),
+    /** Создание → статус «На проверке» (модерация до 30 мин); задание появляется в кабинете */
+    create: (d: { title: string; cat: string | null; region: RegionKey; district: string | null; bmode: 'sum' | 'neg'; bmin: string; bmax: string; when: number | null }) => {
+      const budget = d.bmode === 'neg' ? null : d.bmin && d.bmax ? `${d.bmin}–${d.bmax}` : d.bmin ? `от ${d.bmin}` : d.bmax ? `до ${d.bmax}` : null;
+      const task = clientTasks.add({ title: d.title, category: (d.cat ?? 'other') as CatalogCategory, region: d.region, district: d.district ?? '', budget, when: d.when ?? 3 });
+      return delay(task, 700);
+    },
   },
 
   async masters(q: MastersQuery) {

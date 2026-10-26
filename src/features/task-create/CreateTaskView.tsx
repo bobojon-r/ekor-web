@@ -83,7 +83,7 @@ export function CreateTaskView() {
 
   const submit = async () => {
     setSending(true);
-    await api.tasks.create({ ...d, photos: photos.length });
+    await api.tasks.create(d);
     clearDraft();
     setSending(false);
     go('done');
