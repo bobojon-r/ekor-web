@@ -157,3 +157,5 @@
 .reasonOn .radio { border-color: var(--brand-600); }
 .reasonOn .radio span { background: var(--brand-600); }
 .modalBtns { display: flex; gap: 8px; }
+.manage { align-self: flex-start; font-size: 14px; font-weight: 600; color: var(--brand-600); text-decoration: none; }
+.headTop { position: relative; }

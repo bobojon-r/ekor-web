@@ -220,7 +220,7 @@ function TaskRow({ k, t, lang, selected, desktop, onOpen }: { k: ClientTask; t: 
   const label = (t.st as Record<string, string>)[k.status] ?? k.status;
   return (
     <Link
-      href={`/client/tasks/${k.id}`}
+      href={['expired', 'cancelled'].includes(k.status) || (k.status === 'open' && !n) ? `/client/tasks/${k.id}/manage` : `/client/tasks/${k.id}`}
       scroll={!desktop}
       onClick={onOpen}
       className={[s.row, need && s.rowNeed, selected && s.rowSel, desktop && s.rowD].filter(Boolean).join(' ')}
@@ -339,6 +339,11 @@ function TaskDetail({ k, wide, t, lang, act, openModal }: { k: ClientTask; wide:
             {catLabel} · {agoText(t, k.createdAt)}
           </span>
         </div>
+        {['open', 'review'].includes(k.status) && (
+          <Link href={`/client/tasks/${k.id}/manage`} className={`${s.manage} desk-only`}>
+            {lang === 'tj' ? 'Тағйир ё бекор кардан' : 'Изменить или отменить'}
+          </Link>
+        )}
         <h1 className={s.title} style={{ fontSize: wide ? 28 : 22 }}>
           {k.title}
         </h1>

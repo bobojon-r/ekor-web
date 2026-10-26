@@ -40,6 +40,10 @@ export type ClientTask = {
   master?: ChosenMaster;
   review?: { stars: number; text: string; date: string; reply?: string };
   rejectReason?: string;
+  desc?: string;
+  views?: number;
+  /** Бюджет «до N» для формы правки; null — договорная */
+  budgetMax?: number | null;
 };
 
 const KEY = 'ekor_client_tasks';
@@ -62,6 +66,10 @@ const SEED: ClientTask[] = [
   { id: 5, title: 'Генеральная уборка 3-комнатной квартиры перед Наврузом', category: 'cleaning', status: 'done', createdAt: ago(210 * 1440), region: 'dushanbe', district: 'Сино', budget: 'от 300', when: 2,
     master: { name: 'Нигина Юсупова', masterId: 3, rating: 4.8, reviews: 9, verified: false, category: 'cleaning', price: 350, phone: '926154009' },
     review: { stars: 5, text: 'Всё отмыли до блеска, даже люстру. Пришли вдвоём, справились за 5 часов.', date: 'март 2026', reply: 'Спасибо, Мавзуна! Будем рады снова помочь.' } },
+  { id: 7, title: 'Ремонт стиральной машины', category: 'appliances', status: 'open', createdAt: ago(26 * 60), region: 'dushanbe', district: 'Сино', address: ADDR, budget: 'до 150', budgetMax: 150, when: 1, views: 23, responses: [],
+    desc: 'Samsung, 6 кг. Не сливает воду и сильно гудит на отжиме. Нужно посмотреть насос и фильтр. Машина стоит в ванной, доступ свободный.' },
+  { id: 8, title: 'Покрасить забор во дворе, около 20 м', category: 'repair', status: 'expired', createdAt: ago(15 * 1440), region: 'dushanbe', district: 'Сино', address: ADDR, budget: 'до 400', budgetMax: 400, when: 3, views: 41, responses: [],
+    desc: 'Металлический забор, старая краска местами облезла. Краску куплю сам, нужна работа и зачистка.' },
   { id: 6, title: 'Куплю диван б/у недорого', category: 'other', status: 'rejected', createdAt: ago(2 * 1440), region: 'dushanbe', district: 'Сино', budget: null, when: 3,
     rejectReason: 'Это объявление о покупке, а не заказ услуги. Измените описание — например, «Перетянуть диван» — или используйте доску объявлений.' },
 ];
@@ -109,5 +117,14 @@ export const clientTasks = {
   demoMasterDone: (id: number) => patch(id, (k) => ({ ...k, status: 'wait' })),
   confirmDone: (id: number) => patch(id, (k) => ({ ...k, status: 'done' })),
   problem: (id: number, _reason: number, _note: string) => patch(id, (k) => ({ ...k, status: 'dispute' })),
+  /** Правка до выбора мастера. Если меняли название или описание — снова на модерацию */
+  update: (id: number, p: { title: string; desc: string; budgetMax: number | null; when: number }) =>
+    patch(id, (k) => {
+      const reReview = p.title !== k.title || p.desc !== (k.desc ?? '');
+      return { ...k, ...p, budget: p.budgetMax === null ? null : `до ${p.budgetMax}`, status: k.status === 'expired' ? 'expired' : reReview ? 'review' : k.status };
+    }),
+  cancelTask: (id: number, _reason: number) => patch(id, (k) => ({ ...k, status: 'cancelled' })),
+  /** Повторная публикация после «срок истёк»: проверка и новый срок 14 дней */
+  republish: (id: number) => patch(id, (k) => ({ ...k, status: 'review', createdAt: new Date().toISOString() })),
   review: (id: number, stars: number, text: string, date: string) => patch(id, (k) => ({ ...k, review: { stars, text, date } })),
 };
