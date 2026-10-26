@@ -68,3 +68,19 @@ export function useSession() {
 export function maskPhone(digits: string) {
   return `+992 ${digits.slice(0, 2)} *** ** ${digits.slice(7, 9)}`;
 }
+
+/**
+ * Защита страниц мастера: гость → вход, клиент без роли мастера → «Стать мастером».
+ * Возвращает true, когда страницу можно показывать.
+ */
+export function useRequireMaster(next: string) {
+  const { user, ready } = useSession();
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    if (!ready) return;
+    if (!user) window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+    else if (!user.roles.includes('master')) window.location.replace('/become-master');
+    else setOk(true);
+  }, [ready, user, next]);
+  return ok;
+}

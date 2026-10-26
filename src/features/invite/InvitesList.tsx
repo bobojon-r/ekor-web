@@ -7,6 +7,7 @@ import { ago, money, useDict, useLang } from '@/lib/i18n';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { AppBar, SideNav, SiteHeader, TabBar } from '@/components/layout';
 import { EmptyState } from '@/components/ui';
+import { useRequireMaster } from '@/lib/session/SessionProvider';
 import { inviteDict } from './i18n';
 import { masterSide } from './InviteViews';
 import s from './Invite.module.css';
@@ -15,8 +16,10 @@ import s from './Invite.module.css';
 export function MasterInvitesList() {
   const t = useDict(inviteDict);
   const { lang } = useLang();
+  const allowed = useRequireMaster('/master/invites');
   const { data } = useLoad(() => invites.list(), []);
   const list = (data ?? []).slice().sort((a, b) => Number(b.status === 'sent') - Number(a.status === 'sent') || +new Date(b.createdAt) - +new Date(a.createdAt));
+  if (!allowed) return <div className={s.page} />;
   return (
     <div className={s.page}>
       <SiteHeader max={1360} />

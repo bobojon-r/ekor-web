@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Camera, Check, ChevronLeft, Plus, Trash2, X } from 'lucide-react';
 import { masterProfile, type MasterProfileData } from '@/lib/api';
 import { initials, num, useDict, useLang } from '@/lib/i18n';
-import { useSession } from '@/lib/session/SessionProvider';
+import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { Button, useToast } from '@/components/ui';
 import { PROFS } from '@/features/onboarding/i18n';
 import { LANGS, TONES, editorDict } from './i18n';
@@ -37,7 +37,8 @@ export function ProfileEditor() {
   const { lang } = useLang();
   const router = useRouter();
   const toast = useToast();
-  const { user, ready } = useSession();
+  const { user } = useSession();
+  const allowed = useRequireMaster('/master/profile');
   const [base, setBase] = useState<MasterProfileData | null>(null);
   const [st, setSt] = useState<State | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -52,9 +53,6 @@ export function ProfileEditor() {
     setBase(p);
     setSt(fromProfile(p));
   }, []);
-  useEffect(() => {
-    if (ready && !user) router.replace('/login?next=/master/profile');
-  }, [ready, user, router]);
   // Несохранённые изменения: предупреждаем при закрытии вкладки
   useEffect(() => {
     if (!dirty) return;
@@ -66,7 +64,7 @@ export function ProfileEditor() {
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
 
-  if (!st || !base) return <div className={s.page} />;
+  if (!st || !base || !allowed) return <div className={s.page} />;
 
   const ch = (p: Partial<State>) => {
     setSt({ ...st, ...p });

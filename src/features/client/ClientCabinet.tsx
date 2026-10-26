@@ -31,7 +31,7 @@ export function clientSide(t: T): SideItem[] {
   return [
     { href: '/client', label: t.side[0], icon: ClipboardList, exact: true },
     { href: '/client/invites', label: t.side[1], icon: Mail },
-    { href: '/chats', label: t.side[2], icon: MessagesSquare, count: 2 },
+    { href: '/chats', label: t.side[2], icon: MessagesSquare },
     { href: '/client/reviews', label: t.side[3], icon: Star },
     { href: '/notifications', label: t.side[4], icon: BellIco },
     { href: '/client/settings', label: t.side[5], icon: Settings },

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, CircleHelp, Eye, FileText, Globe, Lock, LogOut, MapPin, Pause, Phone, Plus, Repeat, ShieldCheck, Wrench, X } from 'lucide-react';
 import { api, masterProfile, type MasterProfileData } from '@/lib/api';
 import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
-import { useSession } from '@/lib/session/SessionProvider';
+import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { SideNav, SiteHeader, TabBar } from '@/components/layout';
 import { Button, ConfirmSheet, OtpInput, PhoneField, Segmented, Sheet, Switch, TestCodeNotice, useToast } from '@/components/ui';
 import { masterSideItems } from '@/features/master/MasterCabinet';
@@ -26,7 +26,7 @@ export function MasterSettings() {
   const { lang } = useLang();
   const router = useRouter();
   const toast = useToast();
-  const { user, ready, signOut, switchRole, update } = useSession();
+  const { user, signOut, switchRole, update } = useSession();
   const [p, setP] = useState<MasterProfileData | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [logout, setLogout] = useState(false);
@@ -34,22 +34,15 @@ export function MasterSettings() {
   const leaving = useRef(false);
 
   useEffect(() => {
-    const cur = masterProfile.get();
-    if (!cur) {
-      try {
-        localStorage.setItem('ekor_master_profile', JSON.stringify(DEFAULT));
-      } catch {}
-    }
     setP(masterProfile.get() ?? DEFAULT);
   }, []);
-  useEffect(() => {
-    if (ready && !user && !leaving.current) router.replace('/login?next=/master/settings');
-  }, [ready, user, router]);
-  if (!p) return <div className={s.page} />;
+  const allowed = useRequireMaster('/master/settings');
+  if (!p || (!allowed && !leaving.current)) return <div className={s.page} />;
 
   /** Переключатель — мгновенное действие с сохранением */
   const patch = (x: Partial<MasterProfileData>, msg: string = t.saved) => {
-    const v = masterProfile.patch(x) ?? { ...p, ...x };
+    // профиля ещё нет (демо-мастер) — сохраняем на основе демо-данных
+    const v = masterProfile.patch(x) ?? (masterProfile.save({ ...p, ...x }), { ...p, ...x });
     setP(v);
     toast(msg);
   };
@@ -378,7 +371,7 @@ export function MasterSettings() {
 }
 
 /** Смена номера: новый номер → SMS-код → готово */
-function PhoneChange({ open, current, onClose, onDone }: { open: boolean; current: string; onClose: () => void; onDone: (n: string) => void }) {
+export function PhoneChange({ open, current, onClose, onDone }: { open: boolean; current: string; onClose: () => void; onDone: (n: string) => void }) {
   const t = useDict(phoneDict);
   const toast = useToast();
   const [step, setStep] = useState<'num' | 'code'>('num');

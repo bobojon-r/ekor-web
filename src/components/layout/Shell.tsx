@@ -9,7 +9,7 @@ export function Shell({ children, max = 1280, tabbar = true }: { children: React
     <div className={s.shell}>
       <SiteHeader max={max} />
       <main className={[s.main, tabbar && s.withTabbar].filter(Boolean).join(' ')}>{children}</main>
-      {tabbar && <TabBar chatBadge={2} />}
+      {tabbar && <TabBar />}
     </div>
   );
 }

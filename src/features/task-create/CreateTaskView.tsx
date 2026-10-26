@@ -67,7 +67,9 @@ export function CreateTaskView() {
     return () => clearTimeout(id);
   }, [step, timer]);
 
-  useEffect(() => () => photos.forEach((p) => URL.revokeObjectURL(p.url)), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
+  useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.url)), []);
 
   const set = (patch: Partial<Draft>) => {
     setD((x) => ({ ...x, ...patch }));

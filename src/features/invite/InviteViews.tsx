@@ -10,6 +10,7 @@ import { AppBar, SideNav, SiteHeader, type SideItem } from '@/components/layout'
 import { Button, ButtonLink, EmptyState, RadioCard, Skeleton, useToast } from '@/components/ui';
 import { masterSideItems } from '@/features/master/MasterCabinet';
 import { masterDict } from '@/features/master/i18n';
+import { useRequireMaster } from '@/lib/session/SessionProvider';
 import { inviteDict } from './i18n';
 import s from './Invite.module.css';
 
@@ -80,7 +81,9 @@ export function MasterInviteView({ id }: { id: number }) {
   const [reason, setReason] = useState<number | null>(null);
   const [declErr, setDeclErr] = useState(false);
   const [busy, setBusy] = useState(false);
+  const allowed = useRequireMaster(`/master/invites/${id}`);
 
+  if (!allowed) return <div className={s.page} />;
   if (!loading && !inv) return <Frame t={t} side><NotFound t={t} /></Frame>;
 
   const accept = async () => {

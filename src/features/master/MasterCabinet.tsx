@@ -10,7 +10,7 @@ import {
   api, invites, masterCabinet, proposals, type Invite, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus,
 } from '@/lib/api';
 import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
-import { useSession } from '@/lib/session/SessionProvider';
+import { useRequireMaster } from '@/lib/session/SessionProvider';
 import { SideNav, SiteHeader, TabBar, type SideItem } from '@/components/layout';
 import { Button, LangSwitch, RadioCard, Sheet, useToast } from '@/components/ui';
 import { masterDict } from './i18n';
@@ -57,7 +57,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
   const { lang } = useLang();
   const router = useRouter();
   const toast = useToast();
-  const { user, ready } = useSession();
+  const allowed = useRequireMaster(ROUTE[tab]);
   const [data, setData] = useState<{ orders: MasterOrder[]; props: MasterProp[]; reviews: MasterReview[] } | null>(null);
   const [feed, setFeed] = useState<MasterProp[]>([]);
   const [newInvites, setNewInvites] = useState<Invite[]>([]);
@@ -68,10 +68,8 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
     invites.list().then((l) => setNewInvites(l.filter((x) => x.status === 'sent')));
     setFeed(feedProps(lang));
   }, [lang]);
-  useEffect(() => {
-    if (ready && !user) router.replace(`/login?next=${ROUTE[tab]}`);
-  }, [ready, user, router, tab]);
 
+  if (!allowed) return <div className={s.page} />;
   const orders = data?.orders ?? [];
   const props = [...feed, ...(data?.props ?? [])];
   const reviews = data?.reviews ?? [];

@@ -86,7 +86,9 @@ export const MASTER_REVIEWS: Review[] = [
   { author: 'Далер М.', month: 11, year: 2025, stars: 5, text: 'Быстро нашёл проблему, цена честная.', reply: null },
 ];
 
-const minAgo = (m: number) => new Date(Date.now() - m * 60000).toISOString();
+/** Мок-время от начала текущего 10-минутного окна: сервер (модуль загружен давно) и браузер получают одинаковые даты — без расхождения при гидратации */
+const BASE = Math.floor(Date.now() / 600000) * 600000;
+const minAgo = (m: number) => new Date(BASE - m * 60000).toISOString();
 
 export const HOME_TASKS: TaskSummary[] = [
   { id: 101, title: 'Ремонт кондиционера Samsung, не охлаждает', region: 'dushanbe', district: 'Сино', budget: 300, responses: 4, createdAt: minAgo(40), status: 'open' },
@@ -131,7 +133,7 @@ export const TASK_CATEGORIES = [
 ] as const;
 
 type FT = import('./types').FeedTask;
-const ago = (m: number) => new Date(Date.now() - m * 60000).toISOString();
+const ago = minAgo;
 
 /** Открытые задания для ленты мастеров */
 export const FEED: FT[] = [

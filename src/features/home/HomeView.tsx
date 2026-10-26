@@ -233,7 +233,7 @@ export function HomeView() {
 
         <Support t={t} className={s.mSupport} />
         <Footer />
-        <TabBar chatBadge={user ? 2 : 0} />
+        <TabBar />
       </div>
 
       {/* ============ DESKTOP ============ */}
