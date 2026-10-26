@@ -57,6 +57,7 @@ function patch(id: number, p: Partial<Invite>) {
 }
 
 export const invites = {
+  list: () => delay(read(), 300),
   get: (id: number) => delay(read().find((x) => x.id === id) ?? null),
   create: (data: Omit<Invite, 'id' | 'status' | 'createdAt' | 'contacts'>) => {
     const list = read();

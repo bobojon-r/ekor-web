@@ -142,3 +142,5 @@
   .cBar, .cCol > .barSpacer { display: none; }
   .cActionsD { display: flex; flex-direction: column; gap: 8px; max-width: 360px; }
 }
+.listRow { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: var(--radius-xl); border: 1px solid var(--line-200); background: var(--white); color: var(--ink-900); text-decoration: none; }
+.listRow:hover { border-color: var(--brand-600); color: var(--ink-900); }

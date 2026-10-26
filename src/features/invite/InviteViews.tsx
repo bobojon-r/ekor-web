@@ -2,12 +2,14 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Briefcase, Check, CircleCheck, ClipboardList, Clock, Info, Lock, LockOpen, Mail, MessageCircle, Send, UserCog, X } from 'lucide-react';
+import { Check, CircleCheck, Clock, Info, Lock, LockOpen, Mail, MessageCircle, X } from 'lucide-react';
 import { api, invites, type Invite, type InviteStatus } from '@/lib/api';
 import { ago, initials, money, phoneMask, useDict, useLang, type Lang } from '@/lib/i18n';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { AppBar, SideNav, SiteHeader, type SideItem } from '@/components/layout';
 import { Button, ButtonLink, EmptyState, RadioCard, Skeleton, useToast } from '@/components/ui';
+import { masterSideItems } from '@/features/master/MasterCabinet';
+import { masterDict } from '@/features/master/i18n';
 import { inviteDict } from './i18n';
 import s from './Invite.module.css';
 
@@ -22,14 +24,9 @@ const CS: Record<InviteStatus, [string, string]> = {
   confirmed: ['var(--success-100)', 'var(--success-700)'], cancelled: ['var(--surface-50)', 'var(--ink-400)'], public: ['var(--warn-100)', 'var(--warn-800)'],
 };
 
-export function masterSide(t: T): SideItem[] {
-  return [
-    { href: '/tasks', label: t.side[0], icon: ClipboardList },
-    { href: '/master/invites', label: t.side[1], icon: Mail, count: 1 },
-    { href: '/master/responses', label: t.side[2], icon: Send },
-    { href: '/master/orders', label: t.side[3], icon: Briefcase },
-    { href: '/master/profile', label: t.side[4], icon: UserCog },
-  ];
+/** То же меню, что в кабинете мастера */
+export function masterSide(_t: T): SideItem[] {
+  return masterSideItems(masterDict[_t === inviteDict.tj ? 'tj' : 'ru'], [0, 0, 0], 1);
 }
 
 function useInvite(id: number) {
