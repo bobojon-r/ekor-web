@@ -1,0 +1,40 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  font: var(--text-badge);
+  white-space: nowrap;
+}
+.withIcon { gap: 5px; font-size: 13px; }
+.brand { background: var(--brand-100); color: var(--brand-700); }
+.success { background: var(--success-100); color: var(--success-700); }
+.warn { background: var(--warn-100); color: var(--warn-800); }
+.danger { background: var(--danger-100); color: var(--danger-700); }
+.neutral { background: var(--line-100); color: var(--ink-700); }
+.dark { background: var(--ink-900); color: var(--white); }
+
+.avail { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.availGreen { color: var(--success-700); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success-600); flex: none; }
+
+.rating { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ratingMeta { color: var(--ink-500); font-weight: 400; }
+.noRev { font-size: 14px; color: var(--ink-500); }
+.stars { color: var(--warn-600); letter-spacing: 1px; }
+
+.count {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-600);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.countDanger { min-width: 20px; height: 20px; padding: 0 5px; background: var(--danger-600); font-size: 11px; font-weight: 700; }

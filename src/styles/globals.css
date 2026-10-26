@@ -1,0 +1,104 @@
+@import './tokens.css';
+
+/* Производные значения, встречающиеся в макетах, но не вынесенные в tokens.css */
+:root {
+  --brand-600-busy: #7d90e8;
+  --danger-600-hover: #962e24;
+  --danger-600-busy: #d88a82;
+  --success-btn: #0e8f7a;
+  --success-btn-busy: #7cc3b7;
+  --disabled-bg: #eef1f4;
+  --disabled-fg: #9aa5b4;
+  --ink-900-hover: #1c2b3e;
+  --skeleton: #e6eaef;
+  --stepper-off: #dce3ea;
+  --checkbox-off: #8a96a6;
+  --info-border: #dce3fa;
+  --info-text: #1a2c6b;
+  --success-border: #cdebe2;
+  --warn-border: #f2d3ae;
+  --system-pill: #e6eaef;
+  --bubble-time-own: #c9d4f7;
+  --overlay: rgba(15, 27, 42, 0.45);
+  --shadow-sheet: 0 16px 40px rgba(15, 27, 42, 0.3);
+  --shadow-toast: 0 8px 24px rgba(15, 27, 42, 0.25);
+  --page-x: 16px;
+  --sheet-radius: 20px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --page-x: 40px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--surface-50);
+  color: var(--ink-900);
+  font: var(--text-body);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--brand-600);
+}
+a:hover {
+  color: var(--brand-700);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-400);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes sk {
+  0% { opacity: 0.55; }
+  50% { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+
+/* Видимость по брейкпоинту: мобильная раскладка до 1024px */
+@media (max-width: 1023.98px) {
+  .desk-only { display: none !important; }
+}
+@media (min-width: 1024px) {
+  .mob-only { display: none !important; }
+}

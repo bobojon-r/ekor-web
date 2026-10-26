@@ -1,0 +1,128 @@
+.chip {
+  height: var(--tap-min);
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--line-300);
+  background: var(--white);
+  color: var(--ink-900);
+  font: 500 15px var(--font);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.chip:hover { border-color: var(--brand-300); }
+.chipOn, .chipOn:hover { border-color: var(--brand-600); background: var(--brand-100); color: var(--brand-700); }
+
+.rchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 4px 0 12px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-100);
+  color: var(--brand-700);
+  font-size: 15px;
+  font-weight: 500;
+}
+.rchipX { width: 32px; height: 32px; border: none; background: none; color: inherit; display: flex; align-items: center; justify-content: center; border-radius: 50%; padding: 0; }
+.rchipX:hover { background: rgba(38, 71, 217, 0.1); }
+
+.addChip {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1.5px dashed var(--brand-300);
+  background: transparent;
+  color: var(--brand-700);
+  font: 600 15px var(--font);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.addChip:hover { border-color: var(--brand-600); }
+
+.seg { display: flex; background: var(--surface-50); border-radius: var(--radius-md); padding: 3px; }
+.segBtn {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-500);
+  font: 600 14px var(--font);
+  white-space: nowrap;
+}
+.segLg { min-height: 42px; font-size: 15px; padding: 0 18px; }
+.segOn { background: var(--white); color: var(--brand-600); box-shadow: 0 1px 2px rgba(15, 27, 42, 0.08); }
+
+.lang { display: flex; border-radius: var(--radius-md); background: var(--surface-50); padding: 3px; font-size: 13px; font-weight: 600; flex: none; }
+.langBtn { height: 34px; min-width: 40px; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--ink-500); font: inherit; }
+.langOn { background: var(--white); color: var(--brand-600); }
+.langBrand { background: rgba(255, 255, 255, 0.16); }
+.langBrand .langBtn { color: var(--white); }
+.langBrand .langOn { background: var(--white); color: var(--brand-600); }
+
+.sw {
+  flex: none;
+  width: 52px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  border: none;
+  padding: 3px;
+  background: var(--line-300);
+  display: flex;
+}
+.swOn { background: var(--brand-600); }
+.swLocked { cursor: not-allowed; }
+.swLocked.swOn { background: var(--brand-300); }
+.knob { width: 26px; height: 26px; border-radius: 50%; background: var(--white); box-shadow: var(--shadow-knob); transition: transform 0.15s; }
+.swOn .knob { transform: translateX(20px); }
+
+.swRow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line-100); }
+.swRow:last-child { border-bottom: none; }
+.swText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.swTitle { font-size: 16px; font-weight: 600; }
+.swSub { font-size: 14px; color: var(--ink-500); line-height: 1.4; }
+
+.cb {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 48px;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font: 400 16px/1.4 var(--font);
+  color: var(--ink-900);
+}
+.cbBox {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid var(--checkbox-off);
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.cbOn { border-color: var(--brand-600); background: var(--brand-600); }
+.cbErr { border-color: var(--danger-600); }
+
+.radio {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--line-300);
+  background: var(--white);
+  text-align: left;
+  font: 500 15px var(--font);
+  color: var(--ink-900);
+}
+.radioOn { border-color: var(--brand-600); background: var(--brand-100); }
+.radioDanger { border-color: var(--danger-600); background: var(--danger-50); }
