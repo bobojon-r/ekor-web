@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MapPin, MessageSquarePlus, Search, X } from 'lucide-react';
 import { api, type Profession } from '@/lib/api';
-import { useDict, useLang, type Lang } from '@/lib/i18n';
+import { plural, useDict, useLang, type Lang } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useRegion } from '@/lib/hooks/useRegion';
 import { SiteHeader, TabBar } from '@/components/layout';
@@ -15,8 +15,8 @@ const dict = {
   ru: {
     title: 'Все категории',
     search: 'Услуга или профессия',
-    masters: (n: number) => (n ? `${n} мастеров` : 'пока нет'),
-    total: (n: number) => `${n} мастеров в городе`,
+    masters: (n: number) => (n ? `${n} ${plural(n, 'мастер', 'мастера', 'мастеров')}` : 'пока нет'),
+    total: (n: number) => `${n} ${plural(n, 'мастер', 'мастера', 'мастеров')} в городе`,
     profs: (n: number) => `${n} профессий`,
     noT: 'Ничего не нашли',
     noB: 'Опишите задачу своими словами — мастера сами откликнутся, а модератор подберёт категорию.',

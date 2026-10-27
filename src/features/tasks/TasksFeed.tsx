@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowUpDown, BadgeCheck, BriefcaseBusiness, CalendarDays, Check, ChevronLeft, Clock, Eye, Flag, Globe, Inbox, MapPin, Share2, Sparkles, Users,
 } from 'lucide-react';
-import { api, DAILY_LIMIT, proposals, type CatalogCategory, type FeedQuery, type FeedTask, type Proposal } from '@/lib/api';
+import { api, DAILY_LIMIT, USE_API, proposals, type CatalogCategory, type FeedQuery, type FeedTask, type Proposal } from '@/lib/api';
 import { ago, initials, num, useDict, useLang, type Lang } from '@/lib/i18n';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { useRegion } from '@/lib/hooks/useRegion';
@@ -20,7 +20,6 @@ import s from './Tasks.module.css';
 type T = (typeof feedDict)['ru'];
 type Sort = NonNullable<FeedQuery['sort']>;
 type Store = ReturnType<typeof proposals.state>;
-const CATS: CatalogCategory[] = ['electric', 'plumbing', 'repair', 'appliances', 'cleaning', 'cargo', 'tutors', 'it'];
 
 export function budgetText(k: FeedTask, t: T, lang: Lang) {
   const cur = 'смн';
@@ -55,7 +54,20 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
   const list = data ?? [];
   const regionName = api.region(region).name[lang];
   const matchN = list.filter((k) => k.match).length;
-  const sel = selectedId ? api.feedTaskSync(selectedId) : (list[0] ?? null);
+  // Открытое задание: из списка, а подробности (описание, клиент) — отдельным запросом
+  const [detail, setDetail] = useState<FeedTask | null>(null);
+  const selId = selectedId ?? list[0]?.id;
+  useEffect(() => {
+    if (!selId) return;
+    const cached = api.feedTaskSync(selId);
+    if (cached && (!USE_API || cached.full)) return setDetail(cached);
+    let live = true;
+    api.feedTask(selId).then((k) => live && setDetail(k), () => {});
+    return () => {
+      live = false;
+    };
+  }, [selId, data]);
+  const sel = (detail?.id === selId ? detail : null) ?? (selId ? api.feedTaskSync(selId) : null);
 
   const send = async (id: number, p: Proposal) => {
     const next = await proposals.send(id, p);
@@ -100,9 +112,9 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
     </select>
   );
   const catChips = (cls: string) =>
-    [null, ...CATS].map((k) => (
+    [null, ...api.filterCats().map((c) => c.k)].map((k) => (
       <button key={String(k)} type="button" aria-pressed={cat === k} onClick={() => setCat(k)} className={[cls, cat === k && s.on].filter(Boolean).join(' ')}>
-        {k ? t.cats[k] : t.all}
+        {k ? (api.catName(k)?.[lang] ?? k) : t.all}
       </button>
     ));
   const empty = !loading && list.length === 0 && (
@@ -363,7 +375,7 @@ export function TaskBody({ k, t, lang }: { k: FeedTask; t: T; lang: Lang }) {
       <div className={s.bodyHead}>
         <div className={s.bodyBadges}>
           <span className={[k.status === 'open' ? s.stOpen : s.stChosen, s.stLg].join(' ')}>{t.statusLong[k.status]}</span>
-          <span className={s.muted13}>{t.cats[k.category]}</span>
+          <span className={s.muted13}>{api.catName(k.category)?.[lang]}</span>
         </div>
         <h1 className={s.bodyTitle}>{k.title}</h1>
         <div className={s.bodyBudget}>{budgetText(k, t, lang)}</div>

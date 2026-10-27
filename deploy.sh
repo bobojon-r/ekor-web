@@ -19,7 +19,9 @@ fi
 echo "▸ Сборка ekor-web:$TAG"
 docker build -t "$NAME:$TAG" -t "$NAME:latest" \
   --build-arg NEXT_PUBLIC_SMS_ENABLED="${NEXT_PUBLIC_SMS_ENABLED:-false}" \
-  --build-arg NEXT_PUBLIC_TEST_OTP="${NEXT_PUBLIC_TEST_OTP:-123456}" .
+  --build-arg NEXT_PUBLIC_TEST_OTP="${NEXT_PUBLIC_TEST_OTP:-123456}" \
+  --build-arg NEXT_PUBLIC_API="${NEXT_PUBLIC_API:-mock}" \
+  --build-arg API_ORIGIN="${API_ORIGIN:-https://lab.tcell.tj}" .
 
 echo "▸ Перенос образа на $HOST"
 docker save "$NAME:$TAG" | gzip -1 | ssh "$HOST" 'gunzip | docker load'

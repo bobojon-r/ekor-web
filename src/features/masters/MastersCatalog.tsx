@@ -10,7 +10,7 @@ import { useLoad } from '@/lib/hooks/useLoad';
 import { useRegion } from '@/lib/hooks/useRegion';
 import { SiteHeader, TabBar } from '@/components/layout';
 import { LangSwitch, Sheet } from '@/components/ui';
-import { CATALOG_CATS, mastersDict } from './i18n';
+import { mastersDict } from './i18n';
 import { LoadState } from '@/features/system/SystemStates';
 import s from './Masters.module.css';
 
@@ -29,13 +29,14 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
   const c = useDict(common);
   const { lang } = useLang();
   const [region, setRegion, regionReady] = useRegion();
-  const validCat = CATALOG_CATS.some((x) => x.k === initialCat) ? (initialCat as CatalogCategory) : null;
+  const validCat = initialCat && api.catName(initialCat) ? (initialCat as CatalogCategory) : null;
   const [f, setF] = useState<Filters>({ ...F0, cat: validCat });
   const [q, setQ] = useState(initialQ ?? '');
   const [qDeb, setQDeb] = useState(q);
   const [sort, setSort] = useState<Sort>('rel');
   const [sheet, setSheet] = useState(false);
   const [draft, setDraft] = useState<Filters>(f);
+  const draftCount = useDraftCount(sheet, draft, region, qDeb, sort);
 
   useEffect(() => {
     const id = setTimeout(() => setQDeb(q), 300);
@@ -46,7 +47,15 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
   const { data, loading, showSkeleton, phase, retry } = useLoad(() => api.masters(query), [JSON.stringify(query)], regionReady);
   const results = data ?? [];
   const empty = !loading && results.length === 0;
-  const near = empty ? api.mastersElsewhere({ ...query, onlineOnly: false }).slice(0, 3) : [];
+  const [near, setNear] = useState<Awaited<ReturnType<typeof api.mastersElsewhere>>>([]);
+  useEffect(() => {
+    if (!empty) return setNear([]);
+    let live = true;
+    api.mastersElsewhere({ ...query, onlineOnly: false }).then((l) => live && setNear(l.slice(0, 3)), () => {});
+    return () => {
+      live = false;
+    };
+  }, [empty, JSON.stringify(query)]); // eslint-disable-line react-hooks/exhaustive-deps
   const regionName = api.region(region).name[lang];
   const activeCount = (['cat', 'price', 'rating', 'online', 'avail'] as const).filter((k) => f[k]).length;
   const foundText = `${t.found(results.length)} · ${f.online ? t.online : regionName}`;
@@ -191,7 +200,7 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
                   setSheet(false);
                 }}
               >
-                {t.show(sheet ? countFor(draft, region, qDeb, sort) : 0)}
+                {draftCount === null ? t.showAny : t.show(draftCount)}
               </button>
             </div>
           }
@@ -204,9 +213,9 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
             <div className={s.group}>
               <span className={s.groupLabel}>{t.fCat}</span>
               <div className={s.chipsWrap}>
-                {[{ k: null, ru: t.anyCat, tj: t.anyCat }, ...CATALOG_CATS].map((k) => (
+                {[{ k: null, name: { ru: t.anyCat, tj: t.anyCat } }, ...api.filterCats()].map((k) => (
                   <OptBtn key={String(k.k)} on={draft.cat === k.k} pill onClick={() => setDraft({ ...draft, cat: k.k as CatalogCategory | null })}>
-                    {k[lang]}
+                    {k.name[lang]}
                   </OptBtn>
                 ))}
               </div>
@@ -263,14 +272,14 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
               <span className={s.groupLabelD} style={{ marginBottom: 6 }}>
                 {t.fCat}
               </span>
-              {[{ k: null, ru: t.anyCat, tj: t.anyCat }, ...CATALOG_CATS].map((k) => {
+              {[{ k: null, name: { ru: t.anyCat, tj: t.anyCat } }, ...api.filterCats()].map((k) => {
                 const on = f.cat === k.k;
                 return (
                   <button key={String(k.k)} type="button" role="radio" aria-checked={on} className={[s.catRadio, on && s.catRadioOn].filter(Boolean).join(' ')} onClick={() => set({ cat: k.k as CatalogCategory | null })}>
                     <span className={s.radioDot}>
                       <span />
                     </span>
-                    <span className={s.grow}>{k[lang]}</span>
+                    <span className={s.grow}>{k.name[lang]}</span>
                   </button>
                 );
               })}
@@ -327,9 +336,21 @@ export function MastersCatalog({ initialCat, initialQ }: { initialCat?: string; 
   );
 }
 
-/** Сколько покажет кнопка «Показать N» в шторке фильтров — синхронный подсчёт по мокам */
-function countFor(f: Filters, region: RegionKey, q: string, sort: Sort) {
-  return api.mastersCount(toQuery(f, region, q, sort));
+/** Сколько покажет кнопка «Показать N» в шторке фильтров; null — пока считаем */
+function useDraftCount(open: boolean, f: Filters, region: RegionKey, q: string, sort: Sort) {
+  const [n, setN] = useState<number | null>(null);
+  const key = JSON.stringify(toQuery(f, region, q, sort));
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    setN(null);
+    const id = setTimeout(() => api.mastersCount(toQuery(f, region, q, sort)).then((v) => live && setN(v), () => {}), 200);
+    return () => {
+      live = false;
+      clearTimeout(id);
+    };
+  }, [open, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return n;
 }
 
 function QuickChip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {

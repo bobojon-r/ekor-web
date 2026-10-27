@@ -1,7 +1,8 @@
 import type { L10n } from '../i18n';
 import type { StatusCode } from '../status';
 
-export type RegionKey = 'dushanbe' | 'khujand' | 'isfara' | 'bokhtar' | 'kulob' | 'vahdat' | 'khorog';
+/** Ключ города; с бэкендом список приходит из /cities, поэтому допускаем и новые */
+export type RegionKey = 'dushanbe' | 'khujand' | 'isfara' | 'bokhtar' | 'kulob' | 'vahdat' | 'khorog' | (string & {});
 
 export type Region = { key: RegionKey; name: L10n; sub: L10n; masters: number };
 
@@ -11,7 +12,8 @@ export type FeaturedCategory = { key: string; icon: string; name: L10n; masters:
 export type Profession = { name: L10n; masters: number; synonyms: string };
 export type CategoryNode = { key: string; icon: string; name: L10n; professions: Profession[] };
 
-export type CatalogCategory = 'repair' | 'plumbing' | 'electric' | 'appliances' | 'cleaning' | 'cargo' | 'tutors' | 'beauty' | 'it';
+/** Ключ категории любого уровня; с бэкендом — из /categories */
+export type CatalogCategory = 'repair' | 'plumbing' | 'electric' | 'appliances' | 'cleaning' | 'cargo' | 'tutors' | 'beauty' | 'it' | (string & {});
 
 export type Master = {
   id: number;
@@ -30,11 +32,15 @@ export type Master = {
   works: number;
   /** Телефон показывается по флагу API, не вычисляется на клиенте */
   phone?: string;
+  /** Мастер разрешил показывать телефон (бэкенд) */
+  hasPhone?: boolean;
   langs: ('tj' | 'ru' | 'uz' | 'en')[];
   areas: string[];
   bio: string;
   services: { name: string; price: number | null }[];
+  /** Подписи работ; фото — в portfolioImg с тем же индексом (с бэкенда) */
   portfolio: string[];
+  portfolioImg?: string[];
 };
 
 export type Review = { author: string; month: number; year: number; stars: number; text: string; reply: string | null };
@@ -77,6 +83,8 @@ export type FeedTask = {
   /** Подходит мастеру по профессиям и районам — считает сервер */
   match?: boolean;
   desc: string;
+  /** Загружены подробности (описание, клиент) — с бэкендом список приходит без них */
+  full?: boolean;
 };
 
 export type Proposal = { price: number | null; term: number; msg: string };

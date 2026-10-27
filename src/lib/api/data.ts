@@ -1,5 +1,12 @@
 import type { CategoryNode, FeaturedCategory, HomeReview, Master, Region, Review, TaskSummary } from './types';
 
+/** Чипы фильтра по категориям (моки) */
+export const FILTER_CATS = [
+  { k: 'electric', name: { ru: 'Электрика', tj: 'Барқкашӣ' } }, { k: 'plumbing', name: { ru: 'Сантехника', tj: 'Сантехника' } }, { k: 'repair', name: { ru: 'Ремонт', tj: 'Таъмир' } },
+  { k: 'appliances', name: { ru: 'Техника', tj: 'Техника' } }, { k: 'cleaning', name: { ru: 'Уборка', tj: 'Тозакунӣ' } }, { k: 'cargo', name: { ru: 'Перевозки', tj: 'Боркашонӣ' } },
+  { k: 'tutors', name: { ru: 'Обучение', tj: 'Таълим' } }, { k: 'beauty', name: { ru: 'Красота', tj: 'Зебоӣ' } }, { k: 'it', name: { ru: 'IT', tj: 'IT' } },
+];
+
 export const REGIONS: Region[] = [
   { key: 'dushanbe', name: { ru: 'Душанбе', tj: 'Душанбе' }, sub: { ru: 'Столица', tj: 'Пойтахт' }, masters: 846 },
   { key: 'khujand', name: { ru: 'Худжанд', tj: 'Хуҷанд' }, sub: { ru: 'Согдийская обл.', tj: 'Вил. Суғд' }, masters: 412 },

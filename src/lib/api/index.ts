@@ -1,10 +1,13 @@
 /**
- * Слой данных. Сейчас — моки с задержкой сети; при подключении бэкенда
- * заменить тела функций на fetch к API (контракт — backend/README.md), сигнатуры сохранить.
+ * Слой данных. NEXT_PUBLIC_API=real — бэкенд (remote.ts, справочники — ref.ts),
+ * иначе моки с задержкой сети. Сигнатуры одинаковые, экраны не знают, откуда данные.
  */
+import type { L10n } from '../i18n';
 import { clientTasks } from './clientTasks';
-import { CATEGORY_TREE, DISTRICTS, FEATURED, FEED, TASK_CATEGORIES, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
-import type { CatalogCategory, FeedTask, Master, RegionKey } from './types';
+import { CATEGORY_TREE, DISTRICTS, FEATURED, FEED, FILTER_CATS, TASK_CATEGORIES, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
+import { ref, uiLang } from './ref';
+import { remote } from './remote';
+import type { CatalogCategory, CategoryNode, FeaturedCategory, FeedTask, Master, Region, RegionKey } from './types';
 
 export * from './types';
 export { invites, type Invite, type InviteStatus } from './invites';
@@ -24,6 +27,10 @@ const delay = <T,>(v: T, ms = 450) => new Promise<T>((r) => setTimeout(() => r(v
 export const SMS_ENABLED = process.env.NEXT_PUBLIC_SMS_ENABLED === 'true';
 export const IS_MOCK = !SMS_ENABLED;
 export const TEST_OTP = process.env.NEXT_PUBLIC_TEST_OTP || '123456';
+export const USE_API = process.env.NEXT_PUBLIC_API === 'real';
+export { ApiError } from './http';
+
+export type TaskCat = { k: string; i: string; ru: string; tj: string; p: number | null; sr: readonly string[]; st: readonly string[]; er: readonly string[]; et: readonly string[] };
 
 /** Префиксы операторов Таджикистана */
 const OPERATORS = ['00', '01', '10', '11', '12', '20', '50', '55', '70', '77', '88', '90', '91', '92', '93', '94', '98', '99'];
@@ -36,14 +43,47 @@ export const api = {
     verify: (_phone: string, code: string) => delay(code === TEST_OTP ? { ok: true as const, name: null as string | null } : { ok: false as const, name: null }, 600),
   },
 
-  regions: () => REGIONS,
-  region: (k: RegionKey) => REGIONS.find((r) => r.key === k)!,
-  featuredCategories: () => FEATURED,
-  districts: (r: RegionKey) => DISTRICTS[r] ?? [],
-  taskCategories: () => TASK_CATEGORIES,
-  categoryTree: () => CATEGORY_TREE,
+  regions(): Region[] {
+    const R = ref.get();
+    return R ? R.cities.map((c) => ({ key: c.key as RegionKey, name: c.name, sub: c.sub, masters: c.masters })) : REGIONS;
+  },
+  region(k: RegionKey): Region {
+    const all = api.regions();
+    return all.find((r) => r.key === k) ?? all[0];
+  },
+  featuredCategories(): FeaturedCategory[] {
+    const R = ref.get();
+    if (!R) return FEATURED;
+    return R.cats.map((c) => ({ key: c.key, icon: c.icon, name: c.name, masters: c.masters, synonyms: c.children.map((k) => `${k.key} ${k.name.ru} ${k.name.tj}`).join(' ') }));
+  },
+  districts(r: RegionKey): string[] {
+    const R = ref.get();
+    return R ? (R.districts[r] ?? []).map((d) => d.name[uiLang()]) : (DISTRICTS[r] ?? []);
+  },
+  taskCategories(): readonly TaskCat[] {
+    const R = ref.get();
+    if (!R) return TASK_CATEGORIES;
+    return R.cats.map((c) => {
+      const mock = TASK_CATEGORIES.find((x) => x.k === c.key);
+      return { k: c.key, i: c.icon, ru: c.name.ru, tj: c.name.tj, p: c.priceFrom, sr: c.children.map((k) => k.name.ru), st: c.children.map((k) => k.name.tj), er: mock?.er ?? [], et: mock?.et ?? [] };
+    });
+  },
+  categoryTree(): CategoryNode[] {
+    const R = ref.get();
+    if (!R) return CATEGORY_TREE;
+    return R.cats.map((c) => ({ key: c.key, icon: c.icon, name: c.name, professions: c.children.map((k) => ({ name: k.name, masters: k.masters, synonyms: k.key })) }));
+  },
+  /** Чипы фильтра по категориям в каталоге и ленте */
+  filterCats(): { k: CatalogCategory; name: L10n }[] {
+    const R = ref.get();
+    return R ? R.cats.filter((c) => c.key !== 'other').map((c) => ({ k: c.key, name: c.name })) : FILTER_CATS;
+  },
+  catName(k: CatalogCategory): L10n | null {
+    return ref.cat(k)?.name ?? FILTER_CATS.find((x) => x.k === k)?.name ?? null;
+  },
 
   async home(region: RegionKey) {
+    if (USE_API) return remote.home(region);
     const local = MASTERS.filter((m) => m.region === region);
     const online = MASTERS.filter((m) => m.online);
     const near = (x: { region?: RegionKey; online?: boolean }) => x.region === region || !!x.online;
@@ -59,9 +99,9 @@ export const api = {
   },
 
   /** Лента открытых заданий для мастеров */
-  feed: (q: FeedQuery) => delay(filterFeed(q)),
-  feedTask: (id: number) => delay(FEED.find((k) => k.id === id) ?? null, 300),
-  feedTaskSync: (id: number) => FEED.find((k) => k.id === id) ?? null,
+  feed: (q: FeedQuery) => (USE_API ? remote.feed(q) : delay(filterFeed(q))),
+  feedTask: (id: number) => (USE_API ? remote.feedTask(id) : delay(FEED.find((k) => k.id === id) ?? null, 300)),
+  feedTaskSync: (id: number): FeedTask | null => (USE_API ? remote.feedTaskSync(id) : (FEED.find((k) => k.id === id) ?? null)),
 
   tasks: {
     /** Создание → статус «На проверке» (модерация до 30 мин) */
@@ -74,22 +114,25 @@ export const api = {
   },
 
   async masters(q: MastersQuery) {
+    if (USE_API) return remote.masters(q);
     return delay(filterMasters(q));
   },
 
-  /** Короткая карточка мастера без задержки — для подписей в списках */
-  masterSync: (id: number) => MASTERS.find((x) => x.id === id) ?? null,
+  /** Короткая карточка мастера без задержки — для подписей в списках (с бэкендом — из уже загруженных) */
+  masterSync: (id: number): Master | null => (USE_API ? remote.masterSync(id) : (MASTERS.find((x) => x.id === id) ?? null)),
 
   async master(id: number) {
+    if (USE_API) return remote.master(id);
     const m = MASTERS.find((x) => x.id === id) ?? null;
     return delay(m ? { master: m, reviews: m.reviews ? MASTER_REVIEWS : [] } : null, 300);
   },
 
   /** Счётчик для кнопки «Показать N» — до применения фильтров */
-  mastersCount: (q: MastersQuery) => filterMasters(q).length,
+  mastersCount: (q: MastersQuery): Promise<number> => (USE_API ? remote.mastersCount(q) : delay(filterMasters(q).length, 150)),
 
   /** Сколько мастеров нашлось бы в других городах по тем же фильтрам (для пустого состояния) */
-  mastersElsewhere(q: MastersQuery) {
+  async mastersElsewhere(q: MastersQuery): Promise<{ region: Region; n: number }[]> {
+    if (USE_API) return remote.mastersElsewhere(q);
     return REGIONS.map((r) => ({ region: r, n: filterMasters({ ...q, region: r.key }).filter((m) => !m.online).length })).filter((x) => x.region.key !== q.region && x.n > 0);
   },
 };

@@ -143,8 +143,8 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
                   {t.portfolio} · {m.works}
                 </h2>
                 <div className={s.gallery2}>
-                  {m.portfolio.map((p) => (
-                    <Work key={p} cap={p} ph={t.photoPh} />
+                  {m.portfolio.map((p, i) => (
+                    <Work key={i} cap={p} src={m.portfolioImg?.[i]} ph={t.photoPh} />
                   ))}
                 </div>
               </section>
@@ -245,8 +245,8 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
                     {t.portfolio} · {m.works}
                   </h2>
                   <div className={s.gallery4}>
-                    {m.portfolio.map((p) => (
-                      <Work key={p} cap={p} ph={t.photoPh} desktop />
+                    {m.portfolio.map((p, i) => (
+                      <Work key={i} cap={p} src={m.portfolioImg?.[i]} ph={t.photoPh} desktop />
                     ))}
                   </div>
                 </div>
@@ -339,11 +339,14 @@ function VerifiedPill({ label, title, big }: { label: string; title: string; big
   );
 }
 
-function Work({ cap, ph, desktop }: { cap: string; ph: string; desktop?: boolean }) {
+function Work({ cap, src, ph, desktop }: { cap: string; src?: string; ph: string; desktop?: boolean }) {
+  const [broken, setBroken] = useState(false);
   return (
     <div className={s.work}>
-      <div className={s.workImg}>{ph}</div>
-      <span className={desktop ? s.workCapD : s.workCap}>{cap}</span>
+      <div className={s.workImg}>
+        {src && !broken ? <img src={src} alt={cap} loading="lazy" className={s.workPhoto} onError={() => setBroken(true)} /> : ph}
+      </div>
+      {cap && <span className={desktop ? s.workCapD : s.workCap}>{cap}</span>}
     </div>
   );
 }
