@@ -6,25 +6,26 @@ import { useRouter } from 'next/navigation';
 import {
   Bell, CalendarDays, Camera, Check, ChevronLeft, CircleCheck, Globe, Info, Lock, MapPin, ShieldCheck, TrendingUp, Wallet, X,
 } from 'lucide-react';
-import { api, type RegionKey } from '@/lib/api';
+import { api, apiErrorText, type RegionKey } from '@/lib/api';
 import { phoneMask, useDict, useLang } from '@/lib/i18n';
 import { useRegion } from '@/lib/hooks/useRegion';
 import { useSession } from '@/lib/session/SessionProvider';
 import { SiteHeader } from '@/components/layout';
-import { Button, Icon, LangSwitch, OtpInput, PhoneField, TestCodeNotice, TextField } from '@/components/ui';
+import { Button, Icon, LangSwitch, OtpInput, PhoneField, TestCodeNotice, TextField, useToast } from '@/components/ui';
 import { EMPTY, clearDraft, loadDraft, saveDraft, validate, type Draft, type Errors } from './draft';
 import { createDict } from './i18n';
 import s from './CreateTask.module.css';
 
 type Step = 1 | 2 | 3 | 4 | 'phone' | 'code' | 'name' | 'done';
 type T = (typeof createDict)['ru'];
-type Photo = { id: number; url: string };
+type Photo = { id: number; url: string; file?: File };
 
 export function CreateTaskView() {
   const t = useDict(createDict);
   const { lang } = useLang();
   const router = useRouter();
   const { user, signIn } = useSession();
+  const toast = useToast();
   const [savedRegion, , regionReady] = useRegion();
 
   const [d, setD] = useState<Draft>(EMPTY);
@@ -85,7 +86,12 @@ export function CreateTaskView() {
 
   const submit = async () => {
     setSending(true);
-    await api.tasks.create(d);
+    try {
+      await api.tasks.create(d, photos.flatMap((p) => (p.file ? [p.file] : [])));
+    } catch (e) {
+      setSending(false);
+      return toast(apiErrorText(e, lang));
+    }
     clearDraft();
     setSending(false);
     go('done');
@@ -106,6 +112,7 @@ export function CreateTaskView() {
       setSending(true);
       const r = await api.auth.sendCode(phone);
       setSending(false);
+      if (r.error) return toast(r.error);
       setCode('');
       setTries(r.tries);
       setCodeErr(false);
@@ -172,7 +179,7 @@ export function CreateTaskView() {
       pv={pv}
       photos={photos}
       setPhotos={setPhotos}
-      auth={{ phone, setPhone: (v) => (setPhone(v), setPhoneErr(null)), phoneErr, code, setCode: (v) => (setCode(v), setCodeErr(false)), codeErr, tries, timer, resend: async () => { await api.auth.sendCode(phone); setTries(3); setTimer(60); setCodeErr(false); }, name, setName: (v) => (setName(v), setNameErr(false)), nameErr, backPhone: () => go('phone') }}
+      auth={{ phone, setPhone: (v) => (setPhone(v), setPhoneErr(null)), phoneErr, code, setCode: (v) => (setCode(v), setCodeErr(false)), codeErr, tries, timer, resend: async () => { const r = await api.auth.sendCode(phone); if (r.error) return toast(r.error); setTries(3); setTimer(60); setCodeErr(false); }, name, setName: (v) => (setName(v), setNameErr(false)), nameErr, backPhone: () => go('phone') }}
       onRestart={restart}
     />
   );
@@ -497,7 +504,7 @@ function StepBody({
             hidden
             onChange={(e) => {
               const files = Array.from(e.target.files ?? []);
-              setPhotos((x) => [...x, ...files.slice(0, 5 - x.length).map((f, i) => ({ id: Date.now() + i, url: URL.createObjectURL(f) }))]);
+              setPhotos((x) => [...x, ...files.slice(0, 5 - x.length).map((f, i) => ({ id: Date.now() + i, url: URL.createObjectURL(f), file: f }))]);
               e.target.value = '';
             }}
           />

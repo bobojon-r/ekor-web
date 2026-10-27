@@ -9,8 +9,8 @@ import { ref, uiLang } from './ref';
 import type { CatalogCategory, FeedTask, HomeReview, Master, RegionKey, Review, TaskSummary } from './types';
 import type { FeedQuery, MastersQuery } from './index';
 
-type NR = { id: number; name_ru: string; name_tj: string };
-type MasterCardOut = {
+export type NR = { id: number; name_ru: string; name_tj: string };
+export type MasterCardOut = {
   id: number; name: string | null; avatar_url: string | null; headline: NR | null; city: NR | null; district: NR | null; works_online: boolean;
   rating_avg: number | null; reviews_count: number; completed_orders_count: number; verified: boolean; available_today: boolean; price_from: number | null;
   experience: 'lt1' | '1_3' | '3_10' | 'gt10' | null;
@@ -20,20 +20,20 @@ type MasterPublicOut = MasterCardOut & {
   districts: (NR & { near: boolean })[]; languages: string[]; has_phone: boolean;
 };
 type CatalogPage = { items: MasterCardOut[]; total: number; next_cursor: string | null; other_cities: { city: NR; count: number }[]; online_count: number | null };
-type TaskCardOut = {
+export type TaskCardOut = {
   id: number; status: string; title: string; category: NR; subcategory: NR | null; mode: 'site' | 'online'; city: NR | null; district: NR | null;
   when: 'today' | 'tomorrow' | 'date' | 'week' | 'flexible'; time_of_day: 'morning' | 'day' | 'evening' | null; budget_mode: 'sum' | 'negotiable';
   budget_min: number | null; budget_max: number | null; photos_count: number; responses_count: number; views_count: number; published_at: string | null; match: boolean | null;
 };
-type TaskPublicOut = TaskCardOut & { description: string | null; client: { name: string; member_since_year: number; completed_tasks: number } | null };
+export type TaskPublicOut = TaskCardOut & { description: string | null; client: { name: string; member_since_year: number; completed_tasks: number } | null };
 type ReviewOut = { id: number; author_name: string; rating: number; text: string | null; created_at: string; reply_text: string | null };
 type LatestReviewOut = ReviewOut & { master_name: string; master_headline_ru: string; master_headline_tj: string };
 
-const nm = (x: NR | null | undefined) => (x ? (uiLang() === 'tj' ? x.name_tj : x.name_ru) : '');
-const l10n = (x: NR | null | undefined): L10n => ({ ru: x?.name_ru ?? '', tj: x?.name_tj ?? '' });
-const cityKey = (x: NR | null | undefined) => ref.cityById(x?.id)?.key as RegionKey | undefined;
-const catKey = (x: NR | null | undefined) => (ref.catById(x?.id)?.key ?? 'other') as CatalogCategory;
-const YEARS = { lt1: 0, '1_3': 1, '3_10': 3, gt10: 10 } as const;
+export const nm = (x: NR | null | undefined) => (x ? (uiLang() === 'tj' ? x.name_tj : x.name_ru) : '');
+export const l10n = (x: NR | null | undefined): L10n => ({ ru: x?.name_ru ?? '', tj: x?.name_tj ?? '' });
+export const cityKey = (x: NR | null | undefined) => ref.cityById(x?.id)?.key as RegionKey | undefined;
+export const catKey = (x: NR | null | undefined) => (ref.catById(x?.id)?.key ?? 'other') as CatalogCategory;
+export const YEARS = { lt1: 0, '1_3': 1, '3_10': 3, gt10: 10 } as const;
 
 /* ---------- мастера ---------- */
 
@@ -88,8 +88,8 @@ const toReview = (r: ReviewOut): Review => {
 
 /* ---------- задания ---------- */
 
-const WHEN = { today: 0, tomorrow: 1, date: 2, week: 2, flexible: 3 } as const;
-const TOD = { morning: 0, day: 1, evening: 2 } as const;
+export const WHEN = { today: 0, tomorrow: 1, date: 2, week: 2, flexible: 3 } as const;
+export const TOD = { morning: 0, day: 1, evening: 2 } as const;
 const tasks = new Map<number, FeedTask>();
 
 function toFeedTask(k: TaskCardOut | TaskPublicOut): FeedTask {
@@ -190,6 +190,8 @@ export const remote = {
     return p.items.map(toFeedTask);
   },
   feedTaskSync: (id: number) => tasks.get(id) ?? null,
+  /** «Показать телефон» — только вошедшим и если мастер разрешил */
+  revealPhone: async (id: number) => (await http<{ phone: string }>(`/masters/${id}/phone`, { method: 'POST' })).phone.replace(/\D/g, '').slice(-9),
   async feedTask(id: number) {
     try {
       return toFeedTask(await http<TaskPublicOut>(`/tasks/${id}`));
@@ -199,3 +201,12 @@ export const remote = {
     }
   },
 };
+
+/** Краткая карточка мастера из других ответов (приглашения, отклики) — для masterSync */
+export function cacheMasterBrief(b: { id: number; name: string | null; headline_ru: string | null; headline_tj: string | null; rating_avg: number | null; reviews_count: number; completed_orders_count: number; verified: boolean; experience: keyof typeof YEARS | null }) {
+  if (masters.has(b.id)) return;
+  masters.set(b.id, {
+    id: b.id, name: b.name ?? '', profession: { ru: b.headline_ru ?? '', tj: b.headline_tj ?? '' }, category: 'other', rating: b.rating_avg ?? 0, reviews: b.reviews_count,
+    priceFrom: null, verified: b.verified, available: false, years: b.experience ? YEARS[b.experience] : 0, works: b.completed_orders_count, langs: [], areas: [], bio: '', services: [], portfolio: [],
+  });
+}

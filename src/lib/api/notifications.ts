@@ -2,10 +2,13 @@
  * Уведомления: лента событий клиента и мастера. Мок в localStorage; с бэкендом — /me/notifications + push.
  * g: 0 сегодня · 1 вчера · 2 раньше. Важное дублируется по SMS.
  */
+import { USE_API } from './flags';
+import { realNotifications } from './real/notifications';
+
 export type NotifRole = 'client' | 'master';
 export type NotifType = 'resp' | 'wait' | 'msg' | 'ok' | 'rej' | 'reply' | 'chosen' | 'task' | 'review' | 'lost' | 'approved';
 export type NotifAct = 'compare' | 'confirm' | 'chat' | 'fix' | 'respond' | 'reply' | 'done';
-export type Notif = { id: number; g: 0 | 1 | 2; type: NotifType; unread: boolean; time: L; title: L; body: L; act?: NotifAct; href?: string };
+export type Notif = { id: number; g: 0 | 1 | 2; type: NotifType; unread: boolean; time: L; title: L; body: L; act?: NotifAct; href?: string; orderId?: number };
 type L = { ru: string; tj: string };
 const w = (ru: string, tj: string): L => ({ ru, tj });
 
@@ -30,7 +33,8 @@ const KEY = 'ekor_notifications';
 type Store = Record<NotifRole, Notif[]>;
 const listeners = new Set<() => void>();
 
-export const notifications = {
+const mockNotifications = {
+  confirmOrder: (_orderId: number) => Promise.resolve(),
   read(): Store {
     try {
       const raw = localStorage.getItem(KEY);
@@ -46,16 +50,18 @@ export const notifications = {
     listeners.forEach((f) => f());
   },
   patch(role: NotifRole, id: number, p: Partial<Notif>) {
-    const s = notifications.read();
-    notifications.write({ ...s, [role]: s[role].map((n) => (n.id === id ? { ...n, ...p } : n)) });
+    const s = mockNotifications.read();
+    mockNotifications.write({ ...s, [role]: s[role].map((n) => (n.id === id ? { ...n, ...p } : n)) });
   },
   readAll(role: NotifRole) {
-    const s = notifications.read();
-    notifications.write({ ...s, [role]: s[role].map((n) => ({ ...n, unread: false })) });
+    const s = mockNotifications.read();
+    mockNotifications.write({ ...s, [role]: s[role].map((n) => ({ ...n, unread: false })) });
   },
   /** Подписка: шапка и страница обновляются вместе */
-  subscribe(f: () => void) {
+  subscribe(f: () => void): () => void {
     listeners.add(f);
-    return () => listeners.delete(f);
+    return () => void listeners.delete(f);
   },
 };
+
+export const notifications: typeof mockNotifications = USE_API ? realNotifications : mockNotifications;

@@ -17,7 +17,7 @@ export function MasterInvitesList() {
   const t = useDict(inviteDict);
   const { lang } = useLang();
   const allowed = useRequireMaster('/master/invites');
-  const { data } = useLoad(() => invites.list(), []);
+  const { data } = useLoad(() => invites.list('master'), []);
   const list = (data ?? []).slice().sort((a, b) => Number(b.status === 'sent') - Number(a.status === 'sent') || +new Date(b.createdAt) - +new Date(a.createdAt));
   if (!allowed) return <div className={s.page} />;
   return (

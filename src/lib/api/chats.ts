@@ -4,7 +4,7 @@
  */
 export type ChatRole = 'client' | 'master';
 export type ChatStatus = 'chosen' | 'work' | 'wait' | 'done';
-export type SysKey = 'chosenC' | 'chosenM' | 'markedDone' | 'confirmed' | 'started';
+export type SysKey = 'chosenC' | 'chosenM' | 'markedDone' | 'confirmed' | 'started' | 'cancelledC' | 'declinedM' | 'dispute' | 'disputeDone' | 'disputeNotDone' | 'disputePartial';
 export type Msg =
   | { id: string; f: 'sys'; k: SysKey }
   | { id: string; f: 'me' | 'them'; x?: string; photo?: string; t: string | { ru: string; tj: string }; state?: 'sending' | 'failed'; tries?: number };
@@ -22,6 +22,9 @@ export type Thread = {
   href: string;
   blocked?: boolean;
   msgs: Msg[];
+  /** Бэкенд: заказ чата (действия «Я приступил», «Подтвердить») и только чтение */
+  orderId?: number;
+  readOnly?: boolean;
 };
 
 const KEY = 'ekor_chats';

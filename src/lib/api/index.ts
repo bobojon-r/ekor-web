@@ -3,17 +3,20 @@
  * иначе моки с задержкой сети. Сигнатуры одинаковые, экраны не знают, откуда данные.
  */
 import type { L10n } from '../i18n';
-import { clientTasks } from './clientTasks';
-import { CATEGORY_TREE, DISTRICTS, FEATURED, FEED, FILTER_CATS, TASK_CATEGORIES, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
+import { addMockTask } from './clientTasks';
+import { realClientTasks } from './real/clientTasks';
+import { CATEGORY_TREE, DISTRICTS, FEATURED, FEED, FILTER_CATS, fresh, TASK_CATEGORIES, HOME_REVIEWS, HOME_TASKS, MASTERS, MASTER_REVIEWS, REGIONS } from './data';
 import { ref, uiLang } from './ref';
 import { remote } from './remote';
+import { upload } from './real/common';
+import { realAuth } from './real/auth';
 import type { CatalogCategory, CategoryNode, FeaturedCategory, FeedTask, Master, Region, RegionKey } from './types';
 
 export * from './types';
 export { invites, type Invite, type InviteStatus } from './invites';
 export { proposals, DAILY_LIMIT } from './proposals';
 export { notifications, type Notif, type NotifRole, type NotifType, type NotifAct } from './notifications';
-export { loadChats, saveChats, newMsgId, transmit, MAX_TRIES, type ChatRole, type ChatStatus, type Msg, type Thread } from './chats';
+export { loadChats, saveChats, newMsgId, transmit, MAX_TRIES, type ChatRole, type ChatStatus, type Msg, type SysKey, type Thread } from './chats';
 export { masterProfile, type MasterProfileData } from './masterProfile';
 export { masterCabinet, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus } from './masterCabinet';
 export { clientTasks, isArchived, type ClientTask, type ClientTaskStatus, type TaskResponse } from './clientTasks';
@@ -27,8 +30,13 @@ const delay = <T,>(v: T, ms = 450) => new Promise<T>((r) => setTimeout(() => r(v
 export const SMS_ENABLED = process.env.NEXT_PUBLIC_SMS_ENABLED === 'true';
 export const IS_MOCK = !SMS_ENABLED;
 export const TEST_OTP = process.env.NEXT_PUBLIC_TEST_OTP || '123456';
-export const USE_API = process.env.NEXT_PUBLIC_API === 'real';
-export { ApiError } from './http';
+export { USE_API } from './flags';
+import { USE_API } from './flags';
+export { ApiError, apiErrorText, http } from './http';
+export { realtime, type RtEvent } from './realtime';
+export { uiLang } from './ref';
+export { reasonId } from './real/common';
+export { realAuth } from './real/auth';
 
 export type TaskCat = { k: string; i: string; ru: string; tj: string; p: number | null; sr: readonly string[]; st: readonly string[]; er: readonly string[]; et: readonly string[] };
 
@@ -38,9 +46,15 @@ const OPERATORS = ['00', '01', '10', '11', '12', '20', '50', '55', '70', '77', '
 export const api = {
   auth: {
     validPhone: (p: string): 'len' | 'op' | null => (p.length < 9 ? 'len' : OPERATORS.includes(p.slice(0, 2)) ? null : 'op'),
-    sendCode: (phone: string) => delay({ phone, resendIn: 60, tries: 3 }, 700),
+    sendCode: (phone: string): Promise<{ phone: string; resendIn: number; tries: number; error?: string }> =>
+      USE_API ? realAuth.sendCode(phone) : delay({ phone, resendIn: 60, tries: 3 }, 700),
     /** ok:false — неверный код; name:null — новый пользователь, спросим имя */
-    verify: (_phone: string, code: string) => delay(code === TEST_OTP ? { ok: true as const, name: null as string | null } : { ok: false as const, name: null }, 600),
+    verify: (phone: string, code: string): Promise<{ ok: boolean; name: string | null; error?: string }> =>
+      USE_API ? realAuth.verify(phone, code) : delay(code === TEST_OTP ? { ok: true, name: null } : { ok: false, name: null }, 600),
+    /** Смена номера в настройках */
+    changePhoneSend: (phone: string): Promise<{ error?: string }> => (USE_API ? realAuth.changePhoneSend(phone) : delay({}, 700)),
+    changePhoneConfirm: (phone: string, code: string): Promise<{ ok: boolean; error?: string }> =>
+      USE_API ? realAuth.changePhoneConfirm(phone, code) : delay({ ok: code === TEST_OTP }, 600),
   },
 
   regions(): Region[] {
@@ -91,7 +105,7 @@ export const api = {
       {
         localCount: local.length,
         masters: [...local, ...online],
-        tasks: [...HOME_TASKS.filter(near), ...HOME_TASKS.filter((t) => !near(t))],
+        tasks: [...HOME_TASKS.filter(near), ...HOME_TASKS.filter((t) => !near(t))].map(fresh),
         reviews: [...HOME_REVIEWS.filter(near), ...HOME_REVIEWS.filter((r) => !near(r))].slice(0, 3),
       },
       700,
@@ -100,15 +114,16 @@ export const api = {
 
   /** Лента открытых заданий для мастеров */
   feed: (q: FeedQuery) => (USE_API ? remote.feed(q) : delay(filterFeed(q))),
-  feedTask: (id: number) => (USE_API ? remote.feedTask(id) : delay(FEED.find((k) => k.id === id) ?? null, 300)),
-  feedTaskSync: (id: number): FeedTask | null => (USE_API ? remote.feedTaskSync(id) : (FEED.find((k) => k.id === id) ?? null)),
+  feedTask: (id: number) => (USE_API ? remote.feedTask(id) : delay(mockTask(id), 300)),
+  feedTaskSync: (id: number): FeedTask | null => (USE_API ? remote.feedTaskSync(id) : mockTask(id)),
 
   tasks: {
     /** Создание → статус «На проверке» (модерация до 30 мин) */
     /** Создание → статус «На проверке» (модерация до 30 мин); задание появляется в кабинете */
-    create: (d: { title: string; cat: string | null; region: RegionKey; district: string | null; bmode: 'sum' | 'neg'; bmin: string; bmax: string; when: number | null }) => {
+    create: (d: Parameters<typeof realClientTasks.create>[0], files: Blob[] = []) => {
+      if (USE_API) return realClientTasks.create(d, files);
       const budget = d.bmode === 'neg' ? null : d.bmin && d.bmax ? `${d.bmin}–${d.bmax}` : d.bmin ? `от ${d.bmin}` : d.bmax ? `до ${d.bmax}` : null;
-      const task = clientTasks.add({ title: d.title, category: (d.cat ?? 'other') as CatalogCategory, region: d.region, district: d.district ?? '', budget, when: d.when ?? 3 });
+      const task = addMockTask({ title: d.title, category: (d.cat ?? 'other') as CatalogCategory, region: d.region, district: d.district ?? '', budget, when: d.when ?? 3 });
       return delay(task, 700);
     },
   },
@@ -119,6 +134,8 @@ export const api = {
   },
 
   /** Короткая карточка мастера без задержки — для подписей в списках (с бэкендом — из уже загруженных) */
+  revealPhone: (id: number): Promise<string> => (USE_API ? remote.revealPhone(id) : delay(MASTERS.find((x) => x.id === id)?.phone ?? '', 300)),
+
   masterSync: (id: number): Master | null => (USE_API ? remote.masterSync(id) : (MASTERS.find((x) => x.id === id) ?? null)),
 
   async master(id: number) {
@@ -168,10 +185,20 @@ function filterMasters(f: MastersQuery): Master[] {
 
 export type FeedQuery = { region: RegionKey; online?: boolean; category?: CatalogCategory | null; sort?: 'new' | 'few' | 'high' };
 
+const mockTask = (id: number) => {
+  const k = FEED.find((x) => x.id === id);
+  return k ? fresh(k) : null;
+};
+
 function filterFeed(q: FeedQuery): FeedTask[] {
-  const list = FEED.filter((k) => (q.online ? k.online : k.region === q.region || k.online) && (!q.category || k.category === q.category));
+  const list = FEED.map(fresh).filter((k) => (q.online ? k.online : k.region === q.region || k.online) && (!q.category || k.category === q.category));
   if (!q.sort || q.sort === 'new') list.sort((a, b) => Number(!!a.online) - Number(!!b.online) || +new Date(b.createdAt) - +new Date(a.createdAt));
   if (q.sort === 'few') list.sort((a, b) => a.responses - b.responses);
   if (q.sort === 'high') list.sort((a, b) => (b.bmax || b.bmin || 0) - (a.bmax || a.bmin || 0));
   return list;
+}
+
+/** Загрузка фото (портфолио, задание, чат): с бэкендом — POST /uploads, в моках — имитация */
+export function uploadPhoto(kind: Parameters<typeof upload>[0], file: Blob): Promise<{ id: number; url: string }> {
+  return USE_API ? upload(kind, file) : delay({ id: Date.now() + Math.round(Math.random() * 1000), url: '' }, 900);
 }

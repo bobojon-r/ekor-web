@@ -5,13 +5,15 @@ import Link from 'next/link';
 import {
   BookOpen, Check, ChevronDown, ClipboardList, Flag, History, KeyRound, LayoutDashboard, Monitor, ShieldCheck, SlidersHorizontal, Star, TriangleAlert, Users, X, type LucideIcon,
 } from 'lucide-react';
+import { apiErrorText, USE_API } from '@/lib/api';
 import { useToast } from '@/components/ui';
 import { REASONS, SEC, SEED, STRUCT } from './data';
+import { loadAdmin, moderate, resolveDispute, type AdminData } from './realAdmin';
 import s from './Admin.module.css';
 
 type Item = (typeof SEED.queue)[number];
 type Audit = { t: string; who: string; act: string; obj: string; fresh?: boolean };
-type Store = { queue: Item[]; audit: Audit[]; disp: { open: boolean; result: string } };
+type Store = { queue: Item[]; audit: Audit[]; disp: { open: boolean; result: string } } & Partial<Omit<AdminData, 'queue' | 'audit' | 'disp'>>;
 
 const ICONS: Record<string, LucideIcon> = { LayoutDashboard, ShieldCheck, Users, ClipboardList, Star, Flag, BookOpen, KeyRound, SlidersHorizontal, History };
 const KEY = 'ekor_admin';
@@ -66,14 +68,34 @@ export function AdminPanel() {
   const [dComment, setDComment] = useState('');
   const [dErr, setDErr] = useState(false);
 
+  const [denied, setDenied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const reload = () =>
+    loadAdmin().then(setSt, (e) => {
+      if (e?.status === 401 || e?.status === 403) setDenied(true);
+      else toast(apiErrorText(e, 'ru'));
+    });
   useEffect(() => {
+    if (USE_API) return void reload();
     try {
       const raw = localStorage.getItem(KEY);
       setSt(raw ? JSON.parse(raw) : fresh());
     } catch {
       setSt(fresh());
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (denied)
+    return (
+      <div className={s.page}>
+        <div className={s.empty} style={{ maxWidth: 480, margin: '15vh auto' }}>
+          <span className={s.emptyT}>Нет доступа к админ-панели</span>
+          <span className={s.muted14}>Войдите под номером сотрудника — модератора или администратора.</span>
+          <Link href="/login?next=/admin" className={s.primary}>
+            Войти
+          </Link>
+        </div>
+      </div>
+    );
   if (!st) return <div className={s.page} />;
 
   const save = (next: Store) => {
@@ -87,11 +109,24 @@ export function AdminPanel() {
   const inTab = st.queue.filter((q) => q.type === modTab).sort((a, b) => b.age - a.age);
   const item = inTab.find((q) => q.id === selId) ?? inTab[0];
   const r = REASONS.find((x) => x[0] === reason);
-  const counts: Record<string, number> = { mod: st.queue.length, disp: st.disp.open ? 1 : 0 };
+  const counts: Record<string, number> = { mod: st.queue.length, disp: st.disputesOpen ?? (st.disp.open ? 1 : 0) };
   const secRow = SEC.find((x) => x[0] === sec)!;
 
-  const resolve = (ok: boolean) => {
-    if (!item) return;
+  const resolve = async (ok: boolean) => {
+    if (!item || busy) return;
+    if (USE_API) {
+      setBusy(true);
+      try {
+        await moderate(item.id, ok, reason ?? undefined, comment.trim());
+        resetSel();
+        setSelId(null);
+        toast(ok ? `Одобрено: «${item.title}»` : 'Отклонено. Автор получил уведомление с причиной');
+        await reload();
+      } catch (e) {
+        toast(apiErrorText(e, 'ru'));
+      }
+      return setBusy(false);
+    }
     const kind = item.type === 'task' ? 'задание' : 'профиль';
     const queue = st.queue.filter((q) => q.id !== item.id);
     const next = queue.filter((q) => q.type === modTab).sort((a, b) => b.age - a.age)[0];
@@ -120,6 +155,20 @@ export function AdminPanel() {
       setDec(null);
       setDComment('');
       return toast('Вопрос отправлен обеим сторонам');
+    }
+    if (USE_API && st.dispute) {
+      setBusy(true);
+      resolveDispute(st.dispute.id, dec as 'client' | 'master', dComment.trim()).then(
+        async () => {
+          setDec(null);
+          setDComment('');
+          toast('Спор закрыт. Стороны получили решение');
+          await reload();
+          setBusy(false);
+        },
+        (e) => (setBusy(false), toast(apiErrorText(e, 'ru'))),
+      );
+      return;
     }
     save({ ...st, disp: { open: false, result: d[1].toLowerCase() }, audit: [{ t: now(), who: ME, act: 'Закрыла спор', obj: `#A-2041 «Плитка в ванной» · Спор → ${d[1]}`, fresh: true }, ...st.audit] });
     toast('Спор закрыт. Стороны получили решение');
@@ -190,7 +239,7 @@ export function AdminPanel() {
               <div className={s.card}>
                 <span className={s.cardT}>Воронка: задание → отклик → выбор → завершение</span>
                 <div className={s.funnel}>
-                  {FUNNEL.map(([label, n, w, conv]) => (
+                  {(st.funnel ?? FUNNEL).map(([label, n, w, conv]) => (
                     <div key={label} className={s.fStep}>
                       <span className={s.muted14}>{label}</span>
                       <span className={s.fNum}>{n}</span>
@@ -211,7 +260,7 @@ export function AdminPanel() {
                     <span>Завершено</span>
                     <span>Без откликов 24 ч</span>
                   </div>
-                  {REGIONS.map(([c, a, b, d, e]) => (
+                  {(st.regions ?? REGIONS).map(([c, a, b, d, e]) => (
                     <div key={c} className={s.tRow} style={{ gridTemplateColumns: '1.4fr repeat(4,1fr)' }}>
                       <b>{c}</b>
                       <span>{a}</span>
@@ -223,7 +272,7 @@ export function AdminPanel() {
                 </div>
                 <div className={s.ops}>
                   {[
-                    ['Медиана модерации задания', '14 мин', 'SLA 30 мин', 'var(--success-700)'],
+                    ['Медиана модерации задания', st.funnel ? (st.medianMod != null ? `${Math.round(st.medianMod)} мин` : '—') : '14 мин', 'SLA 30 мин', 'var(--success-700)'],
                     ['В очереди сейчас', String(st.queue.length), st.queue.length ? `старейшее — ${ageTxt(Math.max(...st.queue.map((q) => q.age)))}` : 'пусто', 'var(--warn-800)'],
                     ['Открытых споров', String(counts.disp), counts.disp ? 'SLA: 1 рабочий день' : 'нет', 'var(--ink-500)'],
                   ].map(([k, v, note, fg]) => (
@@ -366,29 +415,29 @@ export function AdminPanel() {
                 <div className={s.detail}>
                   <div className={s.dMeta}>
                     <span className={s.badgeRed}>Спор</span>
-                    <span className={s.muted13}>#A-2041 · открыт 21 окт, 19:10 · SLA: ответ до 22 окт, 19:10</span>
+                    <span className={s.muted13}>{st.dispute?.head ?? '#A-2041 · открыт 21 окт, 19:10 · SLA: ответ до 22 окт, 19:10'}</span>
                   </div>
-                  <h2 className={s.dTitle}>Плитка в ванной, 6 м² · 330 смн</h2>
+                  <h2 className={s.dTitle}>{st.dispute?.title ?? 'Плитка в ванной, 6 м² · 330 смн'}</h2>
                   <div className={s.parties}>
                     <div className={s.fact}>
                       <span className={s.muted12}>Клиент · заявитель</span>
-                      <b>Мадина Рахимова</b>
-                      <span className={s.muted13}>+992 90 771 22 13 · 4 заказа</span>
+                      <b>{st.dispute?.client ?? 'Мадина Рахимова'}</b>
+                      {!st.dispute && <span className={s.muted13}>+992 90 771 22 13 · 4 заказа</span>}
                     </div>
                     <div className={s.fact}>
                       <span className={s.muted12}>Мастер</span>
-                      <b>Шерзод Каримов</b>
-                      <span className={s.muted13}>★ 4,7 · 23 отзыва · споров: 0</span>
+                      <b>{st.dispute?.master ?? 'Шерзод Каримов'}</b>
+                      {!st.dispute && <span className={s.muted13}>★ 4,7 · 23 отзыва · споров: 0</span>}
                     </div>
                   </div>
                   <div className={s.claim}>
-                    <span className={s.claimT}>Причина: Сделано плохо или не полностью</span>
-                    <span>«Затирка осталась только на стене, пол не затёрт. Мастер отметил работу выполненной и не отвечает.»</span>
+                    <span className={s.claimT}>Причина: {st.dispute?.reason ?? 'Сделано плохо или не полностью'}</span>
+                    <span>«{st.dispute ? st.dispute.text : 'Затирка осталась только на стене, пол не затёрт. Мастер отметил работу выполненной и не отвечает.'}»</span>
                   </div>
                   <div className={s.textBlock}>
                     <span className={s.label}>Переписка по заказу · доступ записан в лог</span>
                     <div className={s.transcript}>
-                      {TRANSCRIPT.map(([t, who, x]) => (
+                      {(st.dispute?.transcript ?? TRANSCRIPT).map(([t, who, x]) => (
                         <div key={t + x} className={s.tLine}>
                           <span className={s.tTime}>{t}</span>
                           <span>
@@ -423,7 +472,7 @@ export function AdminPanel() {
             ) : (
               <div className={s.empty} style={{ maxWidth: 560, textAlign: 'left', alignItems: 'flex-start' }}>
                 <span className={s.emptyT}>Открытых споров нет</span>
-                <span className={s.muted14}>Спор #A-2041 закрыт: {st.disp.result}. Запись — в аудит-логе.</span>
+                <span className={s.muted14}>{st.disp.result ? `Спор #A-2041 закрыт: ${st.disp.result}. Запись — в аудит-логе.` : 'Новые споры появятся здесь автоматически.'}</span>
               </div>
             ))}
 

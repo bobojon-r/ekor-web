@@ -4,7 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BadgeCheck, ChevronLeft, Flag, Info, Languages, MapPin, Phone, Share2, ShieldCheck, Star, UserSearch } from 'lucide-react';
-import { api, type Master, type Review } from '@/lib/api';
+import { api, apiErrorText, type Master, type Review } from '@/lib/api';
+import { useSession } from '@/lib/session/SessionProvider';
 import { countReviews, initials, money, phoneMask, rating, useDict, useLang, type Lang } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useLoad } from '@/lib/hooks/useLoad';
@@ -31,7 +32,9 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
   const router = useRouter();
   const toast = useToast();
   const { data, loading, showSkeleton } = useLoad(() => api.master(id), [id]);
-  const [phoneShown, setPhoneShown] = useState(false);
+  const [phone, setPhone] = useState<string | null>(null);
+  const phoneShown = !!phone;
+  const { user } = useSession();
   const [invite, setInvite] = useState(inviteOpen);
   const closeInvite = () => {
     setInvite(false);
@@ -65,10 +68,19 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
   const langs = m ? m.langs.map((l) => t.lg[l]).join(', ') : '';
   const areas = m ? (m.online ? [c.onlineAll] : m.areas) : [];
   const place = m ? (m.online ? c.onlineAll : `${m.district}, ${api.region(m.region!).name[lang]}`) : '';
-  const phoneBtn = m?.phone && (
-    <button type="button" className={s.phoneBtn} onClick={() => setPhoneShown(true)}>
+  const revealPhone = async () => {
+    if (!m || phone) return;
+    if (!user) return router.push(`/login?next=/masters/${m.id}`);
+    try {
+      setPhone(await api.revealPhone(m.id));
+    } catch (e) {
+      toast(apiErrorText(e, lang));
+    }
+  };
+  const phoneBtn = (m?.phone || m?.hasPhone) && (
+    <button type="button" className={s.phoneBtn} onClick={revealPhone}>
       <Phone size={18} color="var(--brand-600)" aria-hidden />
-      {phoneShown ? <a href={`tel:+992${m.phone}`}>+992 {phoneMask(m.phone)}</a> : t.showPhone}
+      {phone ? <a href={`tel:+992${phone}`}>+992 {phoneMask(phone)}</a> : t.showPhone}
     </button>
   );
 

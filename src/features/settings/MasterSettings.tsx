@@ -4,14 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, CircleHelp, Eye, FileText, Globe, Lock, LogOut, MapPin, Pause, Phone, Plus, Repeat, ShieldCheck, Wrench, X } from 'lucide-react';
-import { api, masterProfile, type MasterProfileData } from '@/lib/api';
+import { api, apiErrorText, masterProfile, type MasterProfileData } from '@/lib/api';
 import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
 import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { SideNav, SiteHeader, TabBar } from '@/components/layout';
 import { Button, ConfirmSheet, OtpInput, PhoneField, Segmented, Sheet, Switch, TestCodeNotice, useToast } from '@/components/ui';
 import { masterSideItems } from '@/features/master/MasterCabinet';
 import { masterDict } from '@/features/master/i18n';
-import { PROFS } from '@/features/onboarding/i18n';
+import { profs } from '@/features/onboarding/i18n';
 import { ALL_AREAS, phoneDict, settingsDict } from './i18n';
 import s from './Settings.module.css';
 
@@ -34,21 +34,24 @@ export function MasterSettings() {
   const leaving = useRef(false);
 
   useEffect(() => {
-    setP(masterProfile.get() ?? DEFAULT);
+    masterProfile.load().then((v) => setP(v ?? DEFAULT), () => setP(DEFAULT));
   }, []);
   const allowed = useRequireMaster('/master/settings');
   if (!p || (!allowed && !leaving.current)) return <div className={s.page} />;
 
   /** Переключатель — мгновенное действие с сохранением */
   const patch = (x: Partial<MasterProfileData>, msg: string = t.saved) => {
-    // профиля ещё нет (демо-мастер) — сохраняем на основе демо-данных
-    const v = masterProfile.patch(x) ?? (masterProfile.save({ ...p, ...x }), { ...p, ...x });
-    setP(v);
-    toast(msg);
+    // Оптимистично: переключатель меняется сразу, при ошибке — откат
+    const prev = p;
+    setP({ ...p, ...x });
+    masterProfile.patchAsync(p, x).then(
+      (v) => (setP(v), toast(msg)),
+      (e) => (setP(prev), toast(apiErrorText(e, lang))),
+    );
   };
   const accepting = p.accepting !== false;
   const pName = (id: string) => {
-    const f = PROFS.find((x) => x[0] === id);
+    const f = profs().find((x) => x[0] === id);
     return f ? f[lang === 'tj' ? 2 : 1] : id;
   };
   const removeArea = (a: string) => {
@@ -393,13 +396,14 @@ export function PhoneChange({ open, current, onClose, onDone }: { open: boolean;
       if (num.length < 9) return setErr('num');
       if (num === current) return setErr('same');
       setBusy(true);
-      await api.auth.sendCode(num);
+      const s = await api.auth.changePhoneSend(num);
       setBusy(false);
+      if (s.error) return toast(s.error);
       setErr(null);
       return setStep('code');
     }
     setBusy(true);
-    const r = await api.auth.verify(num, code);
+    const r = await api.auth.changePhoneConfirm(num, code);
     setBusy(false);
     if (!r.ok) {
       setCode('');

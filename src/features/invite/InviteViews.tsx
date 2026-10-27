@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Check, CircleCheck, Clock, Info, Lock, LockOpen, Mail, MessageCircle, X } from 'lucide-react';
-import { api, invites, type Invite, type InviteStatus } from '@/lib/api';
+import { api, apiErrorText, invites, type Invite, type InviteStatus } from '@/lib/api';
 import { ago, initials, money, phoneMask, useDict, useLang, type Lang } from '@/lib/i18n';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { AppBar, SideNav, SiteHeader, type SideItem } from '@/components/layout';
@@ -90,18 +90,20 @@ export function MasterInviteView({ id }: { id: number }) {
     if (!inspect && !(+price > 0)) return setErr('price');
     if (msg.trim().length < 20) return setErr('msg');
     setBusy(true);
-    const r = await invites.accept(id, { price: inspect ? null : +price, when, msg: msg.trim() });
+    const r = await invites.accept(id, { price: inspect ? null : +price, when, msg: msg.trim() }).catch((e: unknown) => (toast(apiErrorText(e, lang)), null));
     setBusy(false);
-    if (r) set(r);
+    if (!r) return;
+    set(r);
     setMode(null);
     toast(t.tAccepted);
   };
   const decline = async () => {
     if (reason === null) return setDeclErr(true);
     setBusy(true);
-    const r = await invites.decline(id, reason);
+    const r = await invites.decline(id, reason).catch((e: unknown) => (toast(apiErrorText(e, lang)), null));
     setBusy(false);
-    if (r) set(r);
+    if (!r) return;
+    set(r);
     setMode(null);
     toast(t.tDeclined);
   };
@@ -335,9 +337,10 @@ export function ClientInviteView({ id }: { id: number }) {
 
   const run = async (k: 'confirm' | 'public' | 'cancel', msg: string) => {
     setBusy(k);
-    const r = await (k === 'confirm' ? invites.confirm(id) : k === 'public' ? invites.makePublic(id) : invites.cancel(id));
+    const r = await (k === 'confirm' ? invites.confirm(id) : k === 'public' ? invites.makePublic(id) : invites.cancel(id)).catch((e: unknown) => (toast(apiErrorText(e, lang)), null));
     setBusy(null);
-    if (r) set(r);
+    if (!r) return;
+    set(r);
     toast(msg);
   };
 

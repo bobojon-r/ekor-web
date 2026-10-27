@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Clock, Hourglass, Lock, PencilLine, TrendingUp, UserPlus } from 'lucide-react';
-import { api, clientTasks, type ClientTask } from '@/lib/api';
+import { api, apiErrorText, clientTasks, type ClientTask } from '@/lib/api';
 import { num, useDict, useLang } from '@/lib/i18n';
 import { useSession } from '@/lib/session/SessionProvider';
 import { SiteHeader } from '@/components/layout';
@@ -101,8 +101,9 @@ export function ManageTask({ id }: { id: number }) {
     setTried(true);
     if (titleBad || descBad) return;
     setBusy(true);
-    const list = await clientTasks.update(k.id, { title: f.title.trim(), desc: f.desc.trim(), budgetMax: f.neg || !f.budget ? null : +f.budget, when: f.when });
+    const list = await clientTasks.update(k.id, { title: f.title.trim(), desc: f.desc.trim(), budgetMax: f.neg || !f.budget ? null : +f.budget, when: f.when }).catch((e: unknown) => (toast(apiErrorText(e, lang)), null));
     setBusy(false);
+    if (!list) return;
     setTask(list.find((x) => x.id === k.id) ?? null);
     setMode('view');
     toast(reReview ? t.tReview : t.tSaved);
@@ -110,16 +111,18 @@ export function ManageTask({ id }: { id: number }) {
   const doCancel = async () => {
     if (reason === null) return setReasonErr(true);
     setBusy(true);
-    const list = await clientTasks.cancelTask(k.id, reason);
+    const list = await clientTasks.cancelTask(k.id, reason).catch((e: unknown) => (toast(apiErrorText(e, lang)), null));
     setBusy(false);
+    if (!list) return;
     setTask(list.find((x) => x.id === k.id) ?? null);
     setCancelOpen(false);
     toast(t.tCancelled);
   };
   const republish = async () => {
     setBusy(true);
-    const list = await clientTasks.republish(k.id);
+    const list = await clientTasks.republish(k.id).catch((e: unknown) => (toast(apiErrorText(e, lang)), null));
     setBusy(false);
+    if (!list) return;
     setTask(list.find((x) => x.id === k.id) ?? null);
     toast(t.tRepub);
   };

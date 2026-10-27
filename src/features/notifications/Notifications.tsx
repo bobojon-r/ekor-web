@@ -7,7 +7,7 @@ import {
   BadgeCheck, Bell, BellOff, Check, ChevronLeft, CircleAlert, CircleCheck, CircleMinus, ClipboardCheck, ClipboardList, MessageCircle, MessageSquare,
   MessageSquareText, PartyPopper, Reply, Settings, Star, type LucideIcon,
 } from 'lucide-react';
-import { notifications, type Notif, type NotifRole, type NotifType } from '@/lib/api';
+import { apiErrorText, notifications, type Notif, type NotifRole, type NotifType } from '@/lib/api';
 import { useDict, useLang } from '@/lib/i18n';
 import { useSession } from '@/lib/session/SessionProvider';
 import { SiteHeader, TabBar } from '@/components/layout';
@@ -31,8 +31,8 @@ export function useNotifs() {
   const [list, setList] = useState<Notif[] | null>(null);
   useEffect(() => {
     const load = () => setList(notifications.read()[role]);
-    load();
     const off = notifications.subscribe(load);
+    load();
     return () => {
       off();
     };
@@ -42,17 +42,25 @@ export function useNotifs() {
 
 function useAct(role: NotifRole) {
   const t = useDict(notifDict);
+  const { lang } = useLang();
   const router = useRouter();
   const toast = useToast();
   return (n: Notif, e: MouseEvent) => {
     e.stopPropagation();
     if (n.act === 'done') return;
     if (n.act === 'confirm') {
+      if (n.orderId) {
+        notifications.confirmOrder(n.orderId).then(
+          () => (notifications.patch(role, n.id, { act: 'done', unread: false }), toast(t.tConfirmed)),
+          (err) => toast(apiErrorText(err, lang)),
+        );
+        return;
+      }
       notifications.patch(role, n.id, { act: 'done', unread: false });
       return toast(t.tConfirmed);
     }
     notifications.patch(role, n.id, { unread: false });
-    const href = n.act === 'fix' ? FIX_HREF : n.href;
+    const href = n.act === 'fix' && !n.href ? FIX_HREF : n.href;
     if (href) router.push(href);
   };
 }

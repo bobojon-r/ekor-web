@@ -7,7 +7,7 @@ import {
   Bell, Bell as BellIco, CalendarDays, ChevronLeft, CircleAlert, CircleArrowRight, CircleCheckBig, Clock, EllipsisVertical, Hourglass, Info, LockOpen, Mail,
   MapPin, MessageCircle, MessagesSquare, Phone, Plus, Send, Settings, ShieldAlert, ShieldCheck, Star, Users, Wallet, ClipboardList,
 } from 'lucide-react';
-import { api, clientTasks, isArchived, type ClientTask, type ClientTaskStatus, type TaskResponse } from '@/lib/api';
+import { api, apiErrorText, clientTasks, isArchived, USE_API, type ClientTask, type ClientTaskStatus, type TaskResponse } from '@/lib/api';
 import { countResponses, initials, num, phoneMask, rating as fmtRating, useDict, useLang, type Lang } from '@/lib/i18n';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { useSession } from '@/lib/session/SessionProvider';
@@ -57,7 +57,7 @@ export function ClientCabinet({ selectedId }: { selectedId?: number }) {
   const [tab, setTab] = useState<'active' | 'archive'>('active');
   const [list, setList] = useState<ClientTask[] | null>(null);
   const [modal, setModal] = useState<Modal>(null);
-  const load = useLoad(() => clientTasks.list(), []);
+  const load = useLoad(() => clientTasks.list(), [user?.id], !!user);
 
   useEffect(() => {
     if (load.data) setList(load.data);
@@ -72,29 +72,39 @@ export function ClientCabinet({ selectedId }: { selectedId?: number }) {
   const sel = tasks.find((k) => k.id === deskSel) ?? null;
 
   const apply = (next: ClientTask[]) => setList(next);
+  /** Ошибка API — тост, кнопки не зависают */
+  const guard =
+    <A extends unknown[]>(f: (...a: A) => Promise<void>) =>
+    async (...a: A) => {
+      try {
+        await f(...a);
+      } catch (e) {
+        toast(apiErrorText(e, lang));
+      }
+    };
   const act = {
-    seen: async (id: number) => apply(await clientTasks.markSeen(id)),
-    choose: async (id: number, respId: string) => {
+    seen: guard(async (id: number) => apply(await clientTasks.markSeen(id))),
+    choose: guard(async (id: number, respId: string) => {
       const name = tasks.find((k) => k.id === id)?.responses?.find((r) => r.id === respId)?.name ?? '';
       apply(await clientTasks.choose(id, respId));
       toast(t.tChosen(name));
-    },
-    cancel: async (id: number, reason: number, note: string) => {
+    }),
+    cancel: guard(async (id: number, reason: number, note: string) => {
       apply(await clientTasks.cancelChoice(id, reason, note));
       toast(t.tCancel);
-    },
-    problem: async (id: number, reason: number, note: string) => {
+    }),
+    problem: guard(async (id: number, reason: number, note: string) => {
       apply(await clientTasks.problem(id, reason, note));
       toast(t.tDispute);
-    },
-    demoDone: async (id: number) => apply(await clientTasks.demoMasterDone(id)),
-    confirm: async (id: number) => apply(await clientTasks.confirmDone(id)),
-    review: async (id: number, stars: number, text: string) => {
+    }),
+    demoDone: guard(async (id: number) => apply(await clientTasks.demoMasterDone(id))),
+    confirm: guard(async (id: number) => apply(await clientTasks.confirmDone(id))),
+    review: guard(async (id: number, stars: number, text: string) => {
       const d = new Date();
       const month = (lang === 'tj' ? ['январ', 'феврал', 'март', 'апрел', 'май', 'июн', 'июл', 'август', 'сентябр', 'октябр', 'ноябр', 'декабр'] : ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'])[d.getMonth()];
       apply(await clientTasks.review(id, stars, text, `${month} ${d.getFullYear()}`));
       toast(t.tSent);
-    },
+    }),
   };
 
   const listView = (desktop: boolean) => (
@@ -470,7 +480,7 @@ function TaskDetail({ k, wide, t, lang, act, openModal }: { k: ClientTask; wide:
                 )}
               </div>
               <div className={s.masterBtns}>
-                <Link href="/chats" className={s.chatBtn}>
+                <Link href={k.chatId ? `/chats/${k.chatId}` : '/chats'} className={s.chatBtn}>
                   <MessageCircle size={18} aria-hidden />
                   {t.chat}
                   {!!k.unread && <span className={s.chatCount}>{k.unread}</span>}
@@ -487,9 +497,11 @@ function TaskDetail({ k, wide, t, lang, act, openModal }: { k: ClientTask; wide:
               <button type="button" className={s.cancelLink} onClick={() => openModal({ type: 'cancel', taskId: k.id })}>
                 {t.cancelChoice}
               </button>
-              <button type="button" className={s.demoBtn} onClick={() => act.demoDone(k.id)}>
-                {t.demoDone}
-              </button>
+              {!USE_API && (
+                <button type="button" className={s.demoBtn} onClick={() => act.demoDone(k.id)}>
+                  {t.demoDone}
+                </button>
+              )}
             </div>
           )}
         </div>

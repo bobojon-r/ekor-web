@@ -19,7 +19,7 @@ import s from './Tasks.module.css';
 
 type T = (typeof feedDict)['ru'];
 type Sort = NonNullable<FeedQuery['sort']>;
-type Store = ReturnType<typeof proposals.state>;
+type Store = Awaited<ReturnType<typeof proposals.load>>;
 
 export function budgetText(k: FeedTask, t: T, lang: Lang) {
   const cur = 'смн';
@@ -47,7 +47,9 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
   const [store, setStore] = useState<Store>({ used: 0, sent: {} });
   const [sheet, setSheet] = useState(false);
 
-  useEffect(() => setStore(proposals.state()), []);
+  useEffect(() => {
+    if (isMaster) proposals.load().then(setStore, () => {});
+  }, [isMaster]);
 
   const query: FeedQuery = { region, online, category: cat, sort };
   const { data, loading, showSkeleton, phase, retry } = useLoad(() => api.feed(query), [JSON.stringify(query)], regionReady);
@@ -533,7 +535,8 @@ function ProposalPanel({
       </div>
     );
 
-  const limitOver = store.used >= DAILY_LIMIT && !sent;
+  const limit = store.limit ?? DAILY_LIMIT;
+  const limitOver = store.used >= limit && !sent;
   const submit = async () => {
     if (busy) return;
     const e: typeof err = {};
@@ -550,7 +553,7 @@ function ProposalPanel({
 
   return (
     <div className={s.form}>
-      <div className={s.limit}>{limitOver ? t.limitOver : t.limit(store.used, DAILY_LIMIT)}</div>
+      <div className={s.limit}>{limitOver ? t.limitOver : t.limit(store.used, limit)}</div>
       <div className={s.field}>
         <span className={s.label}>{t.price}</span>
         <label className={[s.priceBox, inspect && s.priceOff, err.price && s.invalid].filter(Boolean).join(' ')}>

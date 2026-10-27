@@ -2,10 +2,13 @@
  * Кабинет мастера: заказы, отклики, отзывы. Мок в localStorage; с бэкендом — /me/master/*.
  * Адрес и телефон клиента приходят только для заказов «Вас выбрали» и «В работе».
  */
+import { USE_API } from './flags';
+import { realMasterCabinet } from './real/master';
+
 export type OrderStatus = 'chosen' | 'work' | 'wait' | 'done' | 'cancelled';
 export type PropStatus = 'sent' | 'viewed' | 'rejected' | 'withdrawn';
 
-export type MasterOrder = { id: number; title: string; client: string; district: string; when: { ru: string; tj: string }; price: number; status: OrderStatus; contacts?: { address: string; phone: string } };
+export type MasterOrder = { id: number; title: string; client: string; district: string; when: { ru: string; tj: string }; price: number; status: OrderStatus; contacts?: { address: string; phone: string }; chatId?: number };
 export type MasterProp = { id: number; taskId?: number; title: string; district: string; when: { ru: string; tj: string }; price: number | null; msg: string; status: PropStatus; ago: { ru: string; tj: string }; responses: number; edited?: boolean };
 export type MasterReview = { id: number; name: string; stars: number; text: string; date: string; task: string; reply: string | null };
 type Store = { orders: MasterOrder[]; props: MasterProp[]; reviews: MasterReview[] };
@@ -53,8 +56,9 @@ function mutate(fn: (s: Store) => Store) {
 }
 const upd = <K extends 'orders' | 'props' | 'reviews'>(s: Store, k: K, id: number, p: Partial<Store[K][number]>): Store => ({ ...s, [k]: (s[k] as { id: number }[]).map((x) => (x.id === id ? { ...x, ...p } : x)) });
 
-export const masterCabinet = {
+const mockMasterCabinet = {
   load: () => delay(read(), 450),
+  remind: (_id: number) => delay(read(), 300),
   start: (id: number) => mutate((s) => upd(s, 'orders', id, { status: 'work' })),
   /** «Работа выполнена» → клиент подтверждает; контакты скрываются из списка активных */
   done: (id: number) => mutate((s) => upd(s, 'orders', id, { status: 'wait', contacts: undefined })),
@@ -63,3 +67,5 @@ export const masterCabinet = {
   withdraw: (id: number) => mutate((s) => upd(s, 'props', id, { status: 'withdrawn' })),
   reply: (id: number, text: string) => mutate((s) => upd(s, 'reviews', id, { reply: text })),
 };
+
+export const masterCabinet: typeof mockMasterCabinet = USE_API ? realMasterCabinet : mockMasterCabinet;

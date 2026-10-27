@@ -4,11 +4,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BadgeCheck, Check, ChevronLeft, Clock, Globe, HandCoins, Hourglass, Info, ListChecks, MapPin, Search, Star, Wrench } from 'lucide-react';
-import { masterProfile } from '@/lib/api';
+import { apiErrorText, masterProfile, USE_API } from '@/lib/api';
 import { initials, num, useDict, useLang } from '@/lib/i18n';
 import { useSession } from '@/lib/session/SessionProvider';
 import { Button, ButtonLink, LangSwitch, Switch, useToast } from '@/components/ui';
-import { CITY, PROFS, onboardDict } from './i18n';
+import { cities, profs, onboardDict } from './i18n';
 import s from './Onboard.module.css';
 
 type T = (typeof onboardDict)['ru'];
@@ -33,12 +33,26 @@ export function BecomeMaster() {
 
   // Черновик сохраняется автоматически; если профиль уже отправлен — сразу экран статуса
   useEffect(() => {
-    const prof = masterProfile.get();
-    if (prof) {
-      setStep(5);
-      setApproved(prof.status === 'approved');
-      return;
-    }
+    if (!ready) return;
+    if (!user) return restoreDraft();
+    let live = true;
+    masterProfile.load().then(
+      (prof) => {
+        if (!live) return;
+        if (prof) {
+          setStep(5);
+          setApproved(prof.status === 'approved');
+          return;
+        }
+        restoreDraft();
+      },
+      () => live && restoreDraft(),
+    );
+    return () => {
+      live = false;
+    };
+  }, [ready, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const restoreDraft = () => {
     try {
       const raw = localStorage.getItem(DRAFT);
       if (raw) {
@@ -47,7 +61,7 @@ export function BecomeMaster() {
         setStep(d.step);
       }
     } catch {}
-  }, []);
+  };
   useEffect(() => {
     if (step >= 1 && step <= 4)
       try {
@@ -60,7 +74,7 @@ export function BecomeMaster() {
     if (clear) setErr((e) => ({ ...e, [clear]: false }));
   };
   const pName = (id: string) => {
-    const p = PROFS.find((x) => x[0] === id);
+    const p = profs().find((x) => x[0] === id);
     return p ? p[lang === 'tj' ? 2 : 1] : id;
   };
   const priceOf = (id: string) => (f.neg[id] ? t.neg : +f.prices[id] > 0 ? `${t.from} ${num(+f.prices[id])} смн` : '—');
@@ -93,7 +107,8 @@ export function BecomeMaster() {
     if (Object.keys(e).length) return;
     if (step === 4) {
       setSending(true);
-      await masterProfile.submit({
+      try {
+        await masterProfile.submit({
         profs: f.profs,
         city: f.city,
         areas: f.areas,
@@ -102,7 +117,11 @@ export function BecomeMaster() {
         exp: f.exp!,
         about: f.about.trim(),
         showPhone: f.showPhone,
-      });
+        });
+      } catch (e) {
+        setSending(false);
+        return toast(apiErrorText(e, lang));
+      }
       try {
         localStorage.removeItem(DRAFT);
       } catch {}
@@ -141,7 +160,7 @@ export function BecomeMaster() {
             {t.picked(f.profs.length)}
           </div>
           <div className={s.chips}>
-            {PROFS.filter((p) => !q || p[1].toLowerCase().includes(q) || p[2].toLowerCase().includes(q)).map(([id, ru, tj]) => {
+            {profs().filter((p) => !q || p[1].toLowerCase().includes(q) || p[2].toLowerCase().includes(q)).map(([id, ru, tj]) => {
               const on = f.profs.includes(id);
               return (
                 <Chip
@@ -177,7 +196,7 @@ export function BecomeMaster() {
           </div>
           {f.cityOpen && (
             <div className={s.chips}>
-              {Object.keys(CITY).map((c) => (
+              {Object.keys(cities()).map((c) => (
                 <Chip key={c} on={f.city === c} small onClick={() => set({ city: c, areas: [], cityOpen: false })}>
                   {c}
                 </Chip>
@@ -187,7 +206,7 @@ export function BecomeMaster() {
           <div className={s.group}>
             <span className={s.label}>{t.districts}</span>
             <div className={s.chips}>
-              {CITY[f.city].map(([a, near]) => {
+              {(cities()[f.city] ?? []).map(([a, near]) => {
                 const on = f.areas.includes(a);
                 return (
                   <Chip key={a} on={on} onClick={() => set({ areas: on ? f.areas.filter((x) => x !== a) : [...f.areas, a] }, 'areas')}>
@@ -372,9 +391,11 @@ export function BecomeMaster() {
                   <Clock size={18} aria-hidden className={s.noShrink} />
                   <span>{t.doneWhile}</span>
                 </div>
-                <button type="button" className={s.demoBtn} onClick={approve}>
-                  {t.simApprove}
-                </button>
+                {!USE_API && (
+                  <button type="button" className={s.demoBtn} onClick={approve}>
+                    {t.simApprove}
+                  </button>
+                )}
               </>
             )}
             <div className={s.doneBtns}>

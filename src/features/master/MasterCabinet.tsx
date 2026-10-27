@@ -7,7 +7,7 @@ import {
   ArrowRight, Briefcase, ChevronRight, CircleCheck, CircleMinus, ClipboardList, Clock, Info, LockOpen, Mail, MessageCircle, Phone, Send, Settings, Star,
 } from 'lucide-react';
 import {
-  api, invites, masterCabinet, proposals, type Invite, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus,
+  api, apiErrorText, invites, masterCabinet, proposals, type Invite, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus,
 } from '@/lib/api';
 import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
 import { useRequireMaster } from '@/lib/session/SessionProvider';
@@ -65,7 +65,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
 
   useEffect(() => {
     masterCabinet.load().then(setData);
-    invites.list().then((l) => setNewInvites(l.filter((x) => x.status === 'sent')));
+    invites.list('master').then((l) => setNewInvites(l.filter((x) => x.status === 'sent')));
     setFeed(feedProps(lang));
   }, [lang]);
 
@@ -82,8 +82,12 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
   const ti = tabs.indexOf(tab);
 
   const run = async (p: Promise<{ orders: MasterOrder[]; props: MasterProp[]; reviews: MasterReview[] }>, msg?: string) => {
-    setData(await p);
-    if (msg) toast(msg);
+    try {
+      setData(await p);
+      if (msg) toast(msg);
+    } catch (e) {
+      toast(apiErrorText(e, lang));
+    }
   };
 
   const content = (desktop: boolean) => (
@@ -105,7 +109,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
           <div className={desktop ? s.grid2 : s.col}>
             {!data && [1, 2, 3].map((i) => <div key={i} className={s.sk} />)}
             {orders.map((o) => (
-              <OrderCard key={o.id} o={o} t={t} lang={lang} desktop={desktop} onStart={() => run(masterCabinet.start(o.id), t.tStart)} onDone={() => setModal({ type: 'done', id: o.id })} onDecline={() => setModal({ type: 'decline', id: o.id })} onRemind={() => toast(t.tRemind)} onReview={() => router.push(ROUTE.reviews)} />
+              <OrderCard key={o.id} o={o} t={t} lang={lang} desktop={desktop} onStart={() => run(masterCabinet.start(o.id), t.tStart)} onDone={() => setModal({ type: 'done', id: o.id })} onDecline={() => setModal({ type: 'decline', id: o.id })} onRemind={() => run(masterCabinet.remind(o.id), t.tRemind)} onReview={() => router.push(ROUTE.reviews)} />
             ))}
           </div>
           <div className={s.noPay}>
@@ -265,7 +269,7 @@ function OrderCard({ o, t, lang, desktop, onStart, onDone, onDecline, onRemind, 
               {t.call}
             </a>
           )}
-          <Link href="/chats" className={s.secBtn}>
+          <Link href={o.chatId ? `/chats/${o.chatId}` : '/chats'} className={s.secBtn}>
             <MessageCircle size={18} color="var(--brand-600)" aria-hidden />
             {t.chat}
           </Link>

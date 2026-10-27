@@ -70,7 +70,7 @@ export function ClientInvites() {
   const { lang } = useLang();
   const [list, setList] = useState<Invite[] | null>(null);
   useEffect(() => {
-    invites.list().then((l) => setList(l.slice().sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))));
+    invites.list('client').then((l) => setList(l.slice().sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))));
   }, []);
   return (
     <ClientFrame title={t.invites}>

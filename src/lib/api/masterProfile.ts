@@ -2,6 +2,9 @@
  * Профиль мастера (онбординг, редактор, настройки). Мок в localStorage; с бэкендом — /me/master/profile.
  * status: review — на модерации (до 24 ч), approved — в каталоге и может откликаться.
  */
+import { USE_API } from './flags';
+import { realMasterProfile } from './real/masterProfile';
+
 export type MasterProfileData = {
   status: 'review' | 'approved';
   profs: string[];
@@ -24,12 +27,16 @@ export type MasterProfileData = {
   notifyTasks?: boolean;
   notifyChat?: boolean;
   channel?: 'sms' | 'tg';
+  /** С бэкенда: ссылки на фото профиля и работ (в порядке photos) */
+  avatarUrl?: string;
+  photoUrls?: string[];
 };
 
 const KEY = 'ekor_master_profile';
 const delay = <T,>(v: T, ms = 1100) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
-export const masterProfile = {
+const mockMasterProfile = {
+  load: () => delay(mockMasterProfile.get(), 200),
   get(): MasterProfileData | null {
     try {
       const raw = localStorage.getItem(KEY);
@@ -54,7 +61,7 @@ export const masterProfile = {
   },
   /** Мгновенное сохранение переключателя в настройках */
   patch(p: Partial<MasterProfileData>) {
-    const cur = masterProfile.get();
+    const cur = mockMasterProfile.get();
     if (!cur) return null;
     const v = { ...cur, ...p };
     try {
@@ -64,7 +71,7 @@ export const masterProfile = {
   },
   /** Демо: модератор одобрил */
   approve() {
-    const cur = masterProfile.get();
+    const cur = mockMasterProfile.get();
     if (!cur) return null;
     const v = { ...cur, status: 'approved' as const };
     try {
@@ -72,4 +79,21 @@ export const masterProfile = {
     } catch {}
     return v;
   },
+};
+
+/**
+ * Экраны используют асинхронные load/save/submit и patchAsync (настройки).
+ * С бэкендом get/approve недоступны: статус меняет модератор.
+ */
+export const masterProfile = {
+  load: (): Promise<MasterProfileData | null> => (USE_API ? realMasterProfile.load() : mockMasterProfile.load()),
+  submit: (p: Omit<MasterProfileData, 'status'>) => (USE_API ? realMasterProfile.submit(p) : mockMasterProfile.submit(p)),
+  save: (p: MasterProfileData) => (USE_API ? realMasterProfile.save(p) : mockMasterProfile.save(p)),
+  async patchAsync(cur: MasterProfileData, x: Partial<MasterProfileData>): Promise<MasterProfileData> {
+    if (USE_API) return realMasterProfile.patch(cur, x);
+    return mockMasterProfile.patch(x) ?? (await mockMasterProfile.save({ ...cur, ...x }));
+  },
+  setAvatar: (file: Blob) => (USE_API ? realMasterProfile.setAvatar(file) : Promise.resolve()),
+  /** Демо-кнопка «Модератор одобрил» — только в моках */
+  approve: () => (USE_API ? null : mockMasterProfile.approve()),
 };

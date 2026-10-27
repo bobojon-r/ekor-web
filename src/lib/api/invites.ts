@@ -2,6 +2,8 @@
  * Приглашения (ТЗ 5.1, 7.3). Мок-хранилище в localStorage, чтобы экраны клиента и мастера
  * были связаны в демо. С бэкендом — REST /invites, сигнатуры те же.
  */
+import { USE_API } from './flags';
+import { realInvites } from './real/invites';
 import type { RegionKey } from './types';
 
 export type InviteStatus = 'sent' | 'accepted' | 'declined' | 'confirmed' | 'cancelled' | 'public';
@@ -56,10 +58,10 @@ function patch(id: number, p: Partial<Invite>) {
   return list.find((x) => x.id === id) ?? null;
 }
 
-export const invites = {
-  list: () => delay(read(), 300),
+const mockInvites = {
+  list: (_role?: 'client' | 'master') => delay(read(), 300),
   get: (id: number) => delay(read().find((x) => x.id === id) ?? null),
-  create: (data: Omit<Invite, 'id' | 'status' | 'createdAt' | 'contacts'>) => {
+  create: (data: Omit<Invite, 'id' | 'status' | 'createdAt' | 'contacts'> & { categoryKey?: string }) => {
     const list = read();
     const inv: Invite = { ...data, id: Math.max(0, ...list.map((x) => x.id)) + 1, status: 'sent', createdAt: new Date().toISOString(), contacts: null };
     write([...list, inv]);
@@ -73,3 +75,5 @@ export const invites = {
   makePublic: (id: number) => delay(patch(id, { status: 'public' })),
   cancel: (id: number) => delay(patch(id, { status: 'cancelled' })),
 };
+
+export const invites: typeof mockInvites = USE_API ? realInvites : mockInvites;

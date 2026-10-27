@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 import { phoneMask, useDict } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useSession } from '@/lib/session/SessionProvider';
-import { Button, ButtonLink, LangSwitch, OtpInput, PhoneField, TestCodeNotice, TextField } from '@/components/ui';
+import { Button, ButtonLink, LangSwitch, OtpInput, PhoneField, TestCodeNotice, TextField, useToast } from '@/components/ui';
 import s from './Login.module.css';
 
 const dict = {
@@ -50,6 +50,7 @@ export function LoginView({ next }: { next?: string }) {
   const [phone, setPhone] = useState('');
   const [phoneErr, setPhoneErr] = useState<'len' | 'op' | null>(null);
   const [sending, setSending] = useState(false);
+  const toast = useToast();
   const [code, setCode] = useState('');
   const [codeErr, setCodeErr] = useState(false);
   const [tries, setTries] = useState(3);
@@ -72,6 +73,7 @@ export function LoginView({ next }: { next?: string }) {
     setSending(true);
     const r = await api.auth.sendCode(phone);
     setSending(false);
+    if (r.error) return toast(r.error);
     setCode('');
     setCodeErr(false);
     setTries(r.tries);
@@ -87,6 +89,8 @@ export function LoginView({ next }: { next?: string }) {
     setChecking(true);
     const r = await api.auth.verify(phone, v);
     setChecking(false);
+    // Неверный код показываем у поля; прочее (лимит попыток, сеть) — тостом
+    if (r.error && !/код/i.test(r.error)) toast(r.error);
     if (r.ok) {
       if (r.name) finish(r.name);
       else setStep('name');
@@ -109,7 +113,8 @@ export function LoginView({ next }: { next?: string }) {
   };
 
   const resend = async () => {
-    await api.auth.sendCode(phone);
+    const r = await api.auth.sendCode(phone);
+    if (r.error) return toast(r.error);
     setTries(3);
     setCodeErr(false);
     setCode('');

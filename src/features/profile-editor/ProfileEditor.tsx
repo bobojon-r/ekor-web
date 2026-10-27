@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Camera, Check, ChevronLeft, Plus, Trash2, X } from 'lucide-react';
-import { masterProfile, type MasterProfileData } from '@/lib/api';
+import { apiErrorText, masterProfile, uploadPhoto, type MasterProfileData } from '@/lib/api';
 import { initials, num, useDict, useLang } from '@/lib/i18n';
 import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { Button, useToast } from '@/components/ui';
-import { PROFS } from '@/features/onboarding/i18n';
+import { profs } from '@/features/onboarding/i18n';
 import { LANGS, TONES, editorDict } from './i18n';
 import s from './Editor.module.css';
 
@@ -23,12 +23,12 @@ const DEMO: MasterProfileData = {
 
 function fromProfile(p: MasterProfileData): State {
   return {
-    avatar: p.avatar ? 'stored' : null,
+    avatar: p.avatarUrl ?? (p.avatar ? 'stored' : null),
     bio: p.about,
     exp: p.exp,
     profs: p.profs.map((id) => ({ id, price: p.prices[id] == null ? '' : String(p.prices[id]), neg: p.prices[id] == null })),
     langs: p.langs ?? ['ru', 'tj'],
-    photos: (p.photos ?? []).map((id) => ({ id })),
+    photos: (p.photos ?? []).map((id, i) => ({ id, url: p.photoUrls?.[i] })),
   };
 }
 
@@ -48,11 +48,17 @@ export function ProfileEditor() {
   const avatarRef = useRef<HTMLInputElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
+  const avatarFile = useRef<File | null>(null);
   useEffect(() => {
-    const p = masterProfile.get() ?? DEMO;
-    setBase(p);
-    setSt(fromProfile(p));
-  }, []);
+    masterProfile.load().then(
+      (v) => {
+        const p = v ?? DEMO;
+        setBase(p);
+        setSt(fromProfile(p));
+      },
+      (e) => toast(apiErrorText(e, lang)),
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Несохранённые изменения: предупреждаем при закрытии вкладки
   useEffect(() => {
     if (!dirty) return;
@@ -71,7 +77,7 @@ export function ProfileEditor() {
     setDirty(true);
   };
   const pName = (id: string) => {
-    const p = PROFS.find((x) => x[0] === id);
+    const p = profs().find((x) => x[0] === id);
     return p ? p[lang === 'tj' ? 2 : 1] : id;
   };
   const priceOf = (p: Prof) => (p.neg ? t.neg : +p.price > 0 ? `${t.from} ${num(+p.price)} смн` : '—');
@@ -95,8 +101,16 @@ export function ProfileEditor() {
     if (room <= 0) return toast(t.maxPhoto, 'info');
     const added = files.slice(0, room).map((f, i) => ({ id: Date.now() + i, url: URL.createObjectURL(f), loading: true }));
     ch({ photos: [...st.photos, ...added] });
-    // имитация загрузки на сервер
-    setTimeout(() => setSt((x) => (x ? { ...x, photos: x.photos.map((p) => (added.some((a) => a.id === p.id) ? { ...p, loading: false } : p)) } : x)), 900);
+    // Загрузка на сервер: временный id меняется на id файла с бэкенда
+    added.forEach((a, i) =>
+      uploadPhoto('portfolio', files[i]).then(
+        (u) => setSt((x) => (x ? { ...x, photos: x.photos.map((p) => (p.id === a.id ? { id: u.id, url: p.url, loading: false } : p)) } : x)),
+        (e) => {
+          setSt((x) => (x ? { ...x, photos: x.photos.filter((p) => p.id !== a.id) } : x));
+          toast(apiErrorText(e, lang));
+        },
+      ),
+    );
     if (files.length > room) toast(t.maxPhoto, 'info');
   };
 
@@ -116,8 +130,15 @@ export function ProfileEditor() {
       photos: st.photos.map((p) => p.id),
       pendingProfs: Array.from(new Set([...(base.pendingProfs ?? []), ...review])),
     };
-    await masterProfile.save(next);
-    setBase(next);
+    if (st.photos.some((p) => p.loading)) return setSaving(false), toast(t.uploading, 'info');
+    try {
+      if (avatarFile.current) await masterProfile.setAvatar(avatarFile.current);
+      avatarFile.current = null;
+      setBase(await masterProfile.save(next));
+    } catch (e) {
+      setSaving(false);
+      return toast(apiErrorText(e, lang));
+    }
     setNewProfs([]);
     setDirty(false);
     setSaving(false);
@@ -221,7 +242,7 @@ export function ProfileEditor() {
       )}
       {addOpen && st.profs.length < 3 && (
         <div className={s.chips}>
-          {PROFS.filter((p) => !st.profs.some((x) => x.id === p[0])).map((p) => (
+          {profs().filter((p) => !st.profs.some((x) => x.id === p[0])).map((p) => (
             <button key={p[0]} type="button" className={s.chipSm} onClick={() => addProf(p[0])}>
               {p[lang === 'tj' ? 2 : 1]}
             </button>
@@ -249,7 +270,10 @@ export function ProfileEditor() {
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) ch({ avatar: URL.createObjectURL(f) });
+            if (f) {
+              avatarFile.current = f;
+              ch({ avatar: URL.createObjectURL(f) });
+            }
             e.target.value = '';
           }}
         />

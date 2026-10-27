@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, CircleAlert, Clock, EllipsisVertical, Flag, Info, Lock, MessageCircle, Paperclip, Phone, SendHorizontal, TriangleAlert, WifiOff } from 'lucide-react';
-import { loadChats, MAX_TRIES, newMsgId, saveChats, transmit, type ChatRole, type Msg, type Thread } from '@/lib/api';
+import { apiErrorText, loadChats, MAX_TRIES, newMsgId, saveChats, transmit, USE_API, type ChatRole, type Msg, type Thread } from '@/lib/api';
+import { useRealChats } from './useRealChats';
 import { initials, useDict, useLang } from '@/lib/i18n';
 import { useSession } from '@/lib/session/SessionProvider';
 import { SiteHeader, TabBar } from '@/components/layout';
@@ -92,9 +93,9 @@ function useChats(role: ChatRole, t: T) {
     };
   }, [role, deliver]);
 
-  const send = (tid: string, body: { x?: string; photo?: string }) => {
+  const send = (tid: string, body: { x?: string; photo?: string; file?: Blob }) => {
     const mid = newMsgId();
-    mutate((list) => list.map((c) => (c.id === tid ? { ...c, msgs: [...c.msgs, { id: mid, f: 'me', ...body, t: now(), state: 'sending', tries: 0 }] } : c)));
+    mutate((list) => list.map((c) => (c.id === tid ? { ...c, msgs: [...c.msgs, { id: mid, f: 'me', x: body.x, photo: body.photo, t: now(), state: 'sending', tries: 0 }] } : c)));
     deliver(tid, mid, 0, true);
   };
   const retry = (tid: string, mid: string) => {
@@ -103,8 +104,11 @@ function useChats(role: ChatRole, t: T) {
   };
   const patchThread = (tid: string, fn: (c: Thread) => Partial<Thread>) => mutate((list) => list.map((c) => (c.id === tid ? { ...c, ...fn(c) } : c)));
 
-  return { threads: all?.[role] ?? null, typing, online, send, retry, patchThread };
+  return { threads: all?.[role] ?? null, typing, online, send, retry, patchThread, orderAct: undefined, report: undefined, typingPing: undefined };
 }
+
+/** Моки или бэкенд — выбирается при сборке (NEXT_PUBLIC_API) */
+const useChatsImpl = USE_API ? (role: ChatRole, _t: T, openId?: string, enabled?: boolean) => useRealChats(role, openId, enabled) : (role: ChatRole, t: T) => useChats(role, t);
 
 export function ChatsView({ openId }: { openId?: string }) {
   const t = useDict(chatDict);
@@ -113,7 +117,8 @@ export function ChatsView({ openId }: { openId?: string }) {
   const toast = useToast();
   const { user, ready } = useSession();
   const role: ChatRole = user?.activeRole === 'master' ? 'master' : 'client';
-  const { threads, typing, online, send, retry, patchThread } = useChats(role, t);
+  const { threads, typing, online, send, retry, patchThread, orderAct, report, typingPing } = useChatsImpl(role, t, openId, !!user);
+  const typedAt = useRef(0);
   const [draft, setDraft] = useState('');
   const [rep, setRep] = useState<null | { id: string; reason: number | null; block: boolean; err: boolean }>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -143,6 +148,15 @@ export function ChatsView({ openId }: { openId?: string }) {
   if (!threads) return <div className={s.page} />;
 
   const act = (c: Thread) => {
+    if (orderAct && c.st !== 'done') {
+      const kind = isM && c.st === 'chosen' ? 'start' : isM && c.st === 'work' ? 'done' : !isM && c.st === 'wait' ? 'confirm' : null;
+      if (kind)
+        orderAct(c, kind).then(
+          () => toast(kind === 'start' ? t.tStarted : kind === 'done' ? t.tDone : t.tConfirmed),
+          (e) => toast(apiErrorText(e, lang)),
+        );
+      return;
+    }
     if (isM && c.st === 'chosen') {
       patchThread(c.id, (x) => ({ st: 'work', msgs: [...x.msgs, { id: newMsgId(), f: 'sys', k: 'started' }] }));
       toast(t.tStarted);
@@ -202,7 +216,7 @@ export function ChatsView({ openId }: { openId?: string }) {
 
   const thread = (c: Thread, desktop: boolean) => {
     const label = actLabel(c);
-    const open = c.st !== 'done' && !c.blocked;
+    const open = c.st !== 'done' && !c.blocked && !c.readOnly;
     const idx = threads.indexOf(c);
     const quick = isM ? t.qM : t.qC;
     return (
@@ -293,7 +307,14 @@ export function ChatsView({ openId }: { openId?: string }) {
                 </button>
                 <input
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value.slice(0, 2000))}
+                  onChange={(e) => {
+                    setDraft(e.target.value.slice(0, 2000));
+                    // «печатает…» собеседнику — не чаще раза в 3 с
+                    if (typingPing && Date.now() - typedAt.current > 3000) {
+                      typedAt.current = Date.now();
+                      typingPing(c.id);
+                    }
+                  }}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendDraft(c))}
                   placeholder={t.ph}
                   className={s.input}
@@ -309,7 +330,7 @@ export function ChatsView({ openId }: { openId?: string }) {
                   hidden
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) send(c.id, { photo: URL.createObjectURL(f) });
+                    if (f) send(c.id, { photo: URL.createObjectURL(f), file: f });
                     e.target.value = '';
                   }}
                 />
@@ -396,6 +417,13 @@ export function ChatsView({ openId }: { openId?: string }) {
               block
               onClick={() => {
                 if (rep.reason === null) return setRep({ ...rep, err: true });
+                if (report) {
+                  report(rep.id, rep.reason, rep.block).then(
+                    () => toast(rep.block ? t.tRepB : t.tRep),
+                    (e) => toast(apiErrorText(e, lang)),
+                  );
+                  return setRep(null);
+                }
                 if (rep.block) patchThread(rep.id, () => ({ blocked: true }));
                 toast(rep.block ? t.tRepB : t.tRep);
                 setRep(null);

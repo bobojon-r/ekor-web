@@ -2,6 +2,8 @@
  * Задания клиента (кабинет). Мок в localStorage; с бэкендом — /me/tasks.
  * Статусы — общий словарь lib/status.ts.
  */
+import { USE_API } from './flags';
+import { realClientTasks } from './real/clientTasks';
 import type { CatalogCategory, RegionKey } from './types';
 
 export type ClientTaskStatus = 'review' | 'open' | 'chosen' | 'wait' | 'dispute' | 'done' | 'rejected' | 'cancelled' | 'expired';
@@ -44,6 +46,9 @@ export type ClientTask = {
   views?: number;
   /** Бюджет «до N» для формы правки; null — договорная */
   budgetMax?: number | null;
+  /** Заказ и чат по заданию (бэкенд) */
+  orderId?: number;
+  chatId?: number;
 };
 
 const KEY = 'ekor_client_tasks';
@@ -96,7 +101,7 @@ function patch(id: number, fn: (k: ClientTask) => ClientTask) {
 const ARCHIVE: ClientTaskStatus[] = ['done', 'cancelled', 'expired'];
 export const isArchived = (k: ClientTask) => ARCHIVE.includes(k.status) && !(k.status === 'done' && !k.review);
 
-export const clientTasks = {
+const mockClientTasks = {
   list: () => delay(read(), 450),
   add: (k: Omit<ClientTask, 'id' | 'createdAt' | 'status'>) => {
     const list = read();
@@ -128,3 +133,7 @@ export const clientTasks = {
   republish: (id: number) => patch(id, (k) => ({ ...k, status: 'review', createdAt: new Date().toISOString() })),
   review: (id: number, stars: number, text: string, date: string) => patch(id, (k) => ({ ...k, review: { stars, text, date } })),
 };
+
+/** Экраны работают с одним интерфейсом: моки или бэкенд (NEXT_PUBLIC_API=real) */
+export const clientTasks: Omit<typeof mockClientTasks, 'add'> & Partial<Pick<typeof mockClientTasks, 'add'>> = USE_API ? realClientTasks : mockClientTasks;
+export const addMockTask = mockClientTasks.add;

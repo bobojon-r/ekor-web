@@ -93,9 +93,13 @@ export const MASTER_REVIEWS: Review[] = [
   { author: 'Далер М.', month: 11, year: 2025, stars: 5, text: 'Быстро нашёл проблему, цена честная.', reply: null },
 ];
 
-/** Мок-время от начала текущего 10-минутного окна: сервер (модуль загружен давно) и браузер получают одинаковые даты — без расхождения при гидратации */
-const BASE = Math.floor(Date.now() / 600000) * 600000;
-const minAgo = (m: number) => new Date(BASE - m * 60000).toISOString();
+/**
+ * Мок-время: даты считаются от загрузки модуля, а api сдвигает их на «сейчас» при каждом запросе (fresh).
+ * Иначе сервер, запущенный час назад, и браузер показали бы разные «N мин назад» — ошибка гидратации.
+ */
+const LOADED = Date.now();
+const minAgo = (m: number) => new Date(LOADED - m * 60000).toISOString();
+export const fresh = <T extends { createdAt: string }>(x: T): T => ({ ...x, createdAt: new Date(+new Date(x.createdAt) + Date.now() - LOADED).toISOString() });
 
 export const HOME_TASKS: TaskSummary[] = [
   { id: 101, title: 'Ремонт кондиционера Samsung, не охлаждает', region: 'dushanbe', district: 'Сино', budget: 300, responses: 4, createdAt: minAgo(40), status: 'open' },

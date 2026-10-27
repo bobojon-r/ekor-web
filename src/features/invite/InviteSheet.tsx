@@ -6,7 +6,7 @@ import { Check, CircleCheck, Info, Lock } from 'lucide-react';
 import { api, invites, type Master } from '@/lib/api';
 import { phoneMask, useDict } from '@/lib/i18n';
 import { useSession } from '@/lib/session/SessionProvider';
-import { Button, OtpInput, PhoneField, Sheet, TestCodeNotice, TextField } from '@/components/ui';
+import { Button, OtpInput, PhoneField, Sheet, TestCodeNotice, TextField, useToast } from '@/components/ui';
 import { inviteDict } from './i18n';
 import s from './Invite.module.css';
 
@@ -26,6 +26,7 @@ export function InviteSheet({ master, open, onClose }: { master: Master; open: b
   const [neg, setNeg] = useState(false);
   const [err, setErr] = useState<Err>({});
   const [sending, setSending] = useState(false);
+  const toast = useToast();
   const [phone, setPhone] = useState('');
   const [phoneErr, setPhoneErr] = useState<'len' | 'op' | null>(null);
   const [code, setCode] = useState('');
@@ -54,6 +55,7 @@ export function InviteSheet({ master, open, onClose }: { master: Master; open: b
       region: master.region ?? 'dushanbe',
       district: master.district ?? '',
       category: master.profession,
+      categoryKey: master.category,
     });
     setSending(false);
     setCreatedId(inv.id);
@@ -82,6 +84,7 @@ export function InviteSheet({ master, open, onClose }: { master: Master; open: b
     setSending(true);
     const r = await api.auth.sendCode(phone);
     setSending(false);
+    if (r.error) return toast(r.error);
     setCode('');
     setTries(r.tries);
     setTimer(r.resendIn);
@@ -222,7 +225,8 @@ export function InviteSheet({ master, open, onClose }: { master: Master; open: b
               type="button"
               className={s.resend}
               onClick={async () => {
-                await api.auth.sendCode(phone);
+                const r = await api.auth.sendCode(phone);
+                if (r.error) return toast(r.error);
                 setTries(3);
                 setTimer(60);
                 setCodeErr(false);
