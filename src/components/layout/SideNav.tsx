@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { maskPhone, useSession } from '@/lib/session/SessionProvider';
 import { Avatar } from '@/components/ui';
+import { RoleBadge } from './ProfileCard';
 import { useChatUnread } from '@/lib/hooks/useChatUnread';
 import s from './Layout.module.css';
 
@@ -24,6 +25,9 @@ export function SideNav({ items, footer }: { items: SideItem[]; footer?: ReactNo
           <div className={s.sideUserText}>
             <span className={s.sideName}>{user.name}</span>
             <span className={s.sidePhone}>{maskPhone(user.phone)}</span>
+            <span>
+              <RoleBadge />
+            </span>
           </div>
         </div>
       )}

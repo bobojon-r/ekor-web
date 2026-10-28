@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, CircleHelp, Eye, FileText, Globe, Lock, LogOut, MapPin, Pause, Phone, Plus, Repeat, ShieldCheck, Wrench, X } from 'lucide-react';
-import { api, apiErrorText, masterProfile, type MasterProfileData } from '@/lib/api';
+import { api, apiErrorText, masterProfile, USE_API, type MasterProfileData } from '@/lib/api';
+import { LoadState } from '@/features/system/SystemStates';
 import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
 import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { SideNav, SiteHeader, TabBar } from '@/components/layout';
@@ -34,9 +35,23 @@ export function MasterSettings() {
   const leaving = useRef(false);
 
   useEffect(() => {
-    masterProfile.load().then((v) => setP(v ?? DEFAULT), () => setP(DEFAULT));
-  }, []);
+    loadProfile();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [failed, setFailed] = useState(false);
+  function loadProfile() {
+    setFailed(false);
+    masterProfile.load().then(
+      (v) => (!v && USE_API ? router.replace('/become-master') : setP(v ?? DEFAULT)),
+      () => (USE_API ? setFailed(true) : setP(DEFAULT)),
+    );
+  }
   const allowed = useRequireMaster('/master/settings');
+  if (failed && allowed)
+    return (
+      <div className={s.page}>
+        <LoadState phase="error" retry={loadProfile} />
+      </div>
+    );
   if (!p || (!allowed && !leaving.current)) return <div className={s.page} />;
 
   /** Переключатель — мгновенное действие с сохранением */

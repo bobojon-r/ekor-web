@@ -33,7 +33,7 @@ function fromMe(m: UserOut, prev: User | null): User {
     name: m.name ?? prev?.name ?? '',
     phone: m.phone.replace(/\D/g, '').slice(-9),
     roles,
-    activeRole: prev && roles.includes(prev.activeRole) ? prev.activeRole : 'client',
+    activeRole: prev && roles.includes(prev.activeRole) ? prev.activeRole : m.is_master ? 'master' : 'client',
   };
 }
 

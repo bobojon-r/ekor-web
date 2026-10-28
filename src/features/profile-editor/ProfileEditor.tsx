@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Camera, Check, ChevronLeft, Plus, Trash2, X } from 'lucide-react';
-import { apiErrorText, masterProfile, uploadPhoto, type MasterProfileData } from '@/lib/api';
+import { apiErrorText, masterProfile, uploadPhoto, USE_API, type MasterProfileData } from '@/lib/api';
+import { LoadState } from '@/features/system/SystemStates';
 import { initials, num, useDict, useLang } from '@/lib/i18n';
 import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { Button, useToast } from '@/components/ui';
@@ -49,16 +50,21 @@ export function ProfileEditor() {
   const photoRef = useRef<HTMLInputElement>(null);
 
   const avatarFile = useRef<File | null>(null);
-  useEffect(() => {
+  const [failed, setFailed] = useState(false);
+  const load = () => {
+    setFailed(false);
     masterProfile.load().then(
       (v) => {
+        // С бэкендом анкеты нет — сначала «Стать мастером»; демо-профиль только в моках
+        if (!v && USE_API) return router.replace('/become-master');
         const p = v ?? DEMO;
         setBase(p);
         setSt(fromProfile(p));
       },
-      (e) => toast(apiErrorText(e, lang)),
+      () => setFailed(true),
     );
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  };
+  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Несохранённые изменения: предупреждаем при закрытии вкладки
   useEffect(() => {
     if (!dirty) return;
@@ -70,6 +76,12 @@ export function ProfileEditor() {
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
 
+  if (failed && allowed)
+    return (
+      <div className={s.page}>
+        <LoadState phase="error" retry={load} />
+      </div>
+    );
   if (!st || !base || !allowed) return <div className={s.page} />;
 
   const ch = (p: Partial<State>) => {

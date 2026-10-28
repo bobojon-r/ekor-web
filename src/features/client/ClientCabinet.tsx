@@ -11,7 +11,8 @@ import { api, apiErrorText, clientTasks, isArchived, USE_API, type ClientTask, t
 import { countResponses, initials, num, phoneMask, rating as fmtRating, useDict, useLang, type Lang } from '@/lib/i18n';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { useSession } from '@/lib/session/SessionProvider';
-import { SideNav, SiteHeader, TabBar, type SideItem } from '@/components/layout';
+import { ProfileCard, SideNav, SiteHeader, TabBar, type SideItem } from '@/components/layout';
+import { LoadState } from '@/features/system/SystemStates';
 import { Button, ButtonLink, LangSwitch, Segmented, Sheet, Skeleton, useToast } from '@/components/ui';
 import { clientDict } from './i18n';
 import s from './Cabinet.module.css';
@@ -115,11 +116,18 @@ export function ClientCabinet({ selectedId }: { selectedId?: number }) {
           {t.newTask}
         </Link>
       )}
-      {!list && [1, 2, 3].map((i) => <div key={i} className={load.showSkeleton ? s.sk : `${s.sk} ${s.ph}`} />)}
+      {!list && <LoadState phase={load.phase} retry={load.retry} />}
+      {!list && load.phase !== 'error' && load.phase !== 'timeout' && [1, 2, 3].map((i) => <div key={i} className={load.showSkeleton ? s.sk : `${s.sk} ${s.ph}`} />)}
       {list && items.length === 0 && (
         <div className={s.emptyArchive}>
-          <span className={s.emptyT}>{t.emptyArchiveT}</span>
-          <span className={s.muted14}>{t.emptyArchiveB}</span>
+          <span className={s.emptyT}>{tab === 'archive' ? t.emptyArchiveT : t.emptyActiveT}</span>
+          <span className={s.muted14}>{tab === 'archive' ? t.emptyArchiveB : t.emptyActiveB}</span>
+          {tab === 'active' && desktop && (
+            <Link href="/tasks/new" className={s.newTask}>
+              <Plus size={20} aria-hidden />
+              {t.newTask}
+            </Link>
+          )}
         </div>
       )}
       {items.map((k) => (
@@ -166,6 +174,7 @@ export function ClientCabinet({ selectedId }: { selectedId?: number }) {
           </>
         ) : (
           <>
+            <ProfileCard />
             <div className={s.mHead}>
               <div className={s.mHeadRow}>
                 <h1 className={s.mTitle}>{t.myTasks}</h1>

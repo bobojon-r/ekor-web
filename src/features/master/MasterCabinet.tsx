@@ -11,7 +11,8 @@ import {
 } from '@/lib/api';
 import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
 import { useRequireMaster } from '@/lib/session/SessionProvider';
-import { SideNav, SiteHeader, TabBar, type SideItem } from '@/components/layout';
+import { ProfileCard, SideNav, SiteHeader, TabBar, type SideItem } from '@/components/layout';
+import { LoadState } from '@/features/system/SystemStates';
 import { Button, LangSwitch, RadioCard, Sheet, useToast } from '@/components/ui';
 import { masterDict } from './i18n';
 import s from './Master.module.css';
@@ -63,8 +64,10 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
   const [newInvites, setNewInvites] = useState<Invite[]>([]);
   const [modal, setModal] = useState<Modal>(null);
 
+  const [failed, setFailed] = useState(false);
+  const reload = () => (setFailed(false), masterCabinet.load().then(setData, () => setFailed(true)));
   useEffect(() => {
-    masterCabinet.load().then(setData);
+    reload();
     invites.list('master').then((l) => setNewInvites(l.filter((x) => x.status === 'sent')));
     setFeed(feedProps(lang));
   }, [lang]);
@@ -92,6 +95,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
 
   const content = (desktop: boolean) => (
     <>
+      {failed && !data && <LoadState phase="error" retry={reload} />}
       {tab === 'orders' && (
         <>
           {newInvites[0] && (
@@ -107,7 +111,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
             </Link>
           )}
           <div className={desktop ? s.grid2 : s.col}>
-            {!data && [1, 2, 3].map((i) => <div key={i} className={s.sk} />)}
+            {!data && !failed && [1, 2, 3].map((i) => <div key={i} className={s.sk} />)}
             {orders.map((o) => (
               <OrderCard key={o.id} o={o} t={t} lang={lang} desktop={desktop} onStart={() => run(masterCabinet.start(o.id), t.tStart)} onDone={() => setModal({ type: 'done', id: o.id })} onDecline={() => setModal({ type: 'decline', id: o.id })} onRemind={() => run(masterCabinet.remind(o.id), t.tRemind)} onReview={() => router.push(ROUTE.reviews)} />
             ))}
@@ -120,7 +124,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
       )}
       {tab === 'props' && (
         <div className={desktop ? s.grid2 : s.col}>
-          {!data && [1, 2].map((i) => <div key={i} className={s.sk} />)}
+          {!data && !failed && [1, 2].map((i) => <div key={i} className={s.sk} />)}
           {props.map((p) => (
             <PropCard
               key={p.id}
@@ -166,6 +170,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
       <SiteHeader max={1280} />
 
       <div className="mob-only">
+        <ProfileCard />
         <div className={s.mHead}>
           <div className={s.mHeadRow}>
             <h1 className={s.mTitle}>{t.title}</h1>

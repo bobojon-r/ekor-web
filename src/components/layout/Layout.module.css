@@ -85,3 +85,18 @@
 .sideOn, .sideOn:hover { background: var(--brand-100); color: var(--brand-700); font-weight: 600; }
 .sideOn svg { color: var(--brand-700); }
 .sideCount { font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 9px; background: var(--brand-600); color: var(--white); }
+
+/* Профиль в мобильном кабинете */
+.profile { margin: 12px 16px 4px; padding: 14px; border-radius: var(--radius-xl); border: 1px solid var(--line-200); background: var(--white); display: flex; flex-direction: column; gap: 12px; }
+.profileTop { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.profileText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.profileName { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roleClient, .roleMaster { flex: none; padding: 3px 8px; border-radius: var(--radius-xs); font-size: 12px; font-weight: 600; }
+.roleClient { background: var(--brand-100); color: var(--brand-700); }
+.roleMaster { background: var(--success-100); color: var(--success-700); }
+.profileWarn { font-size: 14px; font-weight: 600; color: var(--warn-800); text-decoration: none; }
+.profileBtns { display: flex; gap: 8px; }
+.profileBtn { flex: 1; min-width: 0; height: 44px; padding: 0 10px; border-radius: var(--radius-lg); border: 1px solid var(--line-200); background: var(--white); display: flex; align-items: center; justify-content: center; gap: 6px; font: 600 14px var(--font); color: var(--ink-900); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profileBtn:hover { border-color: var(--brand-600); color: var(--ink-900); }
+.profileOut { flex: none; width: 44px; padding: 0; color: var(--danger-600); }
+@media (min-width: 1024px) { .profile { display: none; } }
