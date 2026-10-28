@@ -17,6 +17,7 @@ import { feedDict } from './i18n';
 import { LoadState } from '@/features/system/SystemStates';
 import s from './Tasks.module.css';
 import { copyText } from '@/lib/browser';
+import { ComplaintSheet, type ComplaintTarget } from '@/components/ComplaintSheet';
 
 type T = (typeof feedDict)['ru'];
 type Sort = NonNullable<FeedQuery['sort']>;
@@ -59,6 +60,7 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
   const matchN = list.filter((k) => k.match).length;
   // Открытое задание: из списка, а подробности (описание, клиент) — отдельным запросом
   const [detail, setDetail] = useState<FeedTask | null>(null);
+  const [rep, setRep] = useState<ComplaintTarget | null>(null);
   const selId = selectedId ?? list[0]?.id;
   useEffect(() => {
     if (!selId) return;
@@ -174,7 +176,7 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
                   </div>
                 )}
                 {k.status === 'chosen' && !sent && panel(k)}
-                <button type="button" className={s.complain} onClick={() => toast(t.complaintSent, 'info')}>
+                <button type="button" className={s.complain} onClick={() => setRep({ subject: 'task', id: k.id })}>
                   <Flag size={16} aria-hidden />
                   {t.complain}
                 </button>
@@ -205,6 +207,7 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
           )}
         </div>
         <div className="desk-only">{desktopView()}</div>
+        <ComplaintSheet target={rep} onClose={() => setRep(null)} />
       </div>
     );
   }
@@ -246,6 +249,7 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
         <TabBar />
       </div>
       <div className="desk-only">{desktopView()}</div>
+      <ComplaintSheet target={rep} onClose={() => setRep(null)} />
     </div>
   );
 
@@ -290,7 +294,7 @@ export function TasksFeed({ selectedId }: { selectedId?: number }) {
             <div className={s.dDetail}>
               <div className={s.dBody}>
                 <TaskBody k={sel} t={t} lang={lang} />
-                <button type="button" className={s.complain} onClick={() => toast(t.complaintSent, 'info')}>
+                <button type="button" className={s.complain} onClick={() => setRep({ subject: 'task', id: sel.id })}>
                   <Flag size={16} aria-hidden />
                   {t.complain}
                 </button>

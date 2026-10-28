@@ -17,7 +17,7 @@ type RespOut = { id: number; status: string; price: number | null; inspect: bool
 export type OrderOut = {
   id: number; status: 'chosen' | 'work' | 'wait' | 'dispute' | 'done' | 'cancelled' | 'declined'; task: TaskCardOut & { district: NR | null }; price: number | null;
   term: string | null; address: string | null; counterpart: { id: number; name: string; phone: string | null }; chat_id: number | null; created_at: string;
-  actions: string[];
+  actions: string[]; dispute?: { id: number; status: 'open' | 'resolved' } | null;
 };
 type MyReview = { order_id: number; rating: number; text: string; created_at: string; reply_text: string | null };
 type Chat = { order_id: number | null; role: 'client' | 'master'; unread_count: number };
@@ -81,6 +81,7 @@ async function build(): Promise<ClientTask[]> {
       district: nm(k.district),
       address: o?.address ?? k.address ?? undefined,
       budget: budgetStr(k),
+      disputeId: o?.dispute?.id,
       budgetMax: k.budget_mode === 'sum' ? (k.budget_max ?? k.budget_min) : null,
       when: WHEN[k.when],
       views: k.views_count,

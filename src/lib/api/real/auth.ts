@@ -2,6 +2,7 @@
 import { ApiError, http, tokens } from '../http';
 import { realtime } from '../realtime';
 import { digits, intl } from './common';
+import { uiLang } from '../ref';
 
 export type UserOut = { id: number; phone: string; name: string | null; lang: 'ru' | 'tj'; city_id: number | null; avatar_url: string | null; is_client: boolean; is_master: boolean };
 type AuthOut = { access_token: string; refresh_token: string; user: UserOut; needs_name: boolean };
@@ -14,7 +15,7 @@ export const realAuth = {
   /** error — текст для пользователя (лимит отправок, неверный номер, нет сети) */
   async sendCode(phone: string) {
     try {
-      const r = await http<{ resend_after: number }>('/auth/otp/send', { method: 'POST', body: { phone: intl(phone) } });
+      const r = await http<{ resend_after: number }>('/auth/otp/send', { method: 'POST', body: { phone: intl(phone), lang: uiLang() } });
       return { phone, resendIn: r.resend_after, tries: 3 };
     } catch (e) {
       return { phone, resendIn: 0, tries: 3, error: msg(e) };

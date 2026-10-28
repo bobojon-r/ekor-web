@@ -8,7 +8,7 @@ import { realMasterCabinet } from './real/master';
 export type OrderStatus = 'chosen' | 'work' | 'wait' | 'done' | 'cancelled';
 export type PropStatus = 'sent' | 'viewed' | 'rejected' | 'withdrawn';
 
-export type MasterOrder = { id: number; title: string; client: string; district: string; when: { ru: string; tj: string }; price: number; status: OrderStatus; contacts?: { address: string; phone: string }; chatId?: number };
+export type MasterOrder = { id: number; title: string; client: string; district: string; when: { ru: string; tj: string }; price: number; status: OrderStatus; contacts?: { address: string; phone: string }; chatId?: number; disputeId?: number };
 export type MasterProp = { id: number; taskId?: number; title: string; district: string; when: { ru: string; tj: string }; price: number | null; msg: string; status: PropStatus; ago: { ru: string; tj: string }; responses: number; edited?: boolean };
 export type MasterReview = { id: number; name: string; stars: number; text: string; date: string; task: string; reply: string | null };
 type Store = { orders: MasterOrder[]; props: MasterProp[]; reviews: MasterReview[] };

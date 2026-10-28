@@ -15,6 +15,7 @@ import { ProfileCard, SideNav, SiteHeader, TabBar, type SideItem } from '@/compo
 import { LoadState } from '@/features/system/SystemStates';
 import { Button, ButtonLink, LangSwitch, Segmented, Sheet, Skeleton, useToast } from '@/components/ui';
 import { clientDict } from './i18n';
+import { DisputeRequests } from '@/components/DisputeRequests';
 import s from './Cabinet.module.css';
 
 type T = (typeof clientDict)['ru'];
@@ -530,6 +531,7 @@ function TaskDetail({ k, wide, t, lang, act, openModal }: { k: ClientTask; wide:
           </ButtonLink>
         </div>
       )}
+      {k.disputeId && <DisputeRequests disputeId={k.disputeId} />}
       {k.status === 'dispute' && (
         <div className={s.grid2}>
           <a href="https://t.me/ekor_support" target="_blank" rel="noreferrer" className={s.supportBtn}>

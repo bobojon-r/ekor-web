@@ -490,7 +490,7 @@ export const adminApi = {
         key: c.id, id: `C-${c.id}`, title: c.reason?.text_ru ?? 'Жалоба', order: c.order_id ? `${what} · заказ O-${c.order_id}` : `${what} #${c.target_id}`,
         status: open ? 'Новая' : `Решена${c.resolved_by ? ` · ${short(c.resolved_by)}` : ''}`, tone: open ? 'info' : 'grey', open, chatId: c.has_chat ? c.id : null,
         text: c.text ? `«${c.text}»` : '', from: `От: ${c.reporter.name ?? `#${c.reporter.id}`}`, date: dayMonTime(c.created_at), who: '', detector: [],
-        subject: side, subjectUserId: c.target_type === 'user' ? c.target_id : undefined, targetType: c.target_type, hasChat: c.has_chat, preview: c.target_preview,
+        subject: side, subjectUserId: c.target_type === 'user' || c.target_type === 'master_profile' ? c.target_id : undefined, targetType: c.target_type, hasChat: c.has_chat, preview: c.target_preview,
       } satisfies ComplaintV;
     });
   },

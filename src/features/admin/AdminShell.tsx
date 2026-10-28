@@ -1,19 +1,80 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LogOut, Monitor } from 'lucide-react';
-import { useToast } from '@/components/ui';
+import { Check, Info, LogOut, Monitor, WifiOff } from 'lucide-react';
+import { ToastCtx, useToast } from '@/components/ui';
 import { adminApi } from './data/api';
 import type { Counts, Me } from './data/types';
 import { canSee, hhmm, NAV, ROLE_NAME, section, type Role, type SectionKey } from './core';
-import { cx, Head, Loading, NoAccess } from './ui';
+import { alertNew, cx, Head, Loading, NoAccess } from './ui';
 import s from './Admin.module.css';
 
 type Ctx = { me: Me; counts: Counts; refreshCounts: () => void };
 const AdminCtx = createContext<Ctx | null>(null);
 export const useAdmin = () => useContext(AdminCtx)!;
+
+/** Обратимое действие: уведомление с «Отменить»; commit выполнится, если за ms не отменили */
+type Undo = (text: ReactNode, commit: () => void, undo: () => void, ms?: number) => void;
+const UndoCtx = createContext<Undo>((_t, commit) => commit());
+export const useUndo = () => useContext(UndoCtx);
+
+type Note = { id: number; text: ReactNode; icon: 'check' | 'info'; undo?: () => void };
+
+/** Уведомления админки (ТЗ §4): внизу справа, 4 с, у обратимых — «Отменить» */
+function AdminToasts({ children }: { children: ReactNode }) {
+  const [note, setNote] = useState<Note | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pending = useRef<null | (() => void)>(null);
+  const show = useCallback((text: ReactNode, icon: 'check' | 'info' = 'check') => {
+    clearTimeout(timer.current);
+    setNote({ id: Date.now(), text, icon });
+    timer.current = setTimeout(() => setNote(null), 4000);
+  }, []);
+  const undoable = useCallback<Undo>((text, commit, undo, ms = 5000) => {
+    // Новое обратимое действие подтверждает предыдущее сразу
+    pending.current?.();
+    clearTimeout(timer.current);
+    let done = false;
+    const fire = () => {
+      if (done) return;
+      done = true;
+      pending.current = null;
+      setNote((n) => (n?.undo ? null : n));
+      commit();
+    };
+    pending.current = fire;
+    setNote({ id: Date.now(), text, icon: 'check', undo: () => ((done = true), (pending.current = null), clearTimeout(timer.current), setNote(null), undo()) });
+    timer.current = setTimeout(fire, ms);
+  }, []);
+  // Уход со страницы — не теряем отложенное действие
+  useEffect(() => {
+    const flush = () => pending.current?.();
+    addEventListener('pagehide', flush);
+    return () => (removeEventListener('pagehide', flush), flush());
+  }, []);
+  return (
+    <ToastCtx.Provider value={show}>
+      <UndoCtx.Provider value={undoable}>
+        {children}
+        <div className={s.toastHost} aria-live="polite">
+          {note && (
+            <div key={note.id} className={s.toast}>
+              {note.icon === 'info' ? <Info size={16} aria-hidden /> : <Check size={16} aria-hidden />}
+              <span className={s.grow}>{note.text}</span>
+              {note.undo && (
+                <button type="button" className={s.toastUndo} onClick={note.undo}>
+                  Отменить
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </UndoCtx.Provider>
+    </ToastCtx.Provider>
+  );
+}
 
 const DEMO_ROLE = 'ekor_admin_role';
 /** Профиль сотрудника из прошлого ответа /admin/me — показываем сразу, проверяем сессию в фоне */
@@ -74,8 +135,25 @@ export function AdminShell({ children }: { children: ReactNode }) {
     return () => clearTimeout(id);
   }, [me?.expiresAt, router]);
 
+  // Нет связи с сервером: плашка над разделом; «Повторить» перезагружает данные раздела (формы в модалках не трогаем)
+  const [offline, setOffline] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const h = (e: Event) => setOffline(!(e as CustomEvent<boolean>).detail);
+    addEventListener('ekor-admin-net', h);
+    return () => removeEventListener('ekor-admin-net', h);
+  }, []);
+
+  // Новое в очередях заданий и профилей — звук и уведомление (если сотрудник включил на экране пустой очереди)
+  const prev = useRef<Counts | null>(null);
   const refreshCounts = useCallback(() => {
-    if (me) adminApi.counts(me.role).then(setCounts, () => {});
+    if (me)
+      adminApi.counts(me.role).then((c) => {
+        const p = prev.current;
+        if (p && (c.tasks > p.tasks || c.masters > p.masters)) alertNew(c.tasks > p.tasks ? `Новые задания на проверке: ${c.tasks}` : `Новые профили на проверке: ${c.masters}`);
+        prev.current = c;
+        setCounts(c);
+      }, () => {});
   }, [me]);
   useEffect(() => {
     if (state !== 'ok') return;
@@ -127,6 +205,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   };
   return (
     <AdminCtx.Provider value={{ me, counts: counts ?? EMPTY, refreshCounts }}>
+      <AdminToasts>
       {mobile}
       <div className={s.root}>
         <nav className={s.nav} aria-label="Разделы админки">
@@ -169,8 +248,22 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </nav>
-        <main className={s.main}>{children}</main>
+        <main className={s.main}>
+          {offline && (
+            <div className={s.netBar} role="alert">
+              <WifiOff size={15} aria-hidden />
+              <span className={s.grow}>Нет связи с сервером — данные могут быть устаревшими</span>
+              <button type="button" onClick={() => (setRetry((n) => n + 1), refreshCounts())}>
+                Повторить
+              </button>
+            </div>
+          )}
+          <div key={retry} className={s.main} style={{ flex: 1 }}>
+            {children}
+          </div>
+        </main>
       </div>
+      </AdminToasts>
     </AdminCtx.Provider>
   );
 }

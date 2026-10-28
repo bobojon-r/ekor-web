@@ -14,6 +14,8 @@ import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { ProfileCard, SideNav, SiteHeader, TabBar, type SideItem } from '@/components/layout';
 import { LoadState } from '@/features/system/SystemStates';
 import { Button, LangSwitch, RadioCard, Sheet, useToast } from '@/components/ui';
+import { ComplaintSheet, type ComplaintTarget } from '@/components/ComplaintSheet';
+import { DisputeRequests } from '@/components/DisputeRequests';
 import { masterDict } from './i18n';
 import s from './Master.module.css';
 
@@ -63,6 +65,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
   const [feed, setFeed] = useState<MasterProp[]>([]);
   const [newInvites, setNewInvites] = useState<Invite[]>([]);
   const [modal, setModal] = useState<Modal>(null);
+  const [rep, setRep] = useState<ComplaintTarget | null>(null);
 
   const [failed, setFailed] = useState(false);
   const [profStatus, setProfStatus] = useState<string | null>(null);
@@ -184,7 +187,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
           </div>
           <div className={desktop ? s.grid2 : s.col}>
             {reviews.map((r) => (
-              <ReviewCard key={r.id} r={r} t={t} onReply={(text) => run(masterCabinet.reply(r.id, text), t.tReply)} onComplain={() => toast(lang === 'tj' ? 'Шикоят ба модератор фиристода шуд' : 'Жалоба отправлена модератору', 'info')} />
+              <ReviewCard key={r.id} r={r} t={t} onReply={(text) => run(masterCabinet.reply(r.id, text), t.tReply)} onComplain={() => setRep({ subject: 'review', id: r.id })} />
             ))}
           </div>
         </div>
@@ -247,6 +250,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
           }}
         />
       )}
+      <ComplaintSheet target={rep} onClose={() => setRep(null)} />
     </div>
   );
 }
@@ -317,6 +321,7 @@ function OrderCard({ o, t, lang, desktop, onStart, onDone, onDecline, onRemind, 
           )}
         </div>
       )}
+      {o.disputeId && <DisputeRequests disputeId={o.disputeId} />}
     </div>
   );
 }

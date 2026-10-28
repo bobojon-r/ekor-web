@@ -24,7 +24,8 @@ export function Banner({ tone = 'info', icon, children, action, className }: { t
 /* ---------- Toast: подтверждение уже сделанного, 2.4 с, без действий ---------- */
 
 type ToastItem = { id: number; text: ReactNode; icon?: 'check' | 'info' };
-const ToastCtx = createContext<(text: ReactNode, icon?: 'check' | 'info') => void>(() => {});
+/** Раздел может подменить показ уведомлений своим (админка — внизу справа, с «Отменить») */
+export const ToastCtx = createContext<(text: ReactNode, icon?: 'check' | 'info') => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [item, setItem] = useState<ToastItem | null>(null);

@@ -49,6 +49,8 @@ export type ClientTask = {
   /** Заказ и чат по заданию (бэкенд) */
   orderId?: number;
   chatId?: number;
+  /** Спор по заказу — запросы модератора и ответы на них */
+  disputeId?: number;
 };
 
 const KEY = 'ekor_client_tasks';

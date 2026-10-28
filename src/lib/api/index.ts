@@ -21,6 +21,13 @@ export { masterProfile, type MasterProfileData } from './masterProfile';
 export { masterCabinet, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus } from './masterCabinet';
 export { clientTasks, isArchived, type ClientTask, type ClientTaskStatus, type TaskResponse } from './clientTasks';
 
+export type MyDispute = {
+  id: number; status: 'open' | 'resolved'; resolution: 'done' | 'not_done' | 'partial' | null; deadline: string | null; terms_deadline: string | null; moderator_comment: string | null;
+  requests: { id: number; text: string; created_at: string; answer: string | null; answered_at: string | null }[];
+};
+const MOCK_REPORT: [string, string, string][] = [
+  ['fraud', 'Подозрение на мошенничество', 'Гумони қаллобӣ'], ['spam', 'Спам, реклама, ссылки', 'Спам, реклама, пайвандҳо'], ['insult', 'Оскорбления или угрозы', 'Таҳқир ё таҳдид'], ['other', 'Другое', 'Дигар'],
+];
 const delay = <T,>(v: T, ms = 450) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
 /**
@@ -33,6 +40,8 @@ export const TEST_OTP = process.env.NEXT_PUBLIC_TEST_OTP || '123456';
 export { USE_API } from './flags';
 import { USE_API } from './flags';
 export { ApiError, apiErrorText, http } from './http';
+import { http } from './http';
+import type { ReasonKind } from './real/common';
 export { realtime, type RtEvent } from './realtime';
 export { uiLang } from './ref';
 export { reasonId } from './real/common';
@@ -146,6 +155,27 @@ export const api = {
 
   /** Счётчик для кнопки «Показать N» — до применения фильтров */
   mastersCount: (q: MastersQuery): Promise<number> => (USE_API ? remote.mastersCount(q) : delay(filterMasters(q).length, 150)),
+
+  /** Причины из справочника бэкенда (жалобы, отмены); в моках — типовой набор */
+  async reasons(kind: ReasonKind): Promise<{ id: number; code: string; label: L10n }[]> {
+    if (!USE_API) return delay(MOCK_REPORT.map((x, i) => ({ id: i + 1, code: x[0], label: { ru: x[1], tj: x[2] } })), 150);
+    const l = await http<{ id: number; code: string; text_ru: string; text_tj: string | null }[]>('/reasons', { query: { kind } });
+    return l.map((r) => ({ id: r.id, code: r.code, label: { ru: r.text_ru, tj: r.text_tj ?? r.text_ru } }));
+  },
+  /** Жалоба модератору: на задание, профиль мастера или отзыв (у отзыва — свой эндпоинт) */
+  async complain(subject: 'task' | 'master_profile' | 'review', id: number, reasonId: number, comment: string | null): Promise<void> {
+    if (!USE_API) return delay(undefined, 400);
+    if (subject === 'review') await http(`/reviews/${id}/complaint`, { method: 'POST', body: { reason_id: reasonId, comment } });
+    else await http('/complaints', { method: 'POST', body: { subject_type: subject, subject_id: id, reason_id: reasonId, comment } });
+  },
+  /** Спор по заказу: решение модератора и его запросы стороне (ответить можно на неотвеченные) */
+  dispute: (id: number) => http<MyDispute>(`/disputes/${id}`),
+  answerDispute: (id: number, requestId: number, text: string) => http(`/disputes/${id}/requests/${requestId}/answer`, { method: 'POST', body: { text, photo_ids: [] } }),
+  /** Ключи категорий по запросу (синонимы, опечатки, TJ и латиница) — подкатегория и её родитель */
+  searchCategories: (q: string) =>
+    http<{ key: string; parent: { key: string } | null }[]>('/categories/search', { query: { q } }).then((l) => [...new Set(l.flatMap((c) => [c.key, ...(c.parent ? [c.parent.key] : [])]))]),
+  /** Язык в профиле — для SMS и push на нужном языке (только для вошедших) */
+  saveLang: (lang: 'ru' | 'tj') => (USE_API && realAuth.me() ? realAuth.updateMe({ lang }).then(() => undefined, () => undefined) : Promise.resolve()),
 
   /** Сколько мастеров нашлось бы в других городах по тем же фильтрам (для пустого состояния) */
   async mastersElsewhere(q: MastersQuery): Promise<{ region: Region; n: number }[]> {

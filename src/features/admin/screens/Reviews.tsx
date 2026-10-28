@@ -7,7 +7,7 @@ import { useAdmin } from '../AdminShell';
 import { adminApi } from '../data/api';
 import type { Reason, ReviewV } from '../data/types';
 import { splitContact } from '../core';
-import { cx, Head, Highlighted, Label, Loading, Pill, Tabs, useHotkeys } from '../ui';
+import { cx, Head, Highlighted, HotkeyHelp, Label, Loading, Pill, Tabs, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 
 const COLS = '64px 60px minmax(0,1fr) 140px 110px 60px';
@@ -85,6 +85,7 @@ export function Reviews() {
   return (
     <>
       <Head title="Отзывы и жалобы">
+        <HotkeyHelp keys={[["J / K", "следующий / предыдущий отзыв"], ["1–5", "причина скрытия"], ["Esc", "закрыть окно"], ["?", "эта подсказка"]]} />
         <Tabs value={tab} onChange={setTab} items={[['review', `На проверке ${all.length}`], ['all', 'Все отзывы'], ['hidden', 'Скрытые']]} />
         <span className={s.grow} />
         <span className={s.note}>в очередь попадает при 2+ жалобах или автофильтре</span>

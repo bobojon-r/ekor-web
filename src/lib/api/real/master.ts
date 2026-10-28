@@ -30,7 +30,7 @@ async function load() {
   const orders = [...oa.items, ...oz.items].map(
     (o): MasterOrder => ({
       id: o.id, title: o.task.title, client: o.counterpart.name, district: nm(o.task.district), when: o.term ? TERM_L[termIdx(o.term)] : TASK_WHEN[o.task.when],
-      price: o.price ?? 0, status: OST[o.status], chatId: o.chat_id ?? undefined, contacts: o.address || o.counterpart.phone ? { address: o.address ?? '', phone: digits(o.counterpart.phone) } : undefined,
+      price: o.price ?? 0, status: OST[o.status], chatId: o.chat_id ?? undefined, disputeId: o.dispute?.id, contacts: o.address || o.counterpart.phone ? { address: o.address ?? '', phone: digits(o.counterpart.phone) } : undefined,
     }),
   );
   const props = rs.items

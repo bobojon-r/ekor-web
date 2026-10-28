@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { PencilLine, TriangleAlert } from 'lucide-react';
 import { apiErrorText } from '@/lib/api';
 import { useToast } from '@/components/ui';
-import { useAdmin } from '../AdminShell';
+import { useAdmin, useUndo } from '../AdminShell';
 import { adminApi } from '../data/api';
 import type { Lock, Reason, TaskQ } from '../data/types';
 import { agoText, FLAG_TEXT, FLAGS, sla } from '../core';
-import { Checkbox, cx, EmptyQueue, Head, Label, Marked, Loading, Modal, Photo, Pill, RefreshBtn, SearchBox, SelectChip, Tabs, ToggleChip, useHotkeys } from '../ui';
+import { Checkbox, cx, EmptyQueue, Head, HotkeyHelp, Label, Loading, Marked, Modal, Photo, Pill, RefreshBtn, SearchBox, SelectChip, Tabs, ToggleChip, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 
 const COLS = '28px 64px minmax(0,1fr) 112px 150px 44px';
@@ -18,6 +18,7 @@ const toneOf = (label: string) => Object.values(FLAGS).find((f) => f[0] === labe
 /** 02 — модерация заданий: таблица слева + карточка 400px; 13 — пустая очередь */
 export function TasksQueue() {
   const { me, counts, refreshCounts } = useAdmin();
+  const undo = useUndo();
   const toast = useToast();
   const [tab, setTab] = useState<'queue' | 'rejected' | 'approved'>('queue');
   const [rows, setRows] = useState<TaskQ[] | null>(null);
@@ -128,6 +129,7 @@ export function TasksQueue() {
     if (busy || !list.length) return;
     if (!ok && !reason) return toast('Выберите причину отказа — клавиши 1–5', 'info');
     if (list.length === 1 && busyBy(list[0])) return toast(`Смотрит ${busyBy(list[0])} — дождитесь решения`, 'info');
+    if (ok) return approveLater(list);
     setBusy(true);
     try {
       let done = list.map((t) => t.key);
@@ -156,6 +158,34 @@ export function TasksQueue() {
     setBusy(false);
   };
 
+  /**
+   * Одобрение обратимо 5 с (ТЗ §4): строки уходят из очереди сразу, запрос — когда истечёт «Отменить».
+   * Ошибка при отправке возвращает строки и показывает причину.
+   */
+  const approveLater = (list: TaskQ[]) => {
+    const keys = new Set(list.map((t) => t.key));
+    const back = () => setRows((r) => (r ? [...list.filter((t) => !r.some((x) => x.key === t.key)), ...r] : r));
+    setRows((r) => r?.filter((x) => !keys.has(x.key)) ?? r);
+    setPicked(new Set());
+    setReason(null);
+    setApproved((n) => n + list.length);
+    undo(
+      list.length > 1 ? `Одобрено: ${list.length}` : `Одобрено: «${list[0].title}»`,
+      async () => {
+        try {
+          if (list.length > 1) {
+            const r = await adminApi.bulkTasks(list, true);
+            if (r.failed) toast(`Не обработано: ${r.failed} — уже решены или их смотрит другой модератор`, 'info');
+          } else await adminApi.moderateTask(list[0], true);
+          refreshCounts();
+        } catch (e) {
+          if (!(list.length === 1 && gone(e, list[0]))) (back(), setApproved((n) => n - list.length), toast(apiErrorText(e, 'ru')));
+        }
+      },
+      () => (back(), setApproved((n) => n - list.length)),
+    );
+  };
+
   useHotkeys(
     isQueue && cur
       ? {
@@ -178,6 +208,7 @@ export function TasksQueue() {
 
   const header = (
     <Head title="Модерация · Задания">
+        <HotkeyHelp keys={[["J / K", "следующая / предыдущая строка"], ["A", "одобрить"], ["R", "отклонить (сначала причина)"], ["E", "править текст"], ["X", "выбрать строку"], ["1–5", "причина отклонения"], ["/", "поиск"], ["Esc", "закрыть окно или снять выбор"], ["?", "эта подсказка"]]} />
       <Tabs value={tab} onChange={setTab} items={[['queue', `Очередь ${rows && isQueue ? rows.length : counts.tasks}`], ['rejected', 'Отклонённые'], ['approved', `Одобренные сегодня ${approved}`]]} />
       <span className={s.grow} />
       {isQueue && rows?.length === 0 ? (

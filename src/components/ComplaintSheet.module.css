@@ -1,0 +1,6 @@
+/* Жалоба на задание, профиль, отзыв — как жалоба в чате */
+.box { padding: 20px 16px 24px; display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 1024px) { .box { padding: 24px; } }
+.h { font-size: 20px; font-weight: 600; }
+.sub { font-size: 14px; line-height: 1.45; color: var(--ink-500); }
+.err { font-size: 14px; color: var(--danger-600); }

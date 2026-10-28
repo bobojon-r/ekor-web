@@ -7,6 +7,7 @@ import { ref } from '@/lib/api/ref';
 import { useToast } from '@/components/ui';
 import { useAdmin } from '../AdminShell';
 import { adminApi } from '../data/api';
+import { fieldErrors } from '../data/http';
 import { demoCities } from '../data/demo';
 import type { SessionV, StaffV } from '../data/types';
 import { cx, Head, Loading, Modal, Pill, Switch, useHotkeys } from '../ui';
@@ -185,6 +186,7 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [fe, setFe] = useState<Record<string, string>>({});
   const [sessions, setSessions] = useState<SessionV[] | null>(null);
   const [newPw, setNewPw] = useState<string | null>(null);
   const [del, setDel] = useState<null | 'ask' | 'disable'>(null);
@@ -207,7 +209,7 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
     return () => clearTimeout(id);
   }, [f.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const set = (p: Partial<Form>) => (setF({ ...f, ...p }), setErr(null));
+  const set = (p: Partial<Form>) => (setF({ ...f, ...p }), setErr(null), setFe({}));
   const pwErr = !edit ? pwError(f.password, f.email) : null;
   const regionsErr = f.role === 'moderator' && f.regions.length === 0;
   const nameErr = f.name.trim().length < 2;
@@ -227,6 +229,10 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
       }
     } catch (e) {
       const x = e as { code?: string };
+      // 422 — ошибки показываем под полями, общий текст — только если поле не распознали
+      const byField = fieldErrors(e);
+      setFe(byField);
+      if (Object.keys(byField).length) return setBusy(false);
       setErr(
         x.code === 'last_admin' ? 'Это последний активный admin — его нельзя понизить или отключить' : x.code === 'email_taken' ? 'Почта уже занята' : edit && edit.id === meId && !f.active ? 'Себя отключить нельзя' : apiErrorText(e, 'ru'),
       );
@@ -266,7 +272,7 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
             <Switch on={f.active} onClick={() => set({ active: !f.active })} label="Доступ" />
           </div>
         )}
-        {field('ФИО', true, <input className={cx(s.input, tried && nameErr && s.invalid)} value={f.name} onChange={(e) => set({ name: e.target.value.slice(0, 80) })} autoFocus={!edit} />, null, tried && nameErr && 'Укажите ФИО')}
+        {field('ФИО', true, <input className={cx(s.input, ((tried && nameErr) || fe.name) && s.invalid)} value={f.name} onChange={(e) => set({ name: e.target.value.slice(0, 80) })} autoFocus={!edit} />, null, (tried && nameErr && 'Укажите ФИО') || fe.name)}
         {field(
           'Эл. почта',
           !edit,
@@ -275,8 +281,9 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
             {!edit && mail !== 'idle' && <span className={mail === 'free' ? st.free : mail === 'taken' || mail === 'bad' ? st.taken : st.checking}>{mail === 'free' ? 'свободна' : mail === 'taken' ? 'занята' : mail === 'bad' ? 'неверный формат' : 'проверяем…'}</span>}
           </span>,
           edit ? 'Почта не меняется — на неё ссылается аудит' : 'Рабочая почта — используется для входа. Изменить потом нельзя',
+          fe.email,
         )}
-        {!edit && field('Телефон для связи', false, <input className={s.input} inputMode="tel" value={f.phone} placeholder="+992 92 118 40 56" onChange={(e) => set({ phone: e.target.value.slice(0, 20) })} />, 'Не используется для входа')}
+        {!edit && field('Телефон для связи', false, <input className={s.input} inputMode="tel" value={f.phone} placeholder="+992 92 118 40 56" onChange={(e) => set({ phone: e.target.value.slice(0, 20) })} />, 'Не используется для входа', fe.contact_phone)}
         <div className={st.field}>
           <span className={s.fieldT}>
             Роль <span style={{ color: '#B03A2E' }}>*</span>
@@ -310,7 +317,7 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
               Пароль <span style={{ color: '#B03A2E' }}>*</span>
             </span>
             <PasswordInput value={f.password} show={showPw} setShow={setShowPw} onChange={(v) => set({ password: v })} invalid={tried && !!pwErr} />
-            {tried && pwErr ? <span className={s.err}>{pwErr}</span> : <span className={st.hint}>Не короче 10 символов, буквы и цифры. Не совпадает с почтой. Передайте сотруднику лично — в системе пароль больше не показывается.</span>}
+            {(tried && pwErr) || fe.password ? <span className={s.err}>{(tried && pwErr) || fe.password}</span> : <span className={st.hint}>Не короче 10 символов, буквы и цифры. Не совпадает с почтой. Передайте сотруднику лично — в системе пароль больше не показывается.</span>}
           </div>
         )}
         {edit && (

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Check, ChevronDown, Inbox, Lock, RefreshCw, Search, type LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, Inbox, Keyboard, Lock, RefreshCw, Search, type LucideIcon } from 'lucide-react';
 import { splitContact, ST, type Tone } from './core';
 import s from './Admin.module.css';
 
@@ -165,9 +165,10 @@ export function Modal({
   okDisabled?: boolean; busy?: boolean; onOk: () => void; cancelText?: string;
 }) {
   useHotkeys({ Escape: onClose }, true);
+  const box = useFocusTrap();
   return (
     <div className={s.overlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={s.modal} role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={box} className={s.modal} role="dialog" aria-modal="true" aria-label={title}>
         <div className={s.mHead}>
           <span className={s.mIcon} style={{ background: tone === 'red' ? '#FBE3E0' : '#EAEEFC' }}>
             <I size={22} color={tone === 'red' ? '#A5281B' : '#1F3BB8'} aria-hidden />
@@ -204,6 +205,51 @@ export function CheckRow({ on, onClick, children }: { on: boolean; onClick: () =
  * Горячие клавиши. Не срабатывают при вводе в поля (кроме Escape) и с модификаторами.
  * global=true — слушать и при открытой модалке (для самой модалки).
  */
+/** Фокус внутри окна (ТЗ §10): Tab не уходит наружу, при закрытии — назад на кнопку, которая открыла окно */
+export function useFocusTrap<T extends HTMLElement = HTMLDivElement>() {
+  const box = useRef<T>(null);
+  useEffect(() => {
+    const back = document.activeElement as HTMLElement | null;
+    const el = box.current;
+    const items = () => [...(el?.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])') ?? [])];
+    if (el && !el.contains(document.activeElement)) (items().find((x) => x.matches('input, textarea, select')) ?? items()[0])?.focus();
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !el) return;
+      const l = items();
+      if (!l.length) return;
+      const first = l[0];
+      const last = l[l.length - 1];
+      if (e.shiftKey && document.activeElement === first) (e.preventDefault(), last.focus());
+      else if (!e.shiftKey && document.activeElement === last) (e.preventDefault(), first.focus());
+    };
+    document.addEventListener('keydown', h);
+    return () => {
+      document.removeEventListener('keydown', h);
+      if (back && document.contains(back)) back.focus();
+    };
+  }, []);
+  return box;
+}
+
+/** «?» — подсказка по горячим клавишам очереди (ТЗ §7) */
+export function HotkeyHelp({ keys }: { keys: [string, string][] }) {
+  const [open, setOpen] = useState(false);
+  useHotkeys({ '?': () => setOpen((o) => !o) });
+  if (!open) return null;
+  return (
+    <Modal icon={Keyboard} tone="blue" title="Горячие клавиши" sub="Не работают, пока курсор в поле ввода" okText="Понятно" cancelText="Закрыть" onClose={() => setOpen(false)} onOk={() => setOpen(false)}>
+      <div className={s.keysList}>
+        {keys.map(([k, d]) => (
+          <div key={k} className={s.keysRow}>
+            <span className={s.key}>{k}</span>
+            <span>{d}</span>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 export function useHotkeys(map: Record<string, () => void>, global = false) {
   const ref = useRef(map);
   ref.current = map;
@@ -244,9 +290,78 @@ export function EmptyQueue({ text, stats, children }: { text: string; stats: [st
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>{children}</div>
+        <QueueAlerts />
       </div>
     </div>
   );
+}
+
+/** Время последней проверки и включение звука + уведомления о новых элементах (каркас проверяет очереди раз в 30 с) */
+function QueueAlerts() {
+  const [at, setAt] = useState(() => new Date());
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    setOn(notifyEnabled());
+    const id = setInterval(() => setAt(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const toggle = async () => {
+    if (on) return (setNotify(false), setOn(false));
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') await Notification.requestPermission().catch(() => 'denied');
+    setNotify(true);
+    setOn(true);
+    beep();
+  };
+  return (
+    <div className={s.qAlerts}>
+      <span>Проверено в {String(at.getHours()).padStart(2, '0')}:{String(at.getMinutes()).padStart(2, '0')}</span>
+      <span>·</span>
+      <button type="button" className={s.linkBtn} onClick={toggle}>
+        {on ? 'Звук и уведомления включены — выключить' : 'Сообщать звуком и уведомлением о новых'}
+      </button>
+    </div>
+  );
+}
+
+const NOTIFY = 'ekor_admin_notify';
+export const notifyEnabled = () => {
+  try {
+    return localStorage.getItem(NOTIFY) === '1';
+  } catch {
+    return false;
+  }
+};
+const setNotify = (v: boolean) => {
+  try {
+    if (v) localStorage.setItem(NOTIFY, '1');
+    else localStorage.removeItem(NOTIFY);
+  } catch {}
+};
+/** Короткий сигнал без файла: два тона через WebAudio */
+export function beep() {
+  try {
+    const ctx = new AudioContext();
+    [880, 1175].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.16);
+      g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + i * 0.16 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.16 + 0.15);
+      o.connect(g).connect(ctx.destination);
+      o.start(ctx.currentTime + i * 0.16);
+      o.stop(ctx.currentTime + i * 0.16 + 0.16);
+    });
+    setTimeout(() => ctx.close(), 600);
+  } catch {}
+}
+/** Новый элемент в очереди: звук и уведомление браузера, если сотрудник включил */
+export function alertNew(text: string) {
+  if (!notifyEnabled()) return;
+  beep();
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.visibilityState !== 'visible') new Notification('eKor admin', { body: text, tag: 'ekor-queue' });
+  } catch {}
 }
 
 export function RefreshBtn({ onClick }: { onClick: () => void }) {
@@ -291,4 +406,16 @@ export function NoAccess({ need, roleText, admin, at, onRequest }: { need: strin
   );
 }
 
-export const Loading = () => <div className={s.loading}>Загрузка…</div>;
+/** Загрузка (ТЗ §9): первые 300 мс ничего не показываем, дальше — скелетон строк */
+export function Loading({ rows = 8 }: { rows?: number }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setShow(true), 300);
+    return () => clearTimeout(id);
+  }, []);
+  return (
+    <div className={s.skel} aria-busy="true" aria-label="Загрузка">
+      {show && Array.from({ length: rows }, (_, i) => <span key={i} className={s.skelRow} style={{ width: `${92 - ((i * 17) % 35)}%` }} />)}
+    </div>
+  );
+}

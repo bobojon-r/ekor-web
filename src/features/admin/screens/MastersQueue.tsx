@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BadgeCheck, Check, CircleHelp, TriangleAlert, UserX, X } from 'lucide-react';
 import { apiErrorText } from '@/lib/api';
 import { useToast } from '@/components/ui';
-import { useAdmin } from '../AdminShell';
+import { useAdmin, useUndo } from '../AdminShell';
 import { adminApi } from '../data/api';
 import type { Check as Chk, Lock, MasterCard, MasterQ, Reason } from '../data/types';
 import { agoText, sla } from '../core';
-import { cx, EmptyQueue, Head, Label, Marked, Loading, Modal, Photo, Pill, RefreshBtn, Switch, Tabs, useHotkeys } from '../ui';
+import { cx, EmptyQueue, Head, HotkeyHelp, Label, Loading, Marked, Modal, Photo, Pill, RefreshBtn, Switch, Tabs, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 
 const COLS = '64px minmax(0,1fr) 120px 92px 56px';
@@ -24,6 +24,7 @@ const CHK_FG = { 1: '#0B6E5E', 0: '#A5281B', 2: '#8A4B0D' } as const;
 /** 03 — профили мастеров: таблица + карточка 560px с чек-листом модератора */
 export function MastersQueue() {
   const { me, refreshCounts } = useAdmin();
+  const undo = useUndo();
   const toast = useToast();
   const [rows, setRows] = useState<MasterQ[] | null>(null);
   const [tab, setTab] = useState<TabK>('new');
@@ -80,6 +81,20 @@ export function MastersQueue() {
   const senior = me.role !== 'moderator';
   const decide = async (ok: boolean, reason?: Reason, comment?: string, back = false) => {
     if (!cur || busy || by) return;
+    if (ok && !back) {
+      // Одобрение обратимо 5 с: профиль уходит из очереди сразу, запрос — когда истечёт «Отменить»
+      const q = cur;
+      setRows((r) => r?.filter((x) => x.key !== q.key) ?? r);
+      return undo(
+        `Профиль одобрен: ${q.name}`,
+        () =>
+          adminApi.moderateMaster(q, true).then(refreshCounts, (e) => {
+            setRows((r) => (r && !r.some((x) => x.key === q.key) ? [q, ...r] : r));
+            toast(apiErrorText(e, 'ru'));
+          }),
+        () => setRows((r) => (r && !r.some((x) => x.key === q.key) ? [q, ...r] : r)),
+      );
+    }
     setBusy(true);
     try {
       if (back) await adminApi.returnMaster(cur, comment ?? '');
@@ -130,6 +145,7 @@ export function MastersQueue() {
   return (
     <>
       <Head title="Модерация · Профили мастеров">
+        <HotkeyHelp keys={[["J / K", "следующий / предыдущий профиль"], ["A", "одобрить"], ["R", "отклонить с причиной"], ["Esc", "закрыть окно"], ["?", "эта подсказка"]]} />
         <Tabs value={tab} onChange={(k) => (setTab(k), setSel(0))} items={[['new', `Новые ${counts.new}`], ['changes', `Изменения профиля ${counts.changes}`], ['verify', `Запрос «Проверен» ${counts.verify}`]]} />
         <span className={s.grow} />
         <span className={s.note}>SLA 24 ч</span>

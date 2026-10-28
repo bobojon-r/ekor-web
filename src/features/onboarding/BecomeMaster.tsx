@@ -9,6 +9,7 @@ import { initials, num, useDict, useLang } from '@/lib/i18n';
 import { useSession } from '@/lib/session/SessionProvider';
 import { Button, ButtonLink, LangSwitch, Switch, useToast } from '@/components/ui';
 import { cities, profs, onboardDict } from './i18n';
+import { track } from '@/lib/api/events';
 import s from './Onboard.module.css';
 
 type T = (typeof onboardDict)['ru'];
@@ -24,6 +25,7 @@ export function BecomeMaster() {
   const { lang } = useLang();
   const router = useRouter();
   const toast = useToast();
+  useEffect(() => track('master_signup_started'), []);
   const { user, ready, update, switchRole } = useSession();
   const [step, setStep] = useState<Step>(0);
   const [f, setF] = useState<Form>(F0);

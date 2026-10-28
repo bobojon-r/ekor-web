@@ -5,6 +5,10 @@ import type { Lang } from './types';
 
 export const LANG_COOKIE = 'ekor_lang';
 
+/** Слушатель смены языка (слой данных сохраняет язык в профиле) — без импорта api в i18n */
+let onLangChange: ((l: Lang) => void) | null = null;
+export const setLangListener = (f: (l: Lang) => void) => void (onLangChange = f);
+
 type Ctx = { lang: Lang; setLang: (l: Lang) => void };
 const I18nContext = createContext<Ctx | null>(null);
 
@@ -16,6 +20,7 @@ export function I18nProvider({ initialLang, children }: { initialLang: Lang; chi
     // Cookie — чтобы сервер рендерил на нужном языке; в профиле язык сохраняется через API настроек
     document.cookie = `${LANG_COOKIE}=${l};path=/;max-age=31536000;samesite=lax`;
     document.documentElement.lang = l === 'tj' ? 'tg' : 'ru';
+    onLangChange?.(l);
   }, []);
 
   const value = useMemo(() => ({ lang, setLang }), [lang, setLang]);

@@ -14,6 +14,7 @@ import { SiteHeader } from '@/components/layout';
 import { Button, Icon, LangSwitch, OtpInput, PhoneField, TestCodeNotice, TextField, useToast } from '@/components/ui';
 import { EMPTY, clearDraft, loadDraft, saveDraft, validate, type Draft, type Errors } from './draft';
 import { createDict } from './i18n';
+import { track } from '@/lib/api/events';
 import s from './CreateTask.module.css';
 
 type Step = 1 | 2 | 3 | 4 | 'phone' | 'code' | 'name' | 'done';
@@ -27,6 +28,7 @@ export function CreateTaskView() {
   const { user, signIn } = useSession();
   const toast = useToast();
   const [savedRegion, , regionReady] = useRegion();
+  useEffect(() => track('task_started'), []);
 
   const [d, setD] = useState<Draft>(EMPTY);
   const [step, setStep] = useState<Step>(1);

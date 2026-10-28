@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BadgeCheck, ChevronLeft, Flag, Info, Languages, MapPin, Phone, Share2, ShieldCheck, Star, UserSearch } from 'lucide-react';
@@ -15,6 +15,8 @@ import { InviteSheet } from '@/features/invite/InviteSheet';
 import { mastersDict } from './i18n';
 import s from './Profile.module.css';
 import { copyText } from '@/lib/browser';
+import { track } from '@/lib/api/events';
+import { ComplaintSheet, type ComplaintTarget } from '@/components/ComplaintSheet';
 
 type T = (typeof mastersDict)['ru'];
 
@@ -51,7 +53,12 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
       }
     } catch {}
   };
-  const complain = () => toast(t.complaintSent, 'info');
+  const [rep, setRep] = useState<ComplaintTarget | null>(null);
+  const complain = () => data && setRep({ subject: 'master_profile', id: data.master.id });
+  const viewed = data?.master.id;
+  useEffect(() => {
+    if (viewed) track('master_profile_view', { props: { master_id: viewed } });
+  }, [viewed]);
 
   if (!loading && !data)
     return (
@@ -90,6 +97,7 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
       <SiteHeader max={1200} />
 
       {m && <InviteSheet master={m} open={invite} onClose={closeInvite} />}
+      <ComplaintSheet target={rep} onClose={() => setRep(null)} />
 
       {/* ============ MOBILE ============ */}
       <div className="mob-only">

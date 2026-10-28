@@ -200,3 +200,21 @@
 }
 .lockTag { color: var(--warn, #8a4b0d); font-weight: 600; font-size: 12px; }
 .linkBtn { border: none; background: none; padding: 0; color: var(--blue, #2647d9); font-size: 12px; font-weight: 600; cursor: pointer; }
+/* Уведомления админки — внизу справа, 4 с */
+.toastHost { position: fixed; right: 20px; bottom: 104px; z-index: 200; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; min-width: 280px; max-width: 440px; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 8px; background: #0f1b2a; color: #fff; font-size: 13px; line-height: 1.4; box-shadow: 0 8px 24px rgba(15, 27, 42, 0.24); animation: aToastIn 0.16s ease-out; }
+@keyframes aToastIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.toastUndo { border: none; background: none; color: #9fb4ff; font-weight: 600; font-size: 13px; padding: 2px 4px; cursor: pointer; white-space: nowrap; }
+.toastUndo:hover { color: #fff; }
+/* Скелетон загрузки (после 300 мс) */
+.skel { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 18px 20px; min-width: 0; }
+.skelRow { height: 14px; border-radius: 6px; background: linear-gradient(90deg, #eef1f4 0%, #f7f9fb 50%, #eef1f4 100%); background-size: 200% 100%; animation: skel 1.2s linear infinite; }
+@keyframes skel { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+/* Нет связи с сервером (ТЗ §8–9) */
+.netBar { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 20px; background: #fbebda; color: #8a4b0d; font-size: 13px; border-bottom: 1px solid #f0d4b4; }
+.netBar button { border: 1px solid #d9b48a; background: #fff; color: #8a4b0d; border-radius: 6px; height: 26px; padding: 0 10px; font-weight: 600; font-size: 12px; cursor: pointer; }
+/* Подсказка по горячим клавишам */
+.keysList { display: flex; flex-direction: column; gap: 6px; }
+.keysRow { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: center; }
+.keysRow .key { justify-self: start; min-width: 28px; height: 22px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #dce3ea; border-radius: 5px; background: #f7f9fb; opacity: 1; }
+.qAlerts { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--mut); }

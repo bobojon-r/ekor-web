@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight, BadgeCheck, BriefcaseBusiness, Check, ChevronDown, ChevronRight, FilePlus2, Info, MapPin, MapPinOff, Phone, Search, Send, Star, Users, X,
 } from 'lucide-react';
-import { api, type Master, type RegionKey, type TaskSummary } from '@/lib/api';
+import { track } from '@/lib/api/events';
+import { ref } from '@/lib/api/ref';
+import { api, USE_API, type Master, type RegionKey, type TaskSummary } from '@/lib/api';
 import { ago, countMasters, countResponses, countReviews, initials, money, rating, useDict, useLang, type Lang } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useLoad } from '@/lib/hooks/useLoad';
@@ -31,6 +33,9 @@ export function HomeView() {
   const [tab, setTab] = useState<'client' | 'master'>('client');
 
   const R = api.region(region);
+  useEffect(() => {
+    if (regionReady) track('home_view', { city_id: ref.city(region)?.id ?? null });
+  }, [regionReady]); // eslint-disable-line react-hooks/exhaustive-deps
   const regionName = R.name[lang];
   const { data, showSkeleton, loading, phase, retry } = useLoad(() => api.home(region), [region], regionReady);
   const empty = !loading && data?.localCount === 0;
@@ -493,17 +498,26 @@ function SearchSuggest({
   const router = useRouter();
   const [q, setQ] = useState('');
   const ql = q.trim().toLowerCase();
-  const sug = useMemo(
-    () => (ql ? api.featuredCategories().filter((k) => `${k.name.ru} ${k.name.tj} ${k.synonyms}`.toLowerCase().includes(ql)) : []),
-    [ql],
-  );
+  // Поиск на сервере (синонимы RU/TJ/латиница из справочника) + мгновенный локальный по названиям
+  const [found, setFound] = useState<string[]>([]);
+  useEffect(() => {
+    setFound([]);
+    if (!USE_API || ql.length < 2) return;
+    const id = setTimeout(() => api.searchCategories(ql).then(setFound, () => {}), 250);
+    return () => clearTimeout(id);
+  }, [ql]);
+  const sug = useMemo(() => {
+    if (!ql) return [];
+    const all = api.featuredCategories();
+    return all.filter((k) => found.includes(k.key) || `${k.name.ru} ${k.name.tj} ${k.synonyms}`.toLowerCase().includes(ql));
+  }, [ql, found]);
   const show = !!ql && !(sug.length === 1 && sug[0].name[lang] === q);
-  const submit = () => router.push(`/masters${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`);
+  const submit = () => (q.trim() && track('search', { props: { q: q.trim(), results: sug.length } }), router.push(`/masters${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`));
 
   const list = show && (
     <div className={variant === 'm' ? s.mSug : s.dSug}>
       {sug.map((k) => (
-        <button key={k.key} type="button" className={s.sugItem} onClick={() => router.push(`/masters?cat=${k.key}`)}>
+        <button key={k.key} type="button" className={s.sugItem} onClick={() => (track('search', { category_id: ref.allCats().find((c) => c.key === k.key)?.id ?? null, props: { q: q.trim(), picked: k.key } }), router.push(`/masters?cat=${k.key}`))}>
           <Icon name={k.icon} size={18} color="var(--brand-600)" />
           <span className={s.grow}>{k.name[lang]}</span>
           <span className={s.sugCount}>{countMasters(lang, k.masters)}</span>
