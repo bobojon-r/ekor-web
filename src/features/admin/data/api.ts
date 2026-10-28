@@ -123,13 +123,14 @@ export const adminApi = {
     csrf.set(null);
   },
 
-  async counts(): Promise<Counts> {
+  /** Счётчики меню; moderator не видит споры, отзывы и чаты — их не запрашиваем (иначе 403) */
+  async counts(role: Role = 'admin'): Promise<Counts> {
     if (!USE_API) return wait({ ...demo.demoCounts, tasks: mem.tasks.length, masters: mem.masters.filter((m) => m.type === 'Новый' || m.type === 'Повторно').length, disputes: mem.disputes.filter((d) => d.open).length, reviews: mem.reviews.filter((r) => r.status === 'review').length, chats: mem.complaints.filter((c) => c.open).length }, 0);
     const [q, d, r, c] = await Promise.all([
       http<QueueItem[]>('/admin/queue', { query: { type: 'all' } }).catch(() => [] as QueueItem[]),
-      http<Page<DisputeRow>>('/admin/disputes', { query: { status: 'open', limit: 100 } }).catch(() => ({ items: [] as DisputeRow[] })),
-      http<Page<ReviewRow>>('/admin/reviews', { query: { status: 'review', limit: 100 } }).catch(() => ({ items: [] as ReviewRow[] })),
-      http<Page<ComplaintRow>>('/admin/complaints', { query: { status: 'open', subject_type: 'chat', limit: 100 } }).catch(() => ({ items: [] as ComplaintRow[] })),
+      role !== 'moderator' ? http<Page<DisputeRow>>('/admin/disputes', { query: { status: 'open', limit: 100 } }).catch(() => ({ items: [] as DisputeRow[] })) : { items: [] as DisputeRow[] },
+      role !== 'moderator' ? http<Page<ReviewRow>>('/admin/reviews', { query: { status: 'review', limit: 100 } }).catch(() => ({ items: [] as ReviewRow[] })) : { items: [] as ReviewRow[] },
+      role !== 'moderator' ? http<Page<ComplaintRow>>('/admin/complaints', { query: { status: 'open', subject_type: 'chat', limit: 100 } }).catch(() => ({ items: [] as ComplaintRow[] })) : { items: [] as ComplaintRow[] },
     ]);
     const tasks = q.filter((x) => x.type === 'task');
     const hot = d.items.filter((x) => x.age_hours >= 19);
@@ -144,8 +145,8 @@ export const adminApi = {
     if (!USE_API) return wait(demo.demoDash);
     const [f, rows, noResp] = await Promise.all([
       http<Funnel>('/admin/stats/funnel', { query: { days, city_id: cityId, category_id: catId } }),
-      http<Page<TaskRow>>('/admin/tasks', { query: { city_id: cityId, category_id: catId, limit: 200 } }).catch(() => ({ items: [] as TaskRow[] })),
-      http<Page<TaskRow>>('/admin/tasks', { query: { city_id: cityId, category_id: catId, no_responses_24h: true, limit: 200 } }).catch(() => ({ items: [] as TaskRow[] })),
+      http<Page<TaskRow>>('/admin/tasks', { query: { city_id: cityId, category_id: catId, limit: 100 } }).catch(() => ({ items: [] as TaskRow[] })),
+      http<Page<TaskRow>>('/admin/tasks', { query: { city_id: cityId, category_id: catId, no_responses_24h: true, limit: 100 } }).catch(() => ({ items: [] as TaskRow[] })),
     ]);
     const cities = ref.get()?.cities ?? [];
     const byCity = cityId ? [] : await Promise.all(cities.map((c) => http<Funnel>('/admin/stats/funnel', { query: { days, city_id: c.id, category_id: catId } }).catch(() => null)));
@@ -500,7 +501,7 @@ export const adminApi = {
     }
     return http(`/admin/staff/${s.id}`, {
       method: 'PATCH',
-      body: { name: p.name ?? null, contact_phone: p.phone ?? null, role: p.role ?? null, region_city_ids: p.regionIds ?? null, status: p.active === undefined ? null : p.active ? 'active' : 'disabled' },
+      body: { name: p.name ?? null, contact_phone: p.phone?.trim() || null, role: p.role ?? null, region_city_ids: p.regionIds ?? null, status: p.active === undefined ? null : p.active ? 'active' : 'disabled' },
     });
   },
   async setPassword(s: StaffV, password: string) {
@@ -614,7 +615,7 @@ export const adminApi = {
       const q = f.objectId.trim().toLowerCase();
       return wait(mem.audit.filter((a) => (!f.action || (f.action.endsWith('*') ? a.action.startsWith(f.action.slice(0, -1)) : a.action === f.action)) && (!q || a.obj.toLowerCase().includes(q))));
     }
-    const p = await http<Page<AuditRow>>('/admin/audit', { query: auditQuery(f, 200) });
+    const p = await http<Page<AuditRow>>('/admin/audit', { query: auditQuery(f, 100) });
     return p.items
       .filter((a) => !f.action.endsWith('*') || a.action.startsWith(f.action.slice(0, -1)))
       .map((a) => ({

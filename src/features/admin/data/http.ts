@@ -1,6 +1,7 @@
 /**
  * HTTP админки: отдельная сессия сотрудника в httpOnly-cookie (12 ч), клиентские токены не отправляем.
- * Изменяющие запросы несут X-CSRF-Token (из ответа входа или cookie eyor_admin_csrf).
+ * Изменяющие запросы несут X-CSRF-Token из ответа входа: cookie eyor_admin_csrf выдаётся с Path=/api/admin
+ * и со страниц /admin не читается, поэтому токен храним в localStorage (живёт столько же, сколько сессия).
  * 401 на любом запросе — на страницу входа с возвратом на текущий адрес.
  */
 import { ApiError } from '@/lib/api';
@@ -12,15 +13,15 @@ export const csrf = {
   get(): string | null {
     try {
       const m = document.cookie.match(/(?:^|;\s*)eyor_admin_csrf=([^;]+)/);
-      return (m && decodeURIComponent(m[1])) || sessionStorage.getItem(CSRF_KEY);
+      return (m && decodeURIComponent(m[1])) || localStorage.getItem(CSRF_KEY);
     } catch {
       return null;
     }
   },
   set(v: string | null) {
     try {
-      if (v) sessionStorage.setItem(CSRF_KEY, v);
-      else sessionStorage.removeItem(CSRF_KEY);
+      if (v) localStorage.setItem(CSRF_KEY, v);
+      else localStorage.removeItem(CSRF_KEY);
     } catch {}
   },
 };

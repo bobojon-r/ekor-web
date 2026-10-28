@@ -16,6 +16,8 @@ const AdminCtx = createContext<Ctx | null>(null);
 export const useAdmin = () => useContext(AdminCtx)!;
 
 const DEMO_ROLE = 'ekor_admin_role';
+/** Профиль сотрудника из прошлого ответа /admin/me — показываем сразу, проверяем сессию в фоне */
+const ME_CACHE = 'ekor_admin_me';
 const COUNT_KEY: Partial<Record<SectionKey, keyof Counts>> = { tasks: 'tasks', masters: 'masters', disputes: 'disputes', reviews: 'reviews', chats: 'chats' };
 const EMPTY: Counts = { tasks: 0, masters: 0, disputes: 0, reviews: 0, chats: 0, tasksLate: 0, disputesHot: '' };
 
@@ -40,14 +42,27 @@ export function AdminShell({ children }: { children: ReactNode }) {
       if (q && ['moderator', 'senior', 'admin'].includes(q)) localStorage.setItem(DEMO_ROLE, q);
       demoRole = (localStorage.getItem(DEMO_ROLE) as Role) || 'senior';
     } catch {}
-    setState('loading');
+    let cached: Me | null = null;
+    try {
+      cached = JSON.parse(localStorage.getItem(ME_CACHE) || 'null');
+    } catch {}
+    if (cached) (setMe(cached), setState('ok'));
+    else setState('loading');
     adminApi.me(demoRole).then(
       (m) => {
-        if (!m) return router.replace(`/admin/login?next=${encodeURIComponent(location.pathname + location.search)}`);
+        if (!m) {
+          try {
+            localStorage.removeItem(ME_CACHE);
+          } catch {}
+          return router.replace(`/admin/login?next=${encodeURIComponent(location.pathname + location.search)}`);
+        }
+        try {
+          localStorage.setItem(ME_CACHE, JSON.stringify(m));
+        } catch {}
         setMe(m);
         setState('ok');
       },
-      () => setState('error'),
+      () => !cached && setState('error'),
     );
   }, [isLogin]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -60,8 +75,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, [me?.expiresAt, router]);
 
   const refreshCounts = useCallback(() => {
-    adminApi.counts().then(setCounts, () => {});
-  }, []);
+    if (me) adminApi.counts(me.role).then(setCounts, () => {});
+  }, [me]);
   useEffect(() => {
     if (state !== 'ok') return;
     refreshCounts();
@@ -104,6 +119,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   const active = activeKey(path);
   const logout = async () => {
+    try {
+      localStorage.removeItem(ME_CACHE);
+    } catch {}
     await adminApi.logout();
     router.replace('/admin/login');
   };

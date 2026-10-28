@@ -51,6 +51,10 @@ export function AdminLogin() {
     setErr(null);
     try {
       await adminApi.login(email, pw);
+      // Профиль прошлого сотрудника из кэша не должен мелькнуть
+      try {
+        localStorage.removeItem('ekor_admin_me');
+      } catch {}
       try {
         if (remember) localStorage.setItem(REMEMBER, email.trim());
         else localStorage.removeItem(REMEMBER);

@@ -40,7 +40,8 @@ export const NAV: [string, Section[]][] = [
       { key: 'limits', href: '/admin/limits', icon: SlidersHorizontal, label: 'Лимиты и настройки', title: 'Лимиты и настройки', roles: ADMIN },
       { key: 'templates', href: '/admin/templates', icon: MessageSquareText, label: 'Шаблоны SMS', title: 'Шаблоны уведомлений', roles: ADMIN },
       { key: 'staff', href: '/admin/staff', icon: ShieldCheck, label: 'Сотрудники и роли', title: 'Сотрудники и роли', roles: ADMIN },
-      { key: 'audit', href: '/admin/audit', icon: History, label: 'Аудит-лог', title: 'Аудит-лог', roles: ALL },
+      // ТЗ §6 и бэкенд: аудит — senior и admin (в макете меню модератора пункт был, сервер отвечает 403)
+      { key: 'audit', href: '/admin/audit', icon: History, label: 'Аудит-лог', title: 'Аудит-лог', roles: SENIOR },
     ],
   ],
 ];
