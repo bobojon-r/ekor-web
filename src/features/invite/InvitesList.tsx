@@ -30,7 +30,7 @@ export function MasterInvitesList() {
         </div>
         <div className={s.main}>
           <div className={s.mCol}>
-            {data && list.length === 0 && <EmptyState icon={<Mail size={32} aria-hidden />} title={t.notFound} />}
+            {data && list.length === 0 && <EmptyState icon={<Mail size={32} aria-hidden />} title={t.noInvites} text={t.noInvitesB} />}
             {list.map((inv) => (
               <Link key={inv.id} href={`/master/invites/${inv.id}`} className={s.listRow}>
                 <span className={s.badgeRow}>

@@ -45,7 +45,7 @@ export function LoginView({ next }: { next?: string }) {
   const t = useDict(dict);
   const c = useDict(common);
   const router = useRouter();
-  const { signIn } = useSession();
+  const { signIn, user } = useSession();
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [phoneErr, setPhoneErr] = useState<'len' | 'op' | null>(null);
@@ -207,7 +207,7 @@ export function LoginView({ next }: { next?: string }) {
         <span className={s.okBig}>
           <Check size={36} color="var(--success-700)" aria-hidden />
         </span>
-        <Heading title={t.hello(name.trim())} sub={t.doneB} />
+        <Heading title={t.hello(name.trim() || user?.name || "")} sub={t.doneB} />
       </div>
     );
 

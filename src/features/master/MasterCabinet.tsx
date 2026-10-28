@@ -7,10 +7,10 @@ import {
   ArrowRight, Briefcase, ChevronRight, CircleCheck, CircleMinus, ClipboardList, Clock, Info, LockOpen, Mail, MessageCircle, Phone, Send, Settings, Star,
 } from 'lucide-react';
 import {
-  api, apiErrorText, invites, masterCabinet, proposals, type Invite, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus,
+  api, apiErrorText, invites, masterCabinet, masterProfile, proposals, type Invite, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus,
 } from '@/lib/api';
-import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
-import { useRequireMaster } from '@/lib/session/SessionProvider';
+import { countReviews, initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
+import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { ProfileCard, SideNav, SiteHeader, TabBar, type SideItem } from '@/components/layout';
 import { LoadState } from '@/features/system/SystemStates';
 import { Button, LangSwitch, RadioCard, Sheet, useToast } from '@/components/ui';
@@ -65,6 +65,15 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
   const [modal, setModal] = useState<Modal>(null);
 
   const [failed, setFailed] = useState(false);
+  const [profStatus, setProfStatus] = useState<string | null>(null);
+  const { user, switchRole } = useSession();
+  // Кабинет определяет режим: зашли в кабинет мастера — роль «Мастер»
+  useEffect(() => {
+    if (allowed && user?.activeRole === 'client') switchRole('master');
+  }, [allowed]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (allowed) masterProfile.load().then((p) => setProfStatus(p?.status ?? null), () => {});
+  }, [allowed]);
   const reload = () => (setFailed(false), masterCabinet.load().then(setData, () => setFailed(true)));
   useEffect(() => {
     reload();
@@ -93,8 +102,24 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
     }
   };
 
+  const avg = reviews.length ? reviews.reduce((a, r) => a + r.stars, 0) / reviews.length : 0;
+  const empty = (title: string, body: string) => (
+    <div className={s.emptyBox}>
+      <span className={s.emptyBoxT}>{title}</span>
+      <span className={s.muted14}>{body}</span>
+      <Link href="/tasks" className={s.emptyBoxLink}>
+        {t.toFeed} →
+      </Link>
+    </div>
+  );
   const content = (desktop: boolean) => (
     <>
+      {profStatus === 'review' && (
+        <div className={s.reviewNote}>
+          <b>{t.reviewT}</b>
+          <span>{t.reviewB}</span>
+        </div>
+      )}
       {failed && !data && <LoadState phase="error" retry={reload} />}
       {tab === 'orders' && (
         <>
@@ -112,6 +137,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
           )}
           <div className={desktop ? s.grid2 : s.col}>
             {!data && !failed && [1, 2, 3].map((i) => <div key={i} className={s.sk} />)}
+            {data && orders.length === 0 && empty(t.emptyOrders, t.emptyOrdersB)}
             {orders.map((o) => (
               <OrderCard key={o.id} o={o} t={t} lang={lang} desktop={desktop} onStart={() => run(masterCabinet.start(o.id), t.tStart)} onDone={() => setModal({ type: 'done', id: o.id })} onDecline={() => setModal({ type: 'decline', id: o.id })} onRemind={() => run(masterCabinet.remind(o.id), t.tRemind)} onReview={() => router.push(ROUTE.reviews)} />
             ))}
@@ -125,6 +151,7 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
       {tab === 'props' && (
         <div className={desktop ? s.grid2 : s.col}>
           {!data && !failed && [1, 2].map((i) => <div key={i} className={s.sk} />)}
+          {data && props.length === 0 && empty(t.emptyProps, t.emptyPropsB)}
           {props.map((p) => (
             <PropCard
               key={p.id}
@@ -147,10 +174,10 @@ export function MasterCabinet({ tab }: { tab: MasterTab }) {
         <div className={s.col}>
           <div className={s.ratingCard}>
             <div className={s.ratingRow}>
-              <span className={s.ratingNum}>4,8</span>
+              <span className={s.ratingNum}>{avg ? avg.toFixed(1).replace('.', ',') : '—'}</span>
               <div className={s.ratingSide}>
-                <span className={s.ratingStars}>★★★★★</span>
-                <span className={s.muted14}>{t.ratingN}</span>
+                <span className={s.ratingStars}>{'★'.repeat(Math.round(avg)) + '☆'.repeat(5 - Math.round(avg))}</span>
+                <span className={s.muted14}>{reviews.length ? countReviews(lang, reviews.length) : t.noReviews}</span>
               </div>
             </div>
             <div className={s.rule}>{t.rule}</div>

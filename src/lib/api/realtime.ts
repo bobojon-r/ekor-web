@@ -45,16 +45,27 @@ function connect() {
     clearInterval(ping);
     ws = null;
     if (c.code === 4403 || !subs.size) return; // заблокирован или никто не слушает
-    // Рукопожатие отклонено (истёк токен) — обновляем и переподключаемся с паузой до 30 с
+    // Сервер недоступен — не долбим: после MAX_ATTEMPTS ждём сети или возврата на вкладку
+    if (attempts >= MAX_ATTEMPTS) return;
     const delay = Math.min(30000, 1000 * 2 ** attempts++);
     retry = setTimeout(async () => {
       retry = undefined;
-      if (!wasOpenRecently(c)) await refresh();
+      // Токен обновляем, только если он действительно истёк (иначе зря крутим сессию)
+      if (expired(tokens.get()?.access)) await refresh();
       connect();
     }, delay);
   };
 }
-const wasOpenRecently = (c: CloseEvent) => c.wasClean;
+const MAX_ATTEMPTS = 5;
+/** exp из JWT (секунды); запас 30 с */
+function expired(jwt: string | undefined) {
+  try {
+    const exp = JSON.parse(atob(jwt!.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp as number;
+    return exp * 1000 < Date.now() + 30000;
+  } catch {
+    return true;
+  }
+}
 
 export const realtime = {
   on(f: (e: RtEvent) => void) {
@@ -81,4 +92,7 @@ export const realtime = {
   },
 };
 
-if (typeof window !== 'undefined') window.addEventListener('online', () => !ws && realtime.reset());
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => !ws && realtime.reset());
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && !ws && subs.size && realtime.reset());
+}

@@ -54,7 +54,11 @@ export function ClientCabinet({ selectedId }: { selectedId?: number }) {
   const { lang } = useLang();
   const router = useRouter();
   const toast = useToast();
-  const { user, ready } = useSession();
+  const { user, ready, switchRole } = useSession();
+  // Кабинет определяет режим: зашли в «Мои задания» — роль «Клиент»
+  useEffect(() => {
+    if (user?.activeRole === 'master') switchRole('client');
+  }, [user?.activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState<'active' | 'archive'>('active');
   const [list, setList] = useState<ClientTask[] | null>(null);
   const [modal, setModal] = useState<Modal>(null);
