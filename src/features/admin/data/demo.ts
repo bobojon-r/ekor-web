@@ -1,5 +1,5 @@
 /** Демо-данные из дизайна (eYor Админка.dc.html) — режим без бэкенда */
-import type { AuditV, CatNode, ChatMsg, CityNode, ComplaintV, Counts, Dash, DisputeV, HistoryV, LimitV, MasterCard, MasterQ, Me, Reason, ReviewV, StaffV, TaskQ, TimelineItem, UserCard, UserV } from './types';
+import type { AuditV, CatNode, ChatMsg, CityNode, ComplaintV, Counts, Dash, DisputeV, HistoryV, LimitV, MasterCard, MasterQ, Me, Reason, ReviewV, SessionV, StaffV, TaskQ, TaskRegCard, TaskRegRow, MasterRegCard, MasterRegRow, TimelineItem, UserCard, UserV } from './types';
 import type { Role } from '../core';
 
 export const demoMe = (role: Role): Me =>
@@ -156,15 +156,61 @@ export const demoLimits: LimitV[] = [
 ].map(([group, key, label, value, unit]) => ({ group, key, label, value, unit }) as LimitV);
 export const demoLimitHistory: HistoryV[] = [['Срок жизни задания: 10 → 14 дней', '12 окт · Алишер Н. (admin)', false], ['Откликов в день: 50 → 30', '1 окт · Алишер Н. (admin)', false], ['SLA профиля: 48 → 24 ч', '20 сен · Алишер Н. (admin)', false]];
 
-const S = (userId: number, name: string, role: string, regions: string, status: string, tone: StaffV['tone'], seen: string, decisions: number): StaffV => ({
-  userId, name, phone: '', role, regions, regionIds: [], status, tone, seen, decisions: decisions ? decisions.toLocaleString('ru-RU') : '—', active: status !== 'Отключён',
+const S = (id: number, name: string, email: string, role: string, regions: string, regionIds: number[], active: boolean, seen: string): StaffV => ({
+  id, name, email, phone: '', role, regions, regionIds, status: active ? 'Активен' : 'Отключён', tone: active ? 'ok' : 'grey', seen, active, created: '12 мар 2026',
 });
 export const demoStaff: StaffV[] = [
-  S(1, 'Алишер Назаров', 'admin', 'Все', 'Активен', 'ok', 'сейчас', 42), S(2, 'Нигина Рахимова', 'senior_moderator', 'Душанбе, Худжанд', 'Активен', 'ok', 'сейчас', 614),
-  S(3, 'Фаррух Бобоев', 'moderator', 'Душанбе', 'Активен', 'ok', '12 мин', 802), S(4, 'Мунира Саидова', 'moderator', 'Худжанд', 'Активен', 'ok', '1 ч', 455),
-  S(5, 'Джамшед Каримов', 'moderator', 'Бохтар, Куляб', 'Активен', 'ok', 'вчера', 380), S(6, 'Сабрина Олимова', 'moderator', 'Хорог', 'Приглашён', 'warn', '—', 0),
-  S(7, 'Рустам Шарипов', 'moderator', 'Душанбе', 'Отключён', 'grey', '30 сен', 0),
+  S(1, 'Алишер Назаров', 'a.nazarov@eyor.tj', 'admin', 'Все', [], true, 'сейчас'), S(2, 'Нигина Рахимова', 'n.rahimova@eyor.tj', 'senior_moderator', 'Душанбе, Худжанд', [1, 2], true, 'сейчас'),
+  S(3, 'Фаррух Бобоев', 'f.boboev@eyor.tj', 'moderator', 'Душанбе', [1], true, '12 мин'), S(4, 'Мунира Саидова', 'm.saidova@eyor.tj', 'moderator', 'Худжанд', [2], true, '1 ч'),
+  S(5, 'Джамшед Каримов', 'j.karimov@eyor.tj', 'moderator', 'Бохтар, Куляб', [4, 5], true, 'вчера'), S(6, 'Сабрина Олимова', 's.olimova@eyor.tj', 'moderator', 'Хорог', [7], true, '—'),
+  S(7, 'Рустам Шарипов', 'r.sharipov@eyor.tj', 'moderator', 'Душанбе', [1], false, '30 сен'),
 ];
+/** Сотрудники без решений в аудите — их можно удалить (демо) */
+export const demoNoDecisions = new Set([6]);
+export const demoSessions: SessionV[] = [
+  { id: 's1', device: 'Chrome · Windows', where: 'Душанбе · 10.0.4.12', when: 'сейчас', current: true, revoked: false },
+  { id: 's2', device: 'Chrome · Android', where: 'Душанбе · 85.9.61.3', when: 'вчера 18:20', current: false, revoked: false },
+];
+
+const TR = (key: number, title: string, sub: string, client: string, budget: string, responses: number, status: string, tone: TaskRegRow['tone'], created: string): TaskRegRow => ({
+  key, id: `T-${key}`, title, sub, client, clientId: 55000 + (key % 1000), budget, responses, status, tone, created, flags: [],
+});
+export const demoAllTasks: TaskRegRow[] = [
+  TR(48213, 'Собрать шкаф-купе 2 м', 'Сборщик мебели · Душанбе, Шохмансур', 'Зарина К.', '400', 0, 'На проверке', 'warn', '14:29'), TR(48204, 'Покрасить ворота и забор', 'Маляр · Худжанд, 12 мкр', 'Бахтиёр Р.', 'догов.', 0, 'Открыто', 'info', '14:31'),
+  TR(48190, 'Ведущий на той, 150 гостей', 'Ведущий · Душанбе, Фирдавси', 'Мадина Ш.', '2 500', 7, 'Открыто', 'info', '13:58'), TR(48172, 'Не работает розетка в спальне', 'Электрик · Бохтар', 'Сухроб А.', '150', 3, 'Мастер выбран', 'info', '12:40'),
+  TR(48120, 'Заменить смеситель и сифон на кухне', 'Сантехник · Душанбе, Сино', 'Фарида Н.', '300', 5, 'В работе', 'info', '11:02'), TR(48101, 'Укладка ламината 24 м²', 'Отделка · Худжанд, Панчшанбе', 'Ильхом Т.', '1 800', 4, 'Ждёт подтверждения', 'warn', 'вчера'),
+  TR(48077, 'Плитка в санузле', 'Плиточник · Душанбе, Сино', 'Комрон Т.', '2 000', 6, 'Спор', 'bad', 'вчера'), TR(48050, 'Ремонт стиральной машины', 'Бытовая техника · Куляб', 'Гулнора С.', '250', 2, 'Завершено', 'ok', '25 окт'),
+  TR(48031, 'Установить кондиционер', 'Климат · Душанбе, Исмоили Сомони', 'Парвиз Д.', '600', 8, 'Завершено', 'ok', '25 окт'), TR(48012, 'Перевезти диван на 4 этаж', 'Грузчики · Душанбе, Фирдавси', 'Нилуфар Х.', '200', 0, 'Срок истёк', 'grey', '24 окт'),
+  TR(47998, 'Репетитор по английскому', 'Репетитор · Хорог', 'Шахло М.', 'догов.', 1, 'Отменено', 'grey', '24 окт'), TR(47985, 'Сварить решётки на окна', 'Сварщик · Бохтар', 'Мехрона Ю.', '900', 3, 'Завершено', 'ok', '23 окт'),
+  TR(47960, 'Переведу деньги заранее, срочно', 'Сантехник · Душанбе', 'Рустам А.', '500', 0, 'Отклонено', 'bad', '23 окт'), TR(47941, 'Уборка после ремонта, 3 комнаты', 'Клининг · Худжанд', 'Дилноза Б.', '450', 5, 'Завершено', 'ok', '22 окт'),
+];
+export const demoTaskCard = (r: TaskRegRow): TaskRegCard => ({
+  id: r.id, key: r.key, status: r.status, tone: r.tone, title: r.title, sub: `${r.sub} · до ${r.budget} смн · завтра`, client: `${r.client.replace('.', '')} · U-${r.clientId}`, clientId: r.clientId, phone: '+992 93 551 20 48',
+  address: 'ул. Айни 46, кв. 12', master: r.responses ? 'Далер Мирзоев · M-1311' : '—', masterId: r.responses ? 1311 : null, order: r.responses ? 'O-30402 · начат 26 окт' : '—', flags: 'нет',
+  responses: r.responses ? [{ name: 'Далер Мирзоев', price: '280', state: 'выбран', chosen: true }, { name: 'Хуршед Алиев', price: '300', state: 'закрыт', chosen: false }, { name: 'Нозим Юсупов', price: '250', state: 'закрыт', chosen: false }] : [],
+  history: [['25 окт 18:02', 'Создано клиентом'], ['25 окт 18:11', 'Одобрено · Нигина Р.'], ['25 окт 18:40', 'Первый отклик'], ['26 окт 09:15', 'Выбран Далер Мирзоев'], ['26 окт 10:02', 'Мастер начал работу']],
+  canUnpublish: r.status === 'Открыто',
+});
+const MR = (key: number, name: string, profs: string, city: string, rating: string, orders: number, status: string, tone: MasterRegRow['tone'], verified: boolean, seen: string): MasterRegRow => ({
+  key, id: `M-${key}`, name, profs, city, rating, orders: String(orders), status, tone, verified, seen,
+});
+export const demoAllMasters: MasterRegRow[] = [
+  MR(1311, 'Далер Мирзоев', 'Электрик, Сантехник', 'Душанбе', '4,9', 214, 'Одобрен', 'ok', true, 'сейчас'), MR(1290, 'Улугбек Саидов', 'Сварщик', 'Бохтар', '4,7', 96, 'Одобрен', 'ok', true, '1 ч'),
+  MR(1288, 'Шерзод Каримов', 'Плиточник, Отделка', 'Душанбе', '4,6', 141, 'Одобрен', 'ok', false, '20 мин'), MR(1276, 'Азиз Холов', 'Сборщик мебели', 'Худжанд', '4,8', 77, 'Одобрен', 'ok', true, 'вчера'),
+  MR(1270, 'Фирӯз Назаров', 'Ведущий, Музыкант', 'Душанбе', '5,0', 38, 'Одобрен', 'ok', true, '3 ч'), MR(1262, 'Манучехр Раҳимов', 'Климат, Электрик', 'Худжанд', '4,4', 52, 'Одобрен', 'ok', false, '2 дн'),
+  MR(2291, 'Сино Бобоев', 'Бытовая техника', 'Куляб', '—', 0, 'На проверке', 'warn', false, '10 мин'), MR(1250, 'Нозим Юсупов', 'Грузчики', 'Душанбе', '4,2', 19, 'Одобрен', 'ok', false, '5 дн'),
+  MR(2288, 'Чамшед Олимов', 'Отделка', 'Хорог', '—', 0, 'На проверке', 'warn', false, '1 ч'), MR(1201, 'Бахром Тошев', 'Сантехник', 'Бохтар', '3,1', 11, 'Приостановлен', 'grey', false, '12 окт'),
+  MR(1199, 'Мавзуна Икромова', 'Клининг', 'Худжанд', '4,9', 63, 'Одобрен', 'ok', true, 'сейчас'), MR(1190, 'Санавбар Каримова', 'Репетитор', 'Хорог', '4,8', 24, 'Одобрен', 'ok', false, 'вчера'),
+  MR(2263, 'Анвар Шарипов', 'Сварщик', 'Душанбе', '—', 0, 'Отклонён', 'bad', false, '20 окт'), MR(1180, 'Хуршед Алиев', 'Электрик', 'Куляб', '4,5', 33, 'Одобрен', 'ok', false, '4 ч'),
+];
+export const demoMasterRegCard = (m: MasterRegRow): MasterRegCard => ({
+  key: m.key, id: m.id, name: m.name, status: m.status, tone: m.tone, sub: `${m.id} · ${m.profs} · с 14 фев 2026`, verified: m.verified, suspended: m.status === 'Приостановлен',
+  stats: [[m.rating, `рейтинг · ${m.orders === '0' ? 0 : 186}`], [m.orders, 'заказов'], ['96%', 'завершено'], ['18 мин', 'до отклика']],
+  rows: [['Телефон', '+992 90 131 11 07'], ['Город', `${m.city} · Сино, Фирдавси, Шохмансур`], ['Цены', 'от 80 смн · выезд бесплатно'], ['Проверен', m.verified ? '12 мар · звонок + паспорт · Мунира С.' : '—'], ['Приём заказов', 'включён'], ['Отклики', '9 сегодня из 30']],
+  orders: [['O-30402', 'Заменить смеситель и сифон', 'В работе'], ['O-30377', 'Розетки в детской, 4 шт', 'Завершено'], ['O-30351', 'Подключить бойлер', 'Завершено'], ['O-30320', 'Люстра в зале', 'Завершено']],
+  warn: '1 жалоба за 30 дней · C-204 «опоздал на 2 часа» — решена',
+});
+
 
 const A = (key: number, time: string, who: string, action: string, obj: string, details: string, tone: AuditV['tone']): AuditV => ({
   key, time, who, action, obj, details, tone, evt: `evt_${(0x9f12c0 + key).toString(16)}`, comment: details || null, old: null, next: null,

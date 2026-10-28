@@ -1,7 +1,7 @@
 /** Модели экранов админки — общие для демо-данных и бэкенда */
 import type { Role, Tone } from '../core';
 
-export type Me = { role: Role; name: string; meta: string; userId?: number };
+export type Me = { role: Role; name: string; meta: string; userId?: number; email?: string; permissions?: string[]; expiresAt?: string };
 export type Counts = { tasks: number; masters: number; disputes: number; reviews: number; chats: number; tasksLate: number; disputesHot: string };
 
 export type Dash = {
@@ -55,9 +55,19 @@ export type CityNode = { id: number; ru: string; tj: string; region: string; mas
 export type LimitV = { key: string; group: string; label: string; value: number; unit: string };
 export type HistoryV = [string, string, boolean];
 
-export type StaffV = { userId: number; name: string; phone: string; role: string; regions: string; regionIds: number[]; status: string; tone: Tone; decisions: string; seen: string; active: boolean };
+export type StaffV = { id: number; name: string; email: string; phone: string; role: string; regions: string; regionIds: number[]; status: string; tone: Tone; seen: string; active: boolean; created: string };
+export type SessionV = { id: string; device: string; where: string; when: string; current: boolean; revoked: boolean };
+export type TaskRegRow = { key: number; id: string; title: string; sub: string; client: string; clientId: number; budget: string; responses: number; status: string; tone: Tone; created: string; flags: string[] };
+export type TaskRegCard = {
+  id: string; key: number; status: string; tone: Tone; title: string; sub: string; client: string; clientId: number; phone: string; address: string; master: string; masterId: number | null; order: string;
+  flags: string; responses: { name: string; price: string; state: string; chosen: boolean }[]; history: [string, string][]; canUnpublish: boolean;
+};
+export type MasterRegRow = { key: number; id: string; name: string; profs: string; city: string; rating: string; orders: string; status: string; tone: Tone; verified: boolean; seen: string };
+export type MasterRegCard = {
+  key: number; id: string; name: string; status: string; tone: Tone; sub: string; stats: [string, string][]; rows: [string, string][]; orders: [string, string, string][]; warn: string | null; verified: boolean; suspended: boolean;
+};
 
 export type AuditV = {
   key: number; time: string; who: string; action: string; obj: string; details: string; tone: Tone; evt: string; comment: string | null;
-  old: Record<string, unknown> | null; next: Record<string, unknown> | null;
+  old: Record<string, unknown> | null; next: Record<string, unknown> | null; ip?: string | null; device?: string | null; date?: string;
 };

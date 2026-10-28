@@ -2,12 +2,13 @@
  * Данные админки. NEXT_PUBLIC_API=real — /api/admin/* (доступ только сотрудникам),
  * иначе демо из дизайна (изменения живут до перезагрузки страницы).
  */
-import { http, USE_API } from '@/lib/api';
+import { USE_API } from '@/lib/api';
+import { adminHttp as http, adminUrl, csrf } from './http';
 import { ref } from '@/lib/api/ref';
 import { agoText, dayMon, dayMonTime, flagOf, hhmmss, num, roleFromApi, seenText, type Role, type Tone } from '../core';
 import * as demo from './demo';
 import type {
-  AuditV, CatNode, ChatMsg, CityNode, ComplaintV, Counts, Dash, DisputeV, HistoryV, LimitV, MasterCard, MasterQ, Me, Reason, ReviewV, StaffV, TaskQ, TimelineItem, UserCard, UserV,
+  AuditV, CatNode, ChatMsg, CityNode, ComplaintV, Counts, Dash, DisputeV, HistoryV, LimitV, MasterCard, MasterQ, MasterRegCard, MasterRegRow, Me, Reason, ReviewV, SessionV, StaffV, TaskQ, TaskRegCard, TaskRegRow, TimelineItem, UserCard, UserV,
 } from './types';
 
 const wait = <T,>(v: T, ms = 250) => new Promise<T>((r) => setTimeout(() => r(v), ms));
@@ -30,8 +31,11 @@ type UserRow = { id: number; name: string | null; phone: string; city_ru: string
 type UserDetail = UserRow & { block_reason: string | null; tasks_count: number; orders_as_client: number; orders_as_master: number; reviews_written: number; disputes_count: number; staff_role: string | null };
 type ComplaintRow = { id: number; reporter_id: number; subject_type: string; subject_id: number; reason_ru: string; comment: string | null; status: string; resolution: string | null; created_at: string };
 type LimitOut = { key: string; title: string; value: number; default: number };
-type StaffOut = { user_id: number; name: string | null; phone: string; role: string; region_ids: number[]; active: boolean };
-type AuditRow = { id: number; at: string; actor_id: number | null; actor_name: string | null; action: string; object_type: string; object_id: number | null; old: Record<string, unknown> | null; new: Record<string, unknown> | null; comment: string | null };
+type CityRef = { id: number; name_ru: string };
+type StaffOut = { id: number; email: string; name: string; contact_phone: string | null; role: string; region_cities: CityRef[]; status: 'active' | 'disabled'; created_at: string; last_login_at: string | null; locked_until: string | null };
+type MeOut = StaffOut & { permissions: string[]; session_expires_at: string };
+type SessionOut = { id: string; created_at: string; expires_at: string; ip: string | null; user_agent: string | null; city: string | null; revoked_at: string | null; current: boolean };
+type AuditRow = { id: number; at: string; staff_id: number | null; staff_name: string | null; action: string; object_type: string; object_id: number | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; basis: string | null; ip: string | null; user_agent: string | null };
 type OwnProfile = {
   status: string; professions: { category_id: number; name_ru: string; price_from: number | null; negotiable: boolean; status: string }[]; city: { name_ru: string } | null;
   districts: { name_ru: string }[]; experience: string | null; about: string | null; portfolio: { url: string }[]; avatar_url: string | null; verified: boolean; services: { title: string; price: number | null }[];
@@ -73,17 +77,50 @@ const log = (who: string, action: string, obj: string, details: string) => {
 
 /* ======================= API ======================= */
 export const adminApi = {
-  /** Роль сотрудника: с бэкендом — staff_role из карточки пользователя; без — из ?role= (демо) */
-  async me(userId: number | null, name: string, demoRole: Role): Promise<Me | null> {
-    if (!USE_API) return wait(demo.demoMe(demoRole), 0);
-    if (!userId) return null;
-    const u = await http<UserDetail>(`/admin/users/${userId}`);
-    const role = roleFromApi(u.staff_role);
-    if (!role) return null;
-    const staff = role === 'admin' ? await http<StaffOut[]>('/admin/staff').catch(() => []) : [];
-    const mine = staff.find((x) => x.user_id === userId);
-    const regions = mine?.region_ids.map((id) => ref.cityById(id)?.name.ru).filter(Boolean).join(', ');
-    return { role, name: u.name ?? name, meta: [u.staff_role, regions].filter(Boolean).join(' · '), userId };
+  /** Текущий сотрудник: с бэкендом — GET /admin/me (сессия в cookie); в демо — роль из ?role= после демо-входа */
+  async me(demoRole: Role): Promise<Me | null> {
+    if (!USE_API) return wait(demoAuthed() ? demo.demoMe(demoRole) : null, 0);
+    try {
+      const m = await http<MeOut>('/admin/me', { noRedirect: true });
+      const role = roleFromApi(m.role);
+      if (!role) return null;
+      const regions = m.region_cities.map((c) => c.name_ru).join(', ');
+      return { role, name: m.name, meta: [m.role, regions].filter(Boolean).join(' · '), userId: m.id, email: m.email, permissions: m.permissions, expiresAt: m.session_expires_at };
+    } catch (e) {
+      if ((e as { status?: number }).status === 401) return null;
+      throw e;
+    }
+  },
+  /** Вход по почте и паролю. Ошибка — ApiError: 401 invalid_credentials {attempts_left}, 423 locked {until} */
+  async login(email: string, password: string) {
+    if (!USE_API) {
+      // Демо: пароль «wrong» — неверный (5 попыток → блок 15 мин), любой другой — вход
+      const st = demoLock();
+      if (st.until > Date.now()) throw Object.assign(new Error('locked'), { status: 423, code: 'locked', details: { until: new Date(st.until).toISOString() } });
+      if (password === 'wrong') {
+        const n = st.fails + 1;
+        demoLock({ fails: n >= 5 ? 0 : n, until: n >= 5 ? Date.now() + 15 * 60000 : 0 });
+        if (n >= 5) throw Object.assign(new Error('locked'), { status: 423, code: 'locked', details: { until: new Date(Date.now() + 15 * 60000).toISOString() } });
+        throw Object.assign(new Error('Неверная почта или пароль'), { status: 401, code: 'invalid_credentials', details: { attempts_left: 5 - n } });
+      }
+      demoLock({ fails: 0, until: 0 });
+      try {
+        localStorage.setItem(DEMO_AUTH, '1');
+      } catch {}
+      return wait(null, 300);
+    }
+    const r = await http<{ csrf_token: string }>('/admin/auth/login', { method: 'POST', body: { email: email.trim(), password }, noRedirect: true });
+    csrf.set(r.csrf_token);
+  },
+  async logout() {
+    if (!USE_API) {
+      try {
+        localStorage.removeItem(DEMO_AUTH);
+      } catch {}
+      return;
+    }
+    await http('/admin/auth/logout', { method: 'POST', noRedirect: true }).catch(() => {});
+    csrf.set(null);
   },
 
   async counts(): Promise<Counts> {
@@ -420,7 +457,7 @@ export const adminApi = {
     if (!USE_API) return wait(mem.history);
     const a = await http<Page<AuditRow>>('/admin/audit', { query: { action: 'limits.update', limit: 20 } }).catch(() => ({ items: [] as AuditRow[] }));
     return a.items.flatMap((r) =>
-      Object.keys(r.new ?? {}).map((k): [string, string, boolean] => [`${k}: ${String(r.old?.[k] ?? '—')} → ${String(r.new?.[k])}`, `${dayMon(r.at)} · ${r.actor_name ?? '—'}`, false]),
+      Object.keys(r.after ?? {}).map((k): [string, string, boolean] => [`${k}: ${String(r.before?.[k] ?? '—')} → ${String(r.after?.[k])}`, `${dayMon(r.at)} · ${r.staff_name ?? '—'}`, false]),
     );
   },
   async saveLimits(values: Record<string, number>, prev: Record<string, number>, labels: Record<string, string>, comment: string) {
@@ -430,52 +467,164 @@ export const adminApi = {
       log('Вы', 'limits.update', Object.keys(values).join(', '), comment);
       return wait(null);
     }
-    // Основание пишет в аудит сервер; передаём его вместе со значениями
-    return http('/admin/limits', { method: 'PUT', body: { values, comment } });
+    // LimitsIn пока принимает только values — основание сервер не сохраняет (см. список для бэкенда)
+    return http('/admin/limits', { method: 'PUT', body: { values, basis: comment } });
   },
 
-  /* ---------- 11 Сотрудники ---------- */
+  /* ---------- 11, 20–22 Сотрудники ---------- */
   async staff(): Promise<StaffV[]> {
     if (!USE_API) return wait(mem.staff);
-    const l = await http<StaffOut[]>('/admin/staff');
-    return l.map((x) => ({
-      userId: x.user_id, name: x.name ?? phoneFmt(x.phone), phone: phoneFmt(x.phone), role: x.role, regionIds: x.region_ids,
-      regions: x.region_ids.length ? x.region_ids.map((id) => ref.cityById(id)?.name.ru ?? `#${id}`).join(', ') : 'Все', status: x.active ? 'Активен' : 'Отключён', tone: x.active ? 'ok' : 'grey', decisions: '—', seen: '—', active: x.active,
+    return (await http<StaffOut[]>('/admin/staff')).map(toStaff);
+  },
+  async emailAvailable(email: string): Promise<boolean> {
+    if (!USE_API) return wait(!mem.staff.some((s) => s.email.toLowerCase() === email.trim().toLowerCase()), 150);
+    return (await http<{ available: boolean }>('/admin/staff/email-available', { query: { email: email.trim() } })).available;
+  },
+  async createStaff(f: { name: string; email: string; password: string; phone: string; role: string; regionIds: number[] }) {
+    if (!USE_API) {
+      mem.staff.push({ id: Date.now() % 100000, name: f.name, email: f.email, phone: f.phone, role: f.role, regionIds: f.regionIds, regions: cityNames(f.regionIds), status: 'Активен', tone: 'ok', seen: '—', active: true, created: 'сегодня' });
+      demo.demoNoDecisions.add(mem.staff[mem.staff.length - 1].id);
+      log('Вы', 'staff.create', f.email, `роль ${f.role}`);
+      return wait(null);
+    }
+    return http('/admin/staff', { method: 'POST', body: { name: f.name.trim(), email: f.email.trim(), password: f.password, contact_phone: f.phone.trim() || null, role: f.role, region_city_ids: f.regionIds } });
+  },
+  async patchStaff(s: StaffV, p: { name?: string; phone?: string; role?: string; regionIds?: number[]; active?: boolean }) {
+    if (!USE_API) {
+      Object.assign(mem.staff.find((x) => x.id === s.id)!, {
+        ...(p.name && { name: p.name }), ...(p.role && { role: p.role }), ...(p.regionIds && { regionIds: p.regionIds, regions: cityNames(p.regionIds) }),
+        ...(p.active !== undefined && { active: p.active, status: p.active ? 'Активен' : 'Отключён', tone: p.active ? 'ok' : 'grey' }),
+      });
+      log('Вы', 'staff.update', s.email, Object.keys(p).join(', '));
+      return wait(null);
+    }
+    return http(`/admin/staff/${s.id}`, {
+      method: 'PATCH',
+      body: { name: p.name ?? null, contact_phone: p.phone ?? null, role: p.role ?? null, region_city_ids: p.regionIds ?? null, status: p.active === undefined ? null : p.active ? 'active' : 'disabled' },
+    });
+  },
+  async setPassword(s: StaffV, password: string) {
+    if (!USE_API) return wait(log('Вы', 'staff.password', s.email, 'задан новый пароль'));
+    return http(`/admin/staff/${s.id}/password`, { method: 'POST', body: { password } });
+  },
+  async sessions(s: StaffV): Promise<SessionV[]> {
+    if (!USE_API) return wait(s.active ? demo.demoSessions : [], 150);
+    return (await http<SessionOut[]>(`/admin/staff/${s.id}/sessions`)).map((x) => ({
+      id: x.id, device: uaShort(x.user_agent), where: [x.city, x.ip].filter(Boolean).join(' · '), when: x.current ? 'сейчас' : seenText(x.created_at), current: x.current, revoked: !!x.revoked_at,
     }));
   },
-  async inviteStaff(phone: string, role: string, regionIds: number[]) {
-    if (!USE_API) {
-      mem.staff.push({ userId: Date.now(), name: phone, phone, role, regionIds, regions: regionIds.map((id) => demo.demoCities.find((c) => c.id === id)?.ru).join(', ') || 'Все', status: 'Приглашён', tone: 'warn', decisions: '—', seen: '—', active: true });
-      log('Вы', 'staff.invite', phone, `роль ${role}`);
-      return wait(null);
-    }
-    return http('/admin/staff', { method: 'POST', body: { phone, role, region_ids: regionIds } });
+  async revokeSessions(s: StaffV) {
+    if (!USE_API) return wait(log('Вы', 'staff.sessions', s.email, 'все сеансы завершены'));
+    return http(`/admin/staff/${s.id}/sessions`, { method: 'DELETE' });
   },
-  async patchStaff(s: StaffV, p: { role?: string; regionIds?: number[]; active?: boolean }) {
+  /** 409 has_decisions — удалить нельзя, только отключить */
+  async deleteStaff(s: StaffV) {
     if (!USE_API) {
-      Object.assign(mem.staff.find((x) => x.userId === s.userId)!, { ...(p.role && { role: p.role }), ...(p.active !== undefined && { active: p.active, status: p.active ? 'Активен' : 'Отключён', tone: p.active ? 'ok' : 'grey' }) });
-      log('Вы', 'staff.update', s.name, JSON.stringify(p));
+      if (!demo.demoNoDecisions.has(s.id)) throw Object.assign(new Error('has_decisions'), { status: 409, code: 'has_decisions' });
+      mem.staff = mem.staff.filter((x) => x.id !== s.id);
+      log('Вы', 'staff.delete', s.email, '');
       return wait(null);
     }
-    return http(`/admin/staff/${s.userId}`, { method: 'PATCH', body: { role: p.role ?? null, region_ids: p.regionIds ?? null, active: p.active ?? null } });
+    return http(`/admin/staff/${s.id}`, { method: 'DELETE' });
+  },
+
+  /* ---------- 23 Все задания ---------- */
+  async allTasks(f: { status: string; cityId: number | null; categoryId: number | null; flags: boolean; cursor?: string | null }): Promise<{ items: TaskRegRow[]; next: string | null }> {
+    if (!USE_API) {
+      const st = f.status === 'all' ? null : TASK_TAB[f.status];
+      return wait({ items: demo.demoAllTasks.filter((r) => !st || st.includes(r.status)), next: null });
+    }
+    const p = await http<Page<TaskRow>>('/admin/tasks', { query: { status: f.status === 'all' ? null : f.status, city_id: f.cityId, category_id: f.categoryId, limit: 50, cursor: f.cursor ?? null } });
+    return {
+      next: p.next_cursor,
+      items: p.items
+        .filter((x) => !f.flags || x.flags.length)
+        .map((x) => {
+          const [status, tone] = TASK_ST[x.status] ?? [x.status, 'grey'];
+          return {
+            key: x.id, id: `T-${x.id}`, title: x.title, sub: [x.category_ru, [x.city_ru, x.district_ru].filter(Boolean).join(', ') || 'Онлайн'].join(' · '), client: `#${x.client_id}`, clientId: x.client_id,
+            budget: '—', responses: x.responses_count, status, tone, created: whenShort(x.published_at ?? x.created_at), flags: x.flags.map((g) => flagOf(g)[0]),
+          };
+        }),
+    };
+  },
+  async taskCard(r: TaskRegRow): Promise<TaskRegCard> {
+    if (!USE_API) return wait(demo.demoTaskCard(r), 120);
+    const d = await http<{ task: TaskFull; flags: string[]; history: { from_status: string | null; to_status: string; comment: string | null; at: string }[]; responses: { master_id: number; master_name: string | null; price: number | null; inspect: boolean; status: string }[]; orders: { id: number; master_id: number; status: string; created_at: string }[] }>(`/admin/tasks/${r.key}`);
+    const k = d.task;
+    const order = d.orders[d.orders.length - 1];
+    const chosen = d.responses.find((x) => x.status === 'chosen');
+    const budget = k.budget_mode === 'sum' ? (k.budget_min && k.budget_max ? `${k.budget_min}–${k.budget_max} смн` : k.budget_max ? `до ${k.budget_max} смн` : k.budget_min ? `от ${k.budget_min} смн` : 'договорная') : 'договорная';
+    return {
+      id: r.id, key: r.key, status: r.status, tone: r.tone, title: k.title, sub: [r.sub, budget].join(' · '), client: `${k.client?.name ?? 'Клиент'} · U-${r.clientId}`, clientId: r.clientId,
+      phone: k.client_phone ?? '—', address: k.address ?? '—', master: chosen ? `${chosen.master_name ?? ''} · M-${chosen.master_id}` : '—', masterId: chosen?.master_id ?? order?.master_id ?? null,
+      order: order ? `O-${order.id} · ${TASK_ST[order.status]?.[0]?.toLowerCase() ?? order.status} · ${dayMon(order.created_at)}` : '—', flags: d.flags.length ? d.flags.map((g) => flagOf(g)[0]).join(', ') : 'нет',
+      responses: d.responses.map((x) => ({ name: x.master_name ?? `M-${x.master_id}`, price: x.inspect ? 'после осмотра' : x.price ? num(x.price) : '—', state: x.status === 'chosen' ? 'выбран' : x.status === 'withdrawn' ? 'отозван' : x.status === 'rejected' || x.status === 'closed' ? 'закрыт' : 'ждёт', chosen: x.status === 'chosen' })),
+      history: d.history.map((h) => [dayMonTime(h.at).replace(',', ''), `${TASK_ST[h.to_status]?.[0] ?? h.to_status}${h.comment ? ` · ${h.comment}` : ''}`]),
+      canUnpublish: k.status === 'open',
+    };
+  },
+  async unpublishTask(key: number, reason: Reason, comment: string) {
+    if (!USE_API) return wait(log('Вы', 'task.unpublish', `T-${key}`, `причина: ${reason.label}`));
+    return http(`/admin/tasks/${key}/reject`, { method: 'POST', body: { reason_id: reason.id, comment: comment || null } });
+  },
+
+  /* ---------- 24 Все мастера (реестр — по пользователям с ролью мастера) ---------- */
+  async allMasters(f: { q: string; status: string; cursor?: string | null }): Promise<{ items: MasterRegRow[]; next: string | null }> {
+    if (!USE_API) {
+      const ql = f.q.trim().toLowerCase();
+      const st = f.status === 'all' ? null : MASTER_TAB[f.status];
+      return wait({ items: demo.demoAllMasters.filter((m) => (!st || m.status === st) && (!ql || `${m.name} ${m.id}`.toLowerCase().includes(ql))), next: null });
+    }
+    const p = await http<Page<UserRow>>('/admin/users', { query: { q: f.q.trim() || null, role: 'master', limit: 50, cursor: f.cursor ?? null } });
+    return {
+      next: p.next_cursor,
+      items: p.items
+        .map((u): MasterRegRow => {
+          const [status, tone] = MASTER_ST[u.status === 'blocked' ? 'blocked' : (u.master_status ?? 'draft')] ?? [u.master_status ?? '—', 'grey'];
+          return { key: u.id, id: `M-${u.id}`, name: u.name ?? `#${u.id}`, profs: '', city: u.city_ru ?? 'Онлайн', rating: '—', orders: '—', status, tone, verified: false, seen: seenText(u.last_seen_at) };
+        })
+        .filter((m) => f.status === 'all' || m.status === MASTER_TAB[f.status]),
+    };
+  },
+  async masterRegCard(m: MasterRegRow): Promise<MasterRegCard> {
+    if (!USE_API) return wait(demo.demoMasterRegCard(m), 120);
+    const p = await http<OwnProfile & { accepting_orders: boolean; rating_avg: number | null; reviews_count: number; completed_orders_count: number; works_online: boolean }>(`/admin/masters/${m.key}/profile`);
+    const prices = p.professions.map((x) => `${x.name_ru} — ${x.negotiable || !x.price_from ? 'договорная' : `от ${x.price_from} смн`}`).join(' · ');
+    return {
+      key: m.key, id: m.id, name: m.name, status: m.status, tone: m.tone, verified: p.verified, suspended: p.status === 'suspended',
+      sub: [m.id, p.professions.map((x) => x.name_ru).join(', ')].filter(Boolean).join(' · '),
+      stats: [[p.rating_avg != null ? p.rating_avg.toFixed(1).replace('.', ',') : '—', `рейтинг · ${p.reviews_count}`], [String(p.completed_orders_count), 'заказов'], ['—', 'завершено'], ['—', 'до отклика']],
+      rows: [['Город', [p.city?.name_ru, p.districts.map((d) => d.name_ru).join(', ')].filter(Boolean).join(' · ') || (p.works_online ? 'Онлайн' : '—')], ['Цены', prices || '—'], ['Проверен', p.verified ? 'да' : '—'], ['Приём заказов', p.accepting_orders ? 'включён' : 'выключен']],
+      orders: [], warn: null,
+    };
+  },
+  async suspendMaster(key: number, on: boolean, comment: string) {
+    if (!USE_API) return wait(log('Вы', on ? 'master.suspend' : 'master.unsuspend', `M-${key}`, comment));
+    return http(`/admin/masters/${key}/${on ? 'suspend' : 'unsuspend'}`, { method: 'POST', body: { comment } });
+  },
+  async unverifyMaster(key: number, comment: string) {
+    if (!USE_API) return wait(log('Вы', 'master.verify', `M-${key}`, `снят «Проверен» · ${comment}`));
+    return http(`/admin/masters/${key}/verify`, { method: 'POST', body: { verified: false, comment } });
   },
 
   /* ---------- 12 Аудит ---------- */
-  async audit(f: { action: string; objectId: string }): Promise<AuditV[]> {
+  async audit(f: { action: string; objectId: string; days: number; staffId?: number | null }): Promise<AuditV[]> {
     if (!USE_API) {
       const q = f.objectId.trim().toLowerCase();
       return wait(mem.audit.filter((a) => (!f.action || (f.action.endsWith('*') ? a.action.startsWith(f.action.slice(0, -1)) : a.action === f.action)) && (!q || a.obj.toLowerCase().includes(q))));
     }
-    const id = f.objectId.replace(/\D/g, '');
-    const p = await http<Page<AuditRow>>('/admin/audit', { query: { action: f.action && !f.action.endsWith('*') ? f.action : null, object_id: id ? +id : null, limit: 200 } });
+    const p = await http<Page<AuditRow>>('/admin/audit', { query: auditQuery(f, 200) });
     return p.items
       .filter((a) => !f.action.endsWith('*') || a.action.startsWith(f.action.slice(0, -1)))
       .map((a) => ({
-        key: a.id, time: hhmmss(a.at), who: a.actor_name ? short(a.actor_name) : 'Система', action: a.action, obj: objId(a.object_type, a.object_id),
-        details: a.comment ?? (a.new ? Object.entries(a.new).map(([k, v]) => `${a.old?.[k] !== undefined ? `${String(a.old[k])} → ` : ''}${String(v)}${Object.keys(a.new!).length > 1 ? ` (${k})` : ''}`).join(', ') : ''),
-        tone: ACT_TONE(a.action), evt: `evt_${a.id.toString(16)}`, comment: a.comment, old: a.old, next: a.new,
+        key: a.id, time: hhmmss(a.at), date: dayMon(a.at), who: a.staff_name ? short(a.staff_name) : 'Система', action: a.action, obj: objId(a.object_type, a.object_id),
+        details: a.basis ?? (a.after ? Object.entries(a.after).map(([k, v]) => `${a.before?.[k] !== undefined ? `${String(a.before[k])} → ` : ''}${String(v)}${Object.keys(a.after!).length > 1 ? ` (${k})` : ''}`).join(', ') : ''),
+        tone: ACT_TONE(a.action), evt: `evt_${a.id.toString(16)}`, comment: a.basis, old: a.before, next: a.after, ip: a.ip, device: uaShort(a.user_agent),
       }));
   },
+  /** Ссылка на выгрузку CSV с теми же фильтрами (сервер сам пишет выгрузку в аудит) */
+  auditCsvUrl: (f: { action: string; objectId: string; days: number; staffId?: number | null }) => (USE_API ? adminUrl('/admin/audit.csv', auditQuery(f)) : null),
 };
 
 /** Лимиты бэкенда: группа и единица по ключу */
@@ -496,3 +645,62 @@ function limitUnit(k: string) {
   if (/len|chars|desc|title/.test(k)) return 'симв.';
   return 'шт';
 }
+
+/* ---------- помощники админки ---------- */
+const DEMO_AUTH = 'ekor_admin_demo_auth';
+const DEMO_LOCK = 'ekor_admin_demo_lock';
+function demoAuthed() {
+  try {
+    return localStorage.getItem(DEMO_AUTH) === '1';
+  } catch {
+    return false;
+  }
+}
+function demoLock(v?: { fails: number; until: number }): { fails: number; until: number } {
+  try {
+    if (v) localStorage.setItem(DEMO_LOCK, JSON.stringify(v));
+    return JSON.parse(localStorage.getItem(DEMO_LOCK) || '{"fails":0,"until":0}');
+  } catch {
+    return { fails: 0, until: 0 };
+  }
+}
+type TaskFull = {
+  title: string; status: string; budget_mode: string; budget_min: number | null; budget_max: number | null; address: string | null; client_phone: string | null; client: { name: string } | null;
+};
+const toStaff = (x: StaffOut): StaffV => ({
+  id: x.id, name: x.name, email: x.email, phone: x.contact_phone ?? '', role: x.role, regionIds: x.region_cities.map((c) => c.id),
+  regions: x.region_cities.length ? x.region_cities.map((c) => c.name_ru).join(', ') : 'Все', status: x.status === 'active' ? 'Активен' : 'Отключён', tone: x.status === 'active' ? 'ok' : 'grey',
+  seen: seenText(x.last_login_at), active: x.status === 'active', created: dayMon(x.created_at),
+});
+const cityNames = (ids: number[]) => (ids.length ? ids.map((id) => ref.cityById(id)?.name.ru ?? demo.demoCities.find((c) => c.id === id)?.ru ?? `#${id}`).join(', ') : 'Все');
+function uaShort(ua: string | null | undefined) {
+  if (!ua) return 'Устройство';
+  const b = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Браузер';
+  const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+  return [b, os].filter(Boolean).join(' · ');
+}
+/** «14:29» сегодня, «вчера», иначе «25 окт» */
+function whenShort(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (+d >= +today) return hhmmss(iso).slice(0, 5);
+  if (+d >= +today - 864e5) return 'вчера';
+  return dayMon(iso);
+}
+function auditQuery(f: { action: string; objectId: string; days: number; staffId?: number | null }, limit?: number) {
+  const id = f.objectId.replace(/\D/g, '');
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+  from.setDate(from.getDate() - (f.days - 1));
+  return { action: f.action && !f.action.endsWith('*') ? f.action : null, object_id: id ? +id : null, staff_id: f.staffId ?? null, from: from.toISOString(), limit };
+}
+/** Статусы заданий бэкенда → подпись и тон реестра */
+const TASK_ST: Record<string, [string, Tone]> = {
+  draft: ['Черновик', 'grey'], review: ['На проверке', 'warn'], open: ['Открыто', 'info'], chosen: ['Мастер выбран', 'info'], work: ['В работе', 'info'], wait: ['Ждёт подтверждения', 'warn'],
+  dispute: ['Спор', 'bad'], done: ['Завершено', 'ok'], closed: ['Закрыто', 'grey'], rejected: ['Отклонено', 'bad'], expired: ['Срок истёк', 'grey'], cancelled: ['Отменено', 'grey'], declined: ['Отказ мастера', 'grey'],
+};
+/** Вкладки реестра заданий (демо) */
+const TASK_TAB: Record<string, string[]> = { review: ['На проверке'], open: ['Открыто'], chosen: ['Мастер выбран', 'В работе', 'Ждёт подтверждения'], dispute: ['Спор'], done: ['Завершено'], closed: ['Срок истёк', 'Отменено', 'Отклонено', 'Закрыто'] };
+const MASTER_ST: Record<string, [string, Tone]> = { approved: ['Одобрен', 'ok'], review: ['На проверке', 'warn'], rejected: ['Отклонён', 'bad'], suspended: ['Приостановлен', 'grey'], draft: ['Черновик', 'grey'], blocked: ['Заблокирован', 'dark'] };
+const MASTER_TAB: Record<string, string> = { approved: 'Одобрен', review: 'На проверке', rejected: 'Отклонён', suspended: 'Приостановлен' };

@@ -114,7 +114,7 @@ export function Complaints({ openId }: { openId?: string }) {
                 {cur.who && <span className={cx(s.cell, s.muted)}>{cur.who}</span>}
                 <span className={s.grow} />
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, background: '#EAEEFC', color: '#1F3BB8', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  <Eye size={15} aria-hidden />
+                  <Eye size={15} color="#5B6878" aria-hidden />
                   Только чтение
                 </span>
               </div>

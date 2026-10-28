@@ -1,0 +1,37 @@
+/* 18–19 — вход в админку */
+.page { min-height: 100dvh; min-width: 1024px; display: grid; grid-template-columns: minmax(0, 1fr) 560px; background: #fff; font: 400 13px/1.35 'Golos Text', system-ui, sans-serif; color: #0f1b2a; }
+.left { background: #0f1b2a; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; }
+.brand { display: flex; align-items: center; gap: 8px; }
+.brandName { font-size: 22px; font-weight: 700; }
+.brandTag { padding: 2px 7px; border-radius: 5px; background: #2647d9; color: #fff; font: 600 11px 'JetBrains Mono', monospace; }
+.pitch { display: flex; flex-direction: column; gap: 12px; max-width: 440px; }
+.pitchT { font-size: 32px; font-weight: 700; line-height: 1.2; }
+.pitchB { font-size: 15px; line-height: 1.55; color: #c9d1db; }
+.foot { font-size: 12px; color: #8a96a6; }
+.right { display: flex; align-items: center; justify-content: center; padding: 48px; background: #f7f9fb; }
+.form { width: 400px; display: flex; flex-direction: column; gap: 16px; }
+.head { display: flex; flex-direction: column; gap: 6px; }
+.h1 { margin: 0; font-size: 24px; font-weight: 700; }
+.sub { color: #3b4756; }
+.err, .warn { display: flex; gap: 8px; padding: 10px 12px; border-radius: 8px; line-height: 1.45; align-items: flex-start; }
+.err svg, .warn svg { flex: none; margin-top: 1px; }
+.err { background: #fbe3e0; color: #a5281b; }
+.warn { background: #fbebda; color: #8a4b0d; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.label { font-weight: 600; }
+.input, .pwBox { height: 38px; padding: 0 10px; border-radius: 7px; border: 1px solid #c9d1db; background: #fff; box-sizing: border-box; font: 400 14px 'Golos Text', sans-serif; outline: none; }
+.input:focus, .pwBox:focus-within { border: 1.5px solid #2647d9; }
+.inputOff { background: #eef1f4; color: #5b6878; }
+.pwBox { display: flex; align-items: center; gap: 8px; }
+.pwBox input { flex: 1; min-width: 0; border: none; outline: none; background: none; font: 400 16px 'Golos Text', sans-serif; letter-spacing: 0.05em; }
+.pwErr, .pwErr:focus-within { border: 1.5px solid #b03a2e; }
+.eye { border: none; background: none; padding: 4px; display: flex; color: #3b4756; cursor: pointer; }
+.row { display: flex; justify-content: space-between; align-items: center; }
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: #2647d9; }
+.capsOff { color: #5b6878; }
+.capsOn { color: #8a4b0d; font-weight: 600; }
+.btn { height: 44px; border-radius: 8px; border: none; background: #2647d9; color: #fff; font: 600 14px 'Golos Text', sans-serif; cursor: pointer; }
+.btn:hover:not(:disabled) { background: #1f3bb8; }
+.btn:disabled { background: #eef1f4; color: #9aa5b4; cursor: default; }
+.note { font-size: 12px; line-height: 1.5; color: #5b6878; }

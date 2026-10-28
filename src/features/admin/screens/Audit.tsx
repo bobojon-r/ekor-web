@@ -10,7 +10,7 @@ import { downloadCsv, num } from '../core';
 import { cx, Head, Loading, Pill, SearchBox, SelectChip, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 
-const COLS = '76px 110px 140px 150px minmax(0,1fr)';
+const COLS = '96px 110px 140px 150px minmax(0,1fr)';
 const QUICK = ['user.block', 'chat.view', 'limits.*'];
 
 /** 12 — аудит-лог: записи нельзя изменить или удалить */
@@ -18,6 +18,11 @@ export function Audit() {
   const toast = useToast();
   const [rows, setRows] = useState<AuditV[] | null>(null);
   const [q, setQ] = useState('');
+  // «В аудите» из реестра: /admin/audit?object=T-48120
+  useEffect(() => {
+    const o = new URLSearchParams(location.search).get('object');
+    if (o) setQ(o);
+  }, []);
   const [qDeb, setQDeb] = useState('');
   const [action, setAction] = useState('');
   const [who, setWho] = useState('all');
@@ -30,8 +35,8 @@ export function Audit() {
   }, [q]);
   useEffect(() => {
     setRows(null);
-    adminApi.audit({ action, objectId: qDeb }).then(setRows, (e) => (setRows([]), toast(apiErrorText(e, 'ru'))));
-  }, [action, qDeb]); // eslint-disable-line react-hooks/exhaustive-deps
+    adminApi.audit({ action, objectId: qDeb, days: period === 'today' ? 1 : +period }).then(setRows, (e) => (setRows([]), toast(apiErrorText(e, 'ru'))));
+  }, [action, qDeb, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const view = useMemo(() => (rows ?? []).filter((a) => who === 'all' || a.who === who), [rows, who]);
   const cur = view.find((a) => a.key === selKey) ?? view[0] ?? null;
@@ -48,7 +53,17 @@ export function Audit() {
         <span className={s.muted}>{rows ? `${period === 'today' ? 'сегодня' : period === '7' ? '7 дней' : '30 дней'} · ${num(view.length)} записей` : ''}</span>
         <span className={s.grow} />
         <SearchBox value={q} onChange={setQ} placeholder="ID объекта" slash />
-        <button type="button" className={s.hbtn} disabled={!view.length} onClick={() => downloadCsv('ekor-audit.csv', [['Время', 'Сотрудник', 'Действие', 'Объект', 'Детали'], ...view.map((a) => [a.time, a.who, a.action, a.obj, a.details])])}>
+        <button
+          type="button"
+          className={s.hbtn}
+          disabled={!view.length}
+          onClick={() => {
+            // С бэкендом — серверная выгрузка (до 50 000 строк, сама пишется в аудит); в демо — из таблицы
+            const url = adminApi.auditCsvUrl({ action, objectId: qDeb, days: period === 'today' ? 1 : +period });
+            if (url) window.location.href = url;
+            else downloadCsv('ekor-audit.csv', [['Время', 'Сотрудник', 'Действие', 'Объект', 'Детали'], ...view.map((a) => [a.time, a.who, a.action, a.obj, a.details])]);
+          }}
+        >
           <Download size={15} aria-hidden />
           CSV
         </button>
@@ -79,7 +94,7 @@ export function Audit() {
               {view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>Записей нет</div>}
               {view.map((a) => (
                 <div key={a.key} role="button" tabIndex={0} onClick={() => setSelKey(a.key)} onKeyDown={(e) => e.key === 'Enter' && setSelKey(a.key)} className={cx(s.row, cur?.key === a.key && s.rowOn)} style={{ gridTemplateColumns: COLS, padding: '0 16px' }}>
-                  <span className={s.id}>{a.time}</span>
+                  <span className={s.id} title={a.date}>{period === 'today' ? a.time : `${a.date ?? ''} ${a.time.slice(0, 5)}`}</span>
                   <span className={s.cell}>{a.who}</span>
                   <span>
                     <Pill mono tone={a.tone}>
@@ -113,6 +128,12 @@ export function Audit() {
                 <span style={{ fontWeight: 400, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{cur.obj}</span>
                 <span>Основание</span>
                 <span style={{ fontWeight: 400 }}>{cur.comment || '—'}</span>
+                {(cur.ip || cur.device) && (
+                  <>
+                    <span>IP / устройство</span>
+                    <span style={{ fontWeight: 400, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{[cur.ip, cur.device].filter(Boolean).join(' · ')}</span>
+                  </>
+                )}
               </div>
               {diffKeys.length > 0 && (
                 <div style={{ border: '1px solid #E1E6EC', borderRadius: 8, overflow: 'hidden', font: "500 12px/1.7 'JetBrains Mono', monospace" }}>

@@ -201,7 +201,7 @@ function Categories({ creating }: { creating: number }) {
                   <span key={w} style={{ height: 26, padding: '0 4px 0 9px', borderRadius: 999, background: '#EAEEFC', color: '#1F3BB8', display: 'flex', alignItems: 'center', gap: 4 }}>
                     {w}
                     <button type="button" aria-label={`Убрать ${w}`} onClick={() => setDraft({ ...ed, aliases: ed.aliases.filter((x) => x !== w) })} style={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'none', padding: 0 }}>
-                      <X size={12} color="#1F3BB8" aria-hidden />
+                      <X size={14} color="#5B6878" aria-hidden />
                     </button>
                   </span>
                 ))}

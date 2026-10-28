@@ -1,18 +1,18 @@
 /** Админка: разделы, права ролей, цвета статусов, форматирование (только RU) */
 import {
-  BadgeCheck, ClipboardCheck, History, LayoutDashboard, MapPin, MessageSquareText, MessageSquareWarning, MessagesSquare, Scale, ShieldCheck, SlidersHorizontal, Users,
+  BadgeCheck, ClipboardCheck, HardHat, History, ListChecks, LayoutDashboard, MapPin, MessageSquareText, MessageSquareWarning, MessagesSquare, Scale, ShieldCheck, SlidersHorizontal, Users,
   type LucideIcon,
 } from 'lucide-react';
 
 export type Role = 'moderator' | 'senior' | 'admin';
-export type SectionKey = 'dashboard' | 'tasks' | 'masters' | 'disputes' | 'reviews' | 'users' | 'chats' | 'dicts' | 'limits' | 'templates' | 'staff' | 'audit';
+export type SectionKey = 'dashboard' | 'tasks' | 'masters' | 'disputes' | 'reviews' | 'allTasks' | 'allMasters' | 'users' | 'chats' | 'dicts' | 'limits' | 'templates' | 'staff' | 'audit';
 
 type Section = { key: SectionKey; href: string; icon: LucideIcon; label: string; title: string; roles: Role[]; danger?: boolean };
 const ALL: Role[] = ['moderator', 'senior', 'admin'];
 const SENIOR: Role[] = ['senior', 'admin'];
 const ADMIN: Role[] = ['admin'];
 
-/** Меню строится по роли (AdminNav.dc.html): moderator — очереди своих регионов, пользователи и аудит */
+/** Меню строится по роли (AdminNav.dc.html): moderator — очереди и реестры своих регионов, пользователи и аудит */
 export const NAV: [string, Section[]][] = [
   ['Обзор', [{ key: 'dashboard', href: '/admin', icon: LayoutDashboard, label: 'Дашборд', title: 'Дашборд', roles: ALL }]],
   [
@@ -25,8 +25,10 @@ export const NAV: [string, Section[]][] = [
     ],
   ],
   [
-    'Пользователи',
+    'Каталог',
     [
+      { key: 'allTasks', href: '/admin/tasks', icon: ListChecks, label: 'Все задания', title: 'Все задания', roles: ALL },
+      { key: 'allMasters', href: '/admin/masters', icon: HardHat, label: 'Все мастера', title: 'Все мастера', roles: ALL },
       { key: 'users', href: '/admin/users', icon: Users, label: 'Пользователи', title: 'Пользователи', roles: ALL },
       { key: 'chats', href: '/admin/complaints', icon: MessagesSquare, label: 'Чаты по жалобам', title: 'Чаты по жалобам', roles: SENIOR },
     ],
