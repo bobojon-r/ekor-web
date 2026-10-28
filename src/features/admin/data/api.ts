@@ -5,40 +5,99 @@
 import { USE_API } from '@/lib/api';
 import { adminHttp as http, adminUrl, csrf } from './http';
 import { ref } from '@/lib/api/ref';
-import { agoText, dayMon, dayMonTime, flagOf, hhmmss, num, roleFromApi, seenText, type Role, type Tone } from '../core';
+import { agoText, dayMon, dayMonTime, flagOf, hhmm, hhmmss, num, roleFromApi, seenText, type Role, type Tone } from '../core';
 import * as demo from './demo';
 import type {
-  AuditV, CatNode, ChatMsg, CityNode, ComplaintV, Counts, Dash, DisputeV, HistoryV, LimitV, MasterCard, MasterQ, MasterRegCard, MasterRegRow, Me, Reason, ReviewV, SessionV, StaffV, TaskQ, TaskRegCard, TaskRegRow, TimelineItem, UserCard, UserV,
+  AuditV, CatNode, ChatMsg, CityNode, ComplaintV, Counts, Dash, DisputeV, HistoryV, LimitEffect, LimitV, Lock, MasterCard, MasterQ, MasterRegCard, MasterRegRow, Me, Reason, ReviewV, SessionV, StaffV, TaskQ, TaskRegCard, TaskRegRow, TimelineItem, TplCard, TplRow, TplText, UserCard, UserV,
 } from './types';
 
 const wait = <T,>(v: T, ms = 250) => new Promise<T>((r) => setTimeout(() => r(v), ms));
-type Page<T> = { items: T[]; next_cursor: string | null };
-
 /* ======================= типы ответов API ======================= */
-type QueueItem = {
-  type: 'task' | 'master' | 'profession'; id: number; title: string; city_ru: string | null; author_id: number; author_name: string | null; category: string | null;
-  budget: string | null; text: string; flags: string[]; photos: string[]; submitted_at: string | null; age_minutes: number; sla_minutes: number; overdue: boolean; profession_id: number | null;
+type Ref = { id: number; name_ru: string; name_tj: string };
+type Party = { id: number; name: string | null; phone: string };
+type LockOut = { staff_id: number; staff_name: string | null; expires_at: string; mine: boolean };
+type Match = { field: string; start: number; end: number; flag: string };
+type QueuePage<T> = { items: T[]; total: number; overdue: number };
+type QueueTask = {
+  id: number; title: string; description: string; address: string | null; category: Ref; subcategory: Ref | null; mode: 'site' | 'online'; city: Ref | null; district: Ref | null; when: string; date: string | null;
+  budget_mode: string; budget_min: number | null; budget_max: number | null; photos: { upload_id: number; url: string }[]; author: { id: number; name: string | null; phone: string; registered_at: string; tasks_count: number };
+  flags: string[]; matches: Match[]; submitted_at: string | null; sla_deadline: string | null; overdue: boolean; lock: LockOut | null;
 };
-type TaskRow = { id: number; title: string; status: string; category_ru: string; city_ru: string | null; district_ru: string | null; client_id: number; responses_count: number; flags: string[]; created_at: string; published_at: string | null };
-type Funnel = {
-  tasks_published: number; tasks_with_response: number; tasks_with_response_24h: number; tasks_chosen: number; orders_done: number; reviews: number;
-  moderation_median_minutes: number | null; masters_registered: number; masters_approved: number;
+type QueueMaster = {
+  id: number; type: 'new' | 'changes'; name: string | null; phone: string; city: Ref | null; works_online: boolean; about: string | null; experience: string | null;
+  professions: { category: Ref; price_from: number | null; negotiable: boolean; status: string }[]; services: { title?: string; price?: number | null }[]; portfolio: { upload_id: number; url: string }[];
+  avatar_url: string | null; flags: string[]; matches: Match[]; submitted_at: string | null; sla_deadline: string | null; overdue: boolean; lock: LockOut | null;
 };
-type DisputeRow = { id: number; order_id: number; task_title: string; client_id: number; master_id: number; reason_ru: string; text: string | null; photos: string[]; status: 'open' | 'resolved'; resolution: string | null; moderator_comment: string | null; chat_id: number | null; created_at: string; age_hours: number };
-type ChatRow = { id: number; sender_id: number | null; type: string; body: string | null; system_code: string | null; flags: string[]; created_at: string };
-type ReviewRow = { id: number; order_id: number; author_id: number; master_id: number; rating: number; text: string; status: string; complaints_count: number; hide_reason: string | null; reply_text: string | null; created_at: string };
-type UserRow = { id: number; name: string | null; phone: string; city_ru: string | null; is_client: boolean; is_master: boolean; master_status: string | null; status: 'active' | 'blocked'; blocked_until: string | null; created_at: string; last_seen_at: string | null; complaints_count: number };
-type UserDetail = UserRow & { block_reason: string | null; tasks_count: number; orders_as_client: number; orders_as_master: number; reviews_written: number; disputes_count: number; staff_role: string | null };
-type ComplaintRow = { id: number; reporter_id: number; subject_type: string; subject_id: number; reason_ru: string; comment: string | null; status: string; resolution: string | null; created_at: string };
-type LimitOut = { key: string; title: string; value: number; default: number };
+type RegPage<T> = { items: T[]; next_cursor: string | null; total: number; counts_by_status: Record<string, number> };
+type TaskRow = {
+  id: number; title: string; status: string; category: Ref; city: Ref | null; district: Ref | null; client: Party; budget_mode: string; budget_min: number | null; budget_max: number | null;
+  responses_count: number; views_count: number; flags: string[]; created_at: string; published_at: string | null;
+};
+type MasterRow = { id: number; name: string | null; phone: string; status: string; city: Ref | null; headline: Ref | null; verified: boolean; accepting_orders: boolean; rating_avg: number | null; reviews_count: number; completed_orders_count: number; created_at: string };
+type StatsOut = {
+  date_from: string; date_to: string; computed_at: string | null;
+  kpi: { tasks_created: number; response_24h_rate: number | null; choice_rate: number | null; completion_rate: number | null; masters_approved: number; moderation_median_minutes: number | null };
+  funnel: { step: string; count: number }[];
+  daily: { day: string; created: number; published: number; responded_24h: number; chosen: number; done: number; masters_approved: number }[];
+  by_city: { city_id: number | null; name_ru: string; created: number; published: number; response_24h_rate: number | null; first_response_median_minutes: number | null }[];
+  deficit: { city_id: number | null; city_name_ru: string; category_id: number; category_name_ru: string; published: number; without_response_24h: number; share: number }[];
+  queues: { queue: string; count: number; overdue: number | null; oldest_at: string | null }[];
+};
+type ReasonRef = { id: number; code: string; text_ru: string };
+type DisputeRow = {
+  id: number; order_id: number; task_id: number; task_title: string; client: Party; master: Party; reason: ReasonRef | null; text: string | null; status: 'open' | 'resolved'; resolution: string | null;
+  deadline: string | null; overdue: boolean; unanswered_requests: number; system: boolean; created_at: string; lock: LockOut | null;
+};
+type DisputeCard = DisputeRow & {
+  photos: string[]; price: number | null; chat_id: number | null; moderator_comment: string | null; terms_deadline: string | null; resolved_at: string | null;
+  requests: { id: number; to_side: 'client' | 'master'; text: string; staff_name: string | null; created_at: string; answer: string | null; answer_photos: string[]; answered_at: string | null }[];
+  timeline: { at: string; event: string; note: string | null }[];
+};
+type ChatRow = { id: number; sender_id: number | null; sender_side: 'client' | 'master' | 'system'; type: string; body: string | null; system_code: string | null; photo_url: string | null; flags: string[]; hidden: boolean; created_at: string };
+type ReviewRow = {
+  id: number; order_id: number; task_title: string; author: Party; master: Party; rating: number; text: string; status: 'published' | 'review' | 'hidden'; flags: string[]; complaints_count: number;
+  complaints: { id: number; reason_ru: string; comment: string | null; created_at: string }[]; hide_reason: string | null; reply_text: string | null; created_at: string;
+};
+type UserRow = { id: number; name: string | null; phone: string; city: Ref | null; is_client: boolean; is_master: boolean; master_status: string | null; status: 'active' | 'blocked'; blocked_until: string | null; complaints_count: number; created_at: string; last_seen_at: string | null };
+type UserDetail = UserRow & {
+  block_reason: string | null; lang: string; tasks_count: number; orders_as_client: number; orders_as_master: number; reviews_written: number;
+  signals: { tasks_rejected: number; complaints_against: number; payment_talk_messages: number; card_numbers_in_chats: number };
+  sanctions: { id: number; type: 'warn' | 'block'; duration: string | null; until: string | null; reason_ru: string | null; comment: string | null; staff_name: string | null; created_at: string; lifted_at: string | null; lifted_by: string | null; active: boolean }[];
+};
+type ComplaintRow = {
+  id: number; reporter: Party; target_type: string; target_id: number; target_preview: string | null; order_id: number | null; reason: ReasonRef | null; text: string | null; status: 'new' | 'resolved';
+  resolution: string | null; resolved_by: string | null; has_chat: boolean; created_at: string;
+};
+type LimitOut = { key: string; title: string; unit: string; group: string; value: number; default: number; min: number; max: number; version: number; reason: string | null; updated_by: string | null; updated_at: string | null };
+type LimitsResult = { applied: boolean; effects: { key: string; title: string; old: number; new: number; effect: string; affected: number | null }[]; limits: LimitOut[] };
+type ReasonAdmin = { id: number; kind: string; code: string; text_ru: string; text_tj: string | null; user_message_ru: string | null; requires_comment: boolean; sort: number; hidden: boolean; system: boolean };
+type CategoryAdmin = {
+  id: number; parent_id: number | null; key: string; name_ru: string; name_tj: string; icon: string | null; synonyms: string[]; allows_online: boolean; photo_required: boolean; price_per_hour: boolean;
+  typical_price_from: number | null; is_other: boolean; sort: number; hidden: boolean; masters_count: number; open_tasks_count: number;
+};
+type CityAdmin = { id: number; region_id: number; key: string; name_ru: string; name_tj: string; synonyms: string[]; sort: number; hidden: boolean; districts_count: number };
+type DistrictAdmin = { id: number; city_id: number; name_ru: string; name_tj: string; synonyms: string[]; near: boolean; sort: number; hidden: boolean; neighbor_ids: number[] };
 type CityRef = { id: number; name_ru: string };
 type StaffOut = { id: number; email: string; name: string; contact_phone: string | null; role: string; region_cities: CityRef[]; status: 'active' | 'disabled'; created_at: string; last_login_at: string | null; locked_until: string | null };
 type MeOut = StaffOut & { permissions: string[]; session_expires_at: string };
 type SessionOut = { id: string; created_at: string; expires_at: string; ip: string | null; user_agent: string | null; city: string | null; revoked_at: string | null; current: boolean };
 type AuditRow = { id: number; at: string; staff_id: number | null; staff_name: string | null; action: string; object_type: string; object_id: number | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; basis: string | null; ip: string | null; user_agent: string | null };
+type Page<T> = { items: T[]; next_cursor: string | null };
 type OwnProfile = {
-  status: string; professions: { category_id: number; name_ru: string; price_from: number | null; negotiable: boolean; status: string }[]; city: { name_ru: string } | null;
-  districts: { name_ru: string }[]; experience: string | null; about: string | null; portfolio: { url: string }[]; avatar_url: string | null; verified: boolean; services: { title: string; price: number | null }[];
+  status: string; professions: { category_id: number; name_ru: string; price_from: number | null; negotiable: boolean; status: string }[]; city: { name_ru: string } | null; works_online: boolean;
+  districts: { name_ru: string }[]; experience: string | null; about: string | null; portfolio: { url: string }[]; avatar_url: string | null; verified: boolean; services: { title: string; price: number | null }[]; accepting_orders: boolean;
+};
+type MasterCardOut = {
+  profile: OwnProfile; phone: string; registered_at: string;
+  metrics: { rating_avg: number | null; reviews_count: number; orders_total: number; orders_done: number; completion_rate: number | null; declines_after_choice: number; median_response_minutes: number | null; responses_today: number; responses_limit: number };
+  recent_orders: { id: number; master: Party; status: string; price: number | null; created_at: string }[]; complaints_30d: { id: number; reason_ru: string; comment: string | null; status: string; created_at: string }[];
+};
+type TaskCardOut = {
+  task: { id: number; status: string; title: string; description: string; address: string | null; budget_mode: string; budget_min: number | null; budget_max: number | null; when: string; date: string | null };
+  client: Party; client_registered_at: string; complaints_count: number;
+  responses: { master: Party; price: number | null; inspect: boolean; term: string; status: string; edited: boolean }[];
+  orders: { id: number; master: Party; status: string; price: number | null; chat_id: number | null; created_at: string }[];
+  events: { at: string; kind: string; action: string; actor: string | null; comment: string | null }[];
 };
 
 /* ======================= помощники ======================= */
@@ -53,12 +112,6 @@ const ACT_TONE = (a: string): Tone => (/reject|block|hide|suspend/.test(a) ? 'ba
 const OBJ_PREFIX: Record<string, string> = { task: 'T-', master: 'M-', master_profile: 'M-', user: 'U-', review: 'R-', dispute: 'D-', order: 'O-', chat: 'O-', complaint: 'C-' };
 const objId = (t: string, id: number | null) => (id == null ? t : OBJ_PREFIX[t] ? `${OBJ_PREFIX[t]}${id}` : `${t}:${id}`);
 
-/** Имена мастеров берём из публичного профиля (без записи в аудит) */
-const masterNames = new Map<number, Promise<string>>();
-const masterName = (id: number) => {
-  if (!masterNames.has(id)) masterNames.set(id, http<{ name: string | null }>(`/masters/${id}`).then((m) => m.name ?? `Мастер #${id}`, () => `Мастер #${id}`));
-  return masterNames.get(id)!;
-};
 const short = (n: string) => {
   const [a, b] = n.split(' ');
   return b ? `${a} ${b[0]}.` : a;
@@ -121,65 +174,56 @@ export const adminApi = {
     }
     await http('/admin/auth/logout', { method: 'POST', noRedirect: true }).catch(() => {});
     csrf.set(null);
+    dictDenied = false;
   },
 
-  /** Счётчики меню; moderator не видит споры, отзывы и чаты — их не запрашиваем (иначе 403) */
+  /** Счётчики меню; moderator не видит споры, отзывы и жалобы — их не запрашиваем (иначе 403) */
   async counts(role: Role = 'admin'): Promise<Counts> {
     if (!USE_API) return wait({ ...demo.demoCounts, tasks: mem.tasks.length, masters: mem.masters.filter((m) => m.type === 'Новый' || m.type === 'Повторно').length, disputes: mem.disputes.filter((d) => d.open).length, reviews: mem.reviews.filter((r) => r.status === 'review').length, chats: mem.complaints.filter((c) => c.open).length }, 0);
-    const [q, d, r, c] = await Promise.all([
-      http<QueueItem[]>('/admin/queue', { query: { type: 'all' } }).catch(() => [] as QueueItem[]),
-      role !== 'moderator' ? http<Page<DisputeRow>>('/admin/disputes', { query: { status: 'open', limit: 100 } }).catch(() => ({ items: [] as DisputeRow[] })) : { items: [] as DisputeRow[] },
-      role !== 'moderator' ? http<Page<ReviewRow>>('/admin/reviews', { query: { status: 'review', limit: 100 } }).catch(() => ({ items: [] as ReviewRow[] })) : { items: [] as ReviewRow[] },
-      role !== 'moderator' ? http<Page<ComplaintRow>>('/admin/complaints', { query: { status: 'open', subject_type: 'chat', limit: 100 } }).catch(() => ({ items: [] as ComplaintRow[] })) : { items: [] as ComplaintRow[] },
+    const senior = role !== 'moderator';
+    const [t, m, d, r, c] = await Promise.all([
+      http<QueuePage<QueueTask>>('/admin/moderation/tasks', { query: { limit: 1 } }).catch(() => null),
+      http<QueuePage<QueueMaster>>('/admin/moderation/masters', { query: { limit: 1 } }).catch(() => null),
+      senior ? http<DisputeRow[]>('/admin/disputes', { query: { status: 'open', limit: 100 } }).catch(() => [] as DisputeRow[]) : ([] as DisputeRow[]),
+      senior ? http<ReviewRow[]>('/admin/reviews', { query: { status: 'review', limit: 100 } }).catch(() => [] as ReviewRow[]) : ([] as ReviewRow[]),
+      senior ? http<ComplaintRow[]>('/admin/complaints', { query: { status: 'new', limit: 100 } }).catch(() => [] as ComplaintRow[]) : ([] as ComplaintRow[]),
     ]);
-    const tasks = q.filter((x) => x.type === 'task');
-    const hot = d.items.filter((x) => x.age_hours >= 19);
+    // «Горит» — до дедлайна спора 6 ч и меньше или уже просрочен
+    const hot = d.map((x) => hoursLeft(x.deadline)).filter((h): h is number => h != null && h <= 6);
     return {
-      tasks: tasks.length, tasksLate: tasks.filter((x) => x.overdue).length, masters: q.length - tasks.length, disputes: d.items.length,
-      disputesHot: hot.length ? `${hot.length} горит · ${Math.max(0, 24 - Math.max(...hot.map((x) => x.age_hours)))} ч` : 'в норме', reviews: r.items.length, chats: c.items.length,
+      tasks: t?.total ?? 0, tasksLate: t?.overdue ?? 0, masters: m?.total ?? 0, disputes: d.length,
+      disputesHot: hot.length ? `${hot.length} горит · ${Math.max(0, Math.min(...hot))} ч` : 'в норме', reviews: r.length, chats: c.length,
     };
   },
 
   /* ---------- 01 Дашборд ---------- */
   async dashboard(days: number, cityId: number | null, catId: number | null = null): Promise<Dash> {
     if (!USE_API) return wait(demo.demoDash);
-    const [f, rows, noResp] = await Promise.all([
-      http<Funnel>('/admin/stats/funnel', { query: { days, city_id: cityId, category_id: catId } }),
-      http<Page<TaskRow>>('/admin/tasks', { query: { city_id: cityId, category_id: catId, limit: 100 } }).catch(() => ({ items: [] as TaskRow[] })),
-      http<Page<TaskRow>>('/admin/tasks', { query: { city_id: cityId, category_id: catId, no_responses_24h: true, limit: 100 } }).catch(() => ({ items: [] as TaskRow[] })),
-    ]);
-    const cities = ref.get()?.cities ?? [];
-    const byCity = cityId ? [] : await Promise.all(cities.map((c) => http<Funnel>('/admin/stats/funnel', { query: { days, city_id: c.id, category_id: catId } }).catch(() => null)));
-    // Новые задания по дням — 14 последних дней по дате публикации
-    const day0 = new Date();
-    day0.setHours(0, 0, 0, 0);
-    const bars = Array.from({ length: 14 }, (_, i) => {
-      const from = +day0 - (13 - i) * 864e5;
-      return { d: new Date(from).getDate(), v: rows.items.filter((t) => { const at = +new Date(t.published_at ?? t.created_at); return at >= from && at < from + 864e5; }).length };
-    });
-    // Дефицит: доля заданий без отклика за 24 ч по категории и городу
-    const all = new Map<string, number>();
-    rows.items.forEach((t) => all.set(`${t.category_ru}|${t.city_ru ?? 'Онлайн'}`, (all.get(`${t.category_ru}|${t.city_ru ?? 'Онлайн'}`) ?? 0) + 1));
-    const miss = new Map<string, number>();
-    noResp.items.forEach((t) => miss.set(`${t.category_ru}|${t.city_ru ?? 'Онлайн'}`, (miss.get(`${t.category_ru}|${t.city_ru ?? 'Онлайн'}`) ?? 0) + 1));
-    const deficit = [...miss].map(([k, n]): [string, string, number] => { const [c, city] = k.split('|'); return [c, city, pct(n, all.get(k) ?? n)]; }).sort((a, b) => b[2] - a[2]).slice(0, 6);
-    const P = f.tasks_published;
-    const fmtD = (d: Date) => `${d.getDate()} ${['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()]}`;
+    // Период — по датам Душанбе: последние N дней включая сегодня
+    const day = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dushanbe' }).format(d);
+    const st = await http<StatsOut>('/admin/stats', { query: { from: day(new Date(Date.now() - (days - 1) * 864e5)), to: day(new Date()), city: cityId, category: catId } });
+    const k = st.kpi;
+    const step = (n: string) => st.funnel.find((f) => f.step === n)?.count ?? 0;
+    const P = step('published');
+    const rate = (x: number | null) => (x == null ? '—' : `${Math.round(x * 100)}%`);
+    const fmtD = (iso: string) => dayMon(`${iso}T12:00:00`);
     return {
-      period: days === 1 ? 'сегодня' : `${fmtD(new Date(Date.now() - (days - 1) * 864e5))} – ${fmtD(new Date())}`,
+      period: days === 1 ? 'сегодня' : `${fmtD(st.date_from)} – ${fmtD(st.date_to)}`,
       kpis: [
-        ['Новые задания', num(P), `за ${days === 1 ? 'сегодня' : `${days} дней`}`, true], ['Отклик за 24 ч', `${pct(f.tasks_with_response_24h, P)}%`, `с откликом всего ${pct(f.tasks_with_response, P)}%`, true],
-        ['Выбор мастера', `${pct(f.tasks_chosen, P)}%`, `${num(f.tasks_chosen)} заданий`, true], ['Завершено', `${pct(f.orders_done, P)}%`, `${num(f.orders_done)} заказов`, true],
-        ['Новые мастера', num(f.masters_registered), `одобрено ${num(f.masters_approved)}`, true],
-        ['Медиана модерации', f.moderation_median_minutes != null ? `${Math.round(f.moderation_median_minutes)} мин` : '—', 'норма 30 мин', (f.moderation_median_minutes ?? 0) <= 30],
+        ['Новые задания', num(k.tasks_created), `опубликовано ${num(P)}`, true], ['Отклик за 24 ч', rate(k.response_24h_rate), `с откликом всего ${pct(step('responded'), P)}%`, true],
+        ['Выбор мастера', rate(k.choice_rate), `${num(step('chosen'))} заданий`, true], ['Завершено', rate(k.completion_rate), `${num(step('done'))} заказов`, true],
+        ['Новые мастера', num(k.masters_approved), `одобрено за период`, true],
+        ['Медиана модерации', k.moderation_median_minutes != null ? `${Math.round(k.moderation_median_minutes)} мин` : '—', 'норма 30 мин', (k.moderation_median_minutes ?? 0) <= 30],
       ],
-      funnel: [['Опубликовано', P, ''], ['С откликом', f.tasks_with_response, `${pct(f.tasks_with_response, P)}%`], ['Мастер выбран', f.tasks_chosen, `${pct(f.tasks_chosen, f.tasks_with_response)}%`], ['Завершено', f.orders_done, `${pct(f.orders_done, f.tasks_chosen)}%`], ['С отзывом', f.reviews, `${pct(f.reviews, f.orders_done)}%`]],
-      bars,
-      cities: cities.flatMap((c, i) => {
-        const x = byCity[i];
-        return x ? [[c.name.ru, num(x.tasks_published), num(c.masters), `${pct(x.tasks_with_response_24h, x.tasks_published)}%`, `${pct(x.tasks_chosen, x.tasks_published)}%`, `${pct(x.orders_done, x.tasks_published)}%`, '—'] as Dash['cities'][number]] : [];
-      }),
-      deficit,
+      funnel: [
+        ['Опубликовано', P, ''], ['С откликом', step('responded'), `${pct(step('responded'), P)}%`], ['Мастер выбран', step('chosen'), `${pct(step('chosen'), step('responded'))}%`],
+        ['Завершено', step('done'), `${pct(step('done'), step('chosen'))}%`], ['С отзывом', step('reviewed'), `${pct(step('reviewed'), step('done'))}%`],
+      ],
+      bars: st.daily.slice(-14).map((d) => ({ d: +d.day.slice(8), v: d.created })),
+      cities: st.by_city.map((c): Dash['cities'][number] => [
+        c.name_ru, num(c.created), num(ref.cityById(c.city_id ?? -1)?.masters ?? 0), rate(c.response_24h_rate), '—', '—', c.first_response_median_minutes != null ? `${Math.round(c.first_response_median_minutes)} мин` : '—',
+      ]),
+      deficit: st.deficit.slice(0, 6).map((x): [string, string, number] => [x.category_name_ru, x.city_name_ru, Math.round(x.share * 100)]),
     };
   },
 
@@ -187,26 +231,40 @@ export const adminApi = {
   async tasks(tab: 'queue' | 'rejected' | 'approved'): Promise<TaskQ[]> {
     if (!USE_API) return wait(tab === 'queue' ? mem.tasks : tab === 'rejected' ? mem.rejected : []);
     if (tab === 'queue') {
-      const q = await http<QueueItem[]>('/admin/queue', { query: { type: 'task' } });
-      return q.map((x) => ({
-        key: String(x.id), id: `T-${x.id}`, title: x.title, cat: x.category ?? '—', city: x.city_ru ?? 'Онлайн', author: x.author_name ?? `#${x.author_id}`, authorMeta: `автор #${x.author_id}`,
-        budget: x.budget ?? 'Договорная', when: '—', ageMin: x.age_minutes, slaLeft: x.sla_minutes - x.age_minutes, flags: x.flags.map((f) => flagOf(f)[0]), text: x.text, photos: x.photos,
+      const q = await http<QueuePage<QueueTask>>('/admin/moderation/tasks', { query: { limit: 100 } });
+      return q.items.map((x) => ({
+        key: String(x.id), id: `T-${x.id}`, title: x.title, cat: (x.subcategory ?? x.category).name_ru, city: placeText(x.mode, x.city, x.district),
+        author: x.author.name ?? `#${x.author.id}`, authorMeta: [phoneFmt(x.author.phone), `${x.author.tasks_count} ${plural(x.author.tasks_count, 'задание', 'задания', 'заданий')}`, `с ${dayMon(x.author.registered_at)} ${new Date(x.author.registered_at).getFullYear()}`].join(' · '),
+        budget: budgetText(x.budget_mode, x.budget_min, x.budget_max), when: whenText(x.when, x.date), ageMin: minutesSince(x.submitted_at), slaLeft: x.sla_deadline ? (+new Date(x.sla_deadline) - Date.now()) / 60000 : null,
+        flags: [...new Set(x.flags.map((f) => flagOf(f)[0]))], text: x.description, photos: x.photos.map((p) => p.url), lock: lockOf(x.lock), address: x.address, authorId: x.author.id,
+        marks: x.matches.filter((m) => m.field === 'description').map((m): [number, number] => [m.start, m.end]),
       }));
     }
-    const p = await http<Page<TaskRow>>('/admin/tasks', { query: { status: tab === 'rejected' ? 'rejected' : 'open', limit: 100 } });
-    const today = new Date().setHours(0, 0, 0, 0);
-    return p.items
-      .filter((t) => tab === 'rejected' || +new Date(t.published_at ?? 0) >= today)
-      .map((t) => ({
-        key: String(t.id), id: `T-${t.id}`, title: t.title, cat: t.category_ru, city: [t.city_ru, t.district_ru].filter(Boolean).join(', ') || 'Онлайн', author: `#${t.client_id}`, authorMeta: '',
-        budget: '—', when: '—', ageMin: minutesSince(t.created_at), slaLeft: null, flags: t.flags.map((f) => flagOf(f)[0]), text: '', photos: [],
-      }));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const p = await http<RegPage<TaskRow>>('/admin/tasks', { query: tab === 'rejected' ? { status: 'rejected', limit: 100 } : { status: 'open', from: today.toISOString(), limit: 100 } });
+    return p.items.map((t) => ({
+      key: String(t.id), id: `T-${t.id}`, title: t.title, cat: t.category.name_ru, city: [t.city?.name_ru, t.district?.name_ru].filter(Boolean).join(', ') || 'Онлайн', author: t.client.name ?? `#${t.client.id}`, authorMeta: t.client.phone,
+      budget: budgetText(t.budget_mode, t.budget_min, t.budget_max), when: '—', ageMin: minutesSince(t.created_at), slaLeft: null, flags: t.flags.map((f) => flagOf(f)[0]), text: '', photos: [],
+    }));
   },
-  approvedToday: async () => (USE_API ? (await adminApi.tasks('approved')).length : mem.approvedToday),
-  async taskReasons(): Promise<Reason[]> {
-    if (!USE_API) return demo.demoTaskReasons;
-    const l = await http<{ id: number; code: string; text_ru: string }[]>('/reasons', { query: { kind: 'task_reject' } });
-    return l.map((r) => ({ id: r.id, code: r.code, label: r.text_ru }));
+  async approvedToday() {
+    if (!USE_API) return mem.approvedToday;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return (await http<RegPage<TaskRow>>('/admin/tasks', { query: { status: 'open', from: today.toISOString(), limit: 1 } })).total;
+  },
+  taskReasons: () => (USE_API ? adminApi.reasons('task_reject') : Promise.resolve(demo.demoTaskReasons)),
+  /** Причины по виду: справочник админки (admin), для остальных ролей — публичный /reasons */
+  async reasons(kind: string): Promise<Reason[]> {
+    if (!USE_API) return wait(kind === 'master_reject' ? demo.demoMasterReasons : demo.demoTaskReasons);
+    const l = await reasonList(kind).catch(() => [] as ReasonAdmin[]);
+    return l.filter((r) => !r.hidden).map((r) => ({ id: r.id, code: r.code, label: r.text_ru, needComment: r.requires_comment ?? r.code.startsWith('other'), kind }));
+  },
+  /** Взять карточку в работу на 10 мин: другие модераторы увидят «Смотрит …». 409 locked_by_other — уже смотрит другой */
+  async lockTask(t: TaskQ): Promise<Lock | null> {
+    if (!USE_API) return null;
+    return lockOf(await http<LockOut>(`/admin/tasks/${t.key}/lock`, { method: 'POST' }));
   },
   async moderateTask(t: TaskQ, ok: boolean, reason?: Reason, comment?: string) {
     if (!USE_API) {
@@ -219,40 +277,65 @@ export const adminApi = {
     if (ok) return http(`/admin/tasks/${t.key}/approve`, { method: 'POST' });
     return http(`/admin/tasks/${t.key}/reject`, { method: 'POST', body: { reason_id: reason!.id, comment: comment || null } });
   },
+  /** Массовое решение: сервер отвечает по каждому заданию; возвращаем ключи прошедших и число ошибок */
+  async bulkTasks(list: TaskQ[], ok: boolean, reason?: Reason, comment?: string): Promise<{ done: string[]; failed: number }> {
+    if (!USE_API) {
+      for (const t of list) await adminApi.moderateTask(t, ok, reason, comment);
+      return { done: list.map((t) => t.key), failed: 0 };
+    }
+    const r = await http<{ results: { id: number; ok: boolean }[]; succeeded: number; failed: number }>('/admin/tasks/bulk', {
+      method: 'POST', body: { ids: list.map((t) => +t.key), action: ok ? 'approve' : 'reject', reason_id: ok ? null : reason!.id, comment: comment || null },
+    });
+    return { done: r.results.filter((x) => x.ok).map((x) => String(x.id)), failed: r.failed };
+  },
+  /** Правка модератором (автор увидит «изменено модератором»), затем одобрение */
+  async editTask(t: TaskQ, f: { title: string; text: string; address: string | null }, note: string) {
+    if (!USE_API) return adminApi.moderateTask({ ...t, title: f.title, text: f.text }, true);
+    const r = await http<{ status: string }>(`/admin/tasks/${t.key}/edit`, {
+      method: 'POST', body: { title: f.title !== t.title ? f.title : null, description: f.text !== t.text ? f.text : null, address: f.address !== (t.address ?? null) ? f.address : null, note },
+    });
+    if (r.status === 'review') await http(`/admin/tasks/${t.key}/approve`, { method: 'POST' });
+  },
 
   /* ---------- 03 Профили мастеров ---------- */
   async masters(): Promise<MasterQ[]> {
     if (!USE_API) return wait(mem.masters);
-    const q = await http<QueueItem[]>('/admin/queue', { query: { type: 'all' } });
-    return q
-      .filter((x) => x.type !== 'task')
-      .map((x) => ({
-        key: `${x.type}:${x.id}:${x.profession_id ?? ''}`, id: `M-${x.author_id}`, userId: x.author_id, name: x.author_name ?? `#${x.author_id}`, cats: x.category ?? x.title, city: x.city_ru ?? 'Онлайн',
-        agoMin: x.age_minutes, slaLeft: x.sla_minutes - x.age_minutes, type: x.type === 'profession' ? 'Изменения' : x.flags.includes('resubmit') ? 'Повторно' : 'Новый',
-        tone: x.type === 'profession' ? 'grey' : x.flags.includes('resubmit') ? 'warn' : 'info', kind: x.type === 'profession' ? 'profession' : 'master', professionId: x.profession_id ?? undefined,
-      }));
+    const q = await http<QueuePage<QueueMaster>>('/admin/moderation/masters', { query: { limit: 100 } });
+    return q.items.map((x) => {
+      queueMasters.set(x.id, x);
+      const again = x.flags.includes('repeat');
+      return {
+        key: String(x.id), id: `M-${x.id}`, userId: x.id, name: x.name ?? `#${x.id}`, cats: x.professions.map((p) => p.category.name_ru).join(', ') || '—', city: x.city?.name_ru ?? (x.works_online ? 'Онлайн' : '—'),
+        agoMin: minutesSince(x.submitted_at), slaLeft: x.sla_deadline ? (+new Date(x.sla_deadline) - Date.now()) / 60000 : 24 * 60,
+        type: x.type === 'changes' ? 'Изменения' : again ? 'Повторно' : 'Новый', tone: x.type === 'changes' ? 'grey' : again ? 'warn' : 'info', kind: 'master', lock: lockOf(x.lock), flags: x.flags.map((f) => flagOf(f)[0]),
+      } satisfies MasterQ;
+    });
   },
   async masterCard(q: MasterQ): Promise<MasterCard> {
     if (!USE_API) return wait(demo.demoMasterCard(q), 120);
-    const p = await http<OwnProfile>(`/admin/masters/${q.userId}/profile`);
-    const about = p.about ?? '';
-    const contacts = /(\+?992|\b\d{2}[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}\b|t\.me|telegram|whatsapp|instagram|@\w{3,}|https?:)/i.test(about);
-    const prices = [...p.professions.map((x) => `${x.name_ru} — ${x.negotiable || !x.price_from ? 'договорная' : `от ${x.price_from} смн`}`), ...p.services.slice(0, 3).map((x) => `${x.title} — ${x.price ? `${x.price} смн` : 'договорная'}`)].join(' · ');
+    const x = queueMasters.get(q.userId);
+    if (!x) throw new Error('Профиль уже проверен — обновите очередь');
+    const about = x.about ?? '';
+    const contacts = x.flags.some((f) => f === 'contacts' || f === 'link' || f === 'payment');
+    const prices = [
+      ...x.professions.map((p) => `${p.category.name_ru}${p.status === 'review' ? ' (новая)' : ''} — ${p.negotiable || !p.price_from ? 'договорная' : `от ${p.price_from} смн`}`),
+      ...x.services.slice(0, 3).map((sv) => `${sv.title ?? 'Услуга'} — ${sv.price ? `${sv.price} смн` : 'договорная'}`),
+    ].join(' · ');
     return {
-      name: q.name, sub: [p.professions.map((x) => x.name_ru).join(', '), p.experience ? EXP[p.experience] : ''].filter(Boolean).join(' · '), meta: `${q.id} · подано ${agoText(q.agoMin)}`,
-      avatar: p.avatar_url ?? undefined, city: [p.city?.name_ru, p.districts.map((d) => d.name_ru).join(', ')].filter(Boolean).join(' · ') || 'Онлайн', prices: prices || '—', about: about || '—',
-      photos: p.portfolio.map((x) => x.url), verified: p.verified,
+      name: q.name, sub: [x.professions.map((p) => p.category.name_ru).join(', '), x.experience ? EXP[x.experience] : ''].filter(Boolean).join(' · '), meta: `${q.id} · ${phoneFmt(x.phone)} · подано ${agoText(q.agoMin)}`,
+      avatar: x.avatar_url ?? undefined, city: [x.city?.name_ru, x.works_online ? 'онлайн' : ''].filter(Boolean).join(' · ') || '—', prices: prices || '—', about: about || '—', phone: x.phone,
+      photos: x.portfolio.map((p) => p.url), verified: false, marks: x.matches.filter((m) => m.field === 'about').map((m): [number, number] => [m.start, m.end]),
       checklist: [
-        ['Фото — лицо видно, без логотипов и текста', p.avatar_url ? 2 : 0, p.avatar_url ? 'проверьте фото' : 'фото нет'], ['Имя похоже на настоящее', /\S+\s+\S+/.test(q.name) ? 1 : 2, ''],
-        ['Категории соответствуют опыту и портфолио', p.portfolio.length ? 2 : 0, p.portfolio.length ? '' : 'портфолио пусто'], ['Описание без контактов и ссылок', contacts ? 0 : 1, contacts ? 'контакты в «О себе»' : ''],
-        ['Цены в разумных пределах по городу', 2, ''], ['Портфолио — свои работы', p.portfolio.length ? 2 : 0, p.portfolio.length ? `проверить ${p.portfolio.length} фото` : 'нет фото'],
+        ['Фото — лицо видно, без логотипов и текста', x.avatar_url ? 2 : 0, x.avatar_url ? 'проверьте фото' : 'фото нет'], ['Имя похоже на настоящее', /\S+\s+\S+/.test(q.name) ? 1 : 2, ''],
+        ['Категории соответствуют опыту и портфолио', x.portfolio.length ? 2 : 0, x.portfolio.length ? '' : 'портфолио пусто'], ['Описание без контактов и ссылок', contacts ? 0 : 1, contacts ? 'автодетектор: контакты в «О себе»' : ''],
+        ['Цены в разумных пределах по городу', 2, ''], ['Портфолио — свои работы', x.portfolio.length ? 2 : 0, x.portfolio.length ? `проверить ${x.portfolio.length} фото` : 'нет фото'],
       ],
     };
   },
-  async masterReasons(): Promise<Reason[]> {
-    if (!USE_API) return demo.demoMasterReasons;
-    const l = await http<{ id: number; code: string; text_ru: string }[]>('/reasons', { query: { kind: 'master_reject' } });
-    return l.map((r) => ({ id: r.id, code: r.code, label: r.text_ru }));
+  masterReasons: () => (USE_API ? adminApi.reasons('master_reject') : Promise.resolve(demo.demoMasterReasons)),
+  async lockMaster(q: MasterQ): Promise<Lock | null> {
+    if (!USE_API) return null;
+    return lockOf(await http<LockOut>(`/admin/masters/${q.userId}/lock`, { method: 'POST' }));
   },
   async moderateMaster(q: MasterQ, ok: boolean, reason?: Reason, comment?: string) {
     if (!USE_API) {
@@ -260,73 +343,80 @@ export const adminApi = {
       log('Вы', ok ? 'master.approve' : 'master.reject', q.id, ok ? '' : `причина: ${reason?.label}`);
       return wait(null, 200);
     }
-    if (q.kind === 'profession') return http(`/admin/masters/${q.userId}/professions/${q.professionId}/${ok ? 'approve' : 'reject'}`, { method: 'POST' });
     if (ok) return http(`/admin/masters/${q.userId}/approve`, { method: 'POST' });
     return http(`/admin/masters/${q.userId}/reject`, { method: 'POST', body: { reason_id: reason!.id, comment: comment || null } });
   },
+  /** «Вернуть на правки»: профиль уходит мастеру с комментарием, без отказа */
+  async returnMaster(q: MasterQ, comment: string) {
+    if (!USE_API) return adminApi.moderateMaster(q, false, { id: 0, code: 'return', label: 'на правки' }, comment);
+    return http(`/admin/masters/${q.userId}/return`, { method: 'POST', body: { comment } });
+  },
   verifyMaster: (q: MasterQ, verified: boolean, comment: string) =>
-    USE_API ? http(`/admin/masters/${q.userId}/verify`, { method: 'POST', body: { verified, comment } }) : wait(log('Вы', 'master.verify', q.id, comment), 150),
+    USE_API ? http(`/admin/masters/${q.userId}/${verified ? 'verify' : 'unverify'}`, { method: 'POST', body: { basis: comment } }) : wait(log('Вы', 'master.verify', q.id, comment), 150),
 
   /* ---------- 04 Споры ---------- */
   async disputes(): Promise<DisputeV[]> {
     if (!USE_API) return wait(mem.disputes);
     const [o, r] = await Promise.all([
-      http<Page<DisputeRow>>('/admin/disputes', { query: { status: 'open', limit: 50 } }),
-      http<Page<DisputeRow>>('/admin/disputes', { query: { status: 'resolved', limit: 50 } }),
+      http<DisputeRow[]>('/admin/disputes', { query: { status: 'open', limit: 100 } }),
+      http<DisputeRow[]>('/admin/disputes', { query: { status: 'resolved', limit: 50 } }),
     ]);
-    const RES: Record<string, string> = { done: 'выполнено', not_done: 'не выполнено', partial: 'частично' };
-    return Promise.all(
-      [...o.items, ...r.items].map(async (d) => {
-        const m = short(await masterName(d.master_id));
-        const open = d.status === 'open';
-        return {
-          key: d.id, id: `D-${d.id}`, title: d.task_title, who: `Клиент #${d.client_id} ↔ ${m}`, status: open ? 'Открыт' : `Решён: ${RES[d.resolution ?? ''] ?? d.resolution}`, tone: open ? 'bad' : 'grey',
-          slaH: open ? Math.max(0, 24 - d.age_hours) : null, order: `O-${d.order_id}`, open, waiting: false, chatId: d.chat_id, clientName: `Клиент #${d.client_id}`, masterName: m, resolution: d.resolution ?? undefined,
-          client: { title: `Клиент · #${d.client_id}`, text: [d.reason_ru, d.text].filter(Boolean).join('. '), meta: `${d.photos.length} фото · ${dayMonTime(d.created_at)}` },
-          master: null, photos: d.photos,
-        } satisfies DisputeV;
-      }),
-    );
+    return [...o, ...r].map(toDispute);
   },
-  async timeline(d: DisputeV): Promise<TimelineItem[]> {
-    if (!USE_API) return wait(demo.demoTimeline, 100);
-    if (!d.chatId) return [];
-    const msgs = await http<ChatRow[]>(`/admin/chats/${d.chatId}/messages`);
-    const SYS: Record<string, [string, string]> = {
-      chosen: ['Клиент выбрал мастера', '#2647D9'], started: ['Мастер начал работу', '#2647D9'], marked_done: ['Мастер: «Работа выполнена»', '#2647D9'], confirmed: ['Клиент подтвердил выполнение', '#0B6E5E'],
-      dispute_opened: ['Клиент: «Есть проблема» — открыт спор', '#B03A2E'], cancelled_by_client: ['Клиент отменил выбор', '#9AA5B4'], declined_by_master: ['Мастер отказался', '#9AA5B4'],
+  /** Карточка спора: фото, запросы сторонам, хронология (каждое открытие — в аудит) */
+  async disputeCard(d: DisputeV): Promise<{ d: DisputeV; timeline: TimelineItem[] }> {
+    if (!USE_API) return wait({ d, timeline: demo.demoTimeline }, 100);
+    const c = await http<DisputeCard>(`/admin/disputes/${d.key}`);
+    const v = toDispute(c);
+    return {
+      d: {
+        ...v, photos: c.photos, chatId: c.chat_id, price: c.price != null ? `${num(c.price)} смн` : undefined, comment: c.moderator_comment, termsDeadline: c.terms_deadline,
+        requests: c.requests.map((q) => ({
+          id: q.id, to: q.to_side, text: q.text, meta: `${q.staff_name ?? 'Модератор'} · ${dayMonTime(q.created_at)}`, answer: q.answer, answerMeta: q.answered_at ? dayMonTime(q.answered_at) : '', photos: q.answer_photos,
+        })),
+      },
+      timeline: c.timeline.map((e): TimelineItem => { const [t, col] = DISPUTE_EV[e.event] ?? [e.event, '#D9822B']; return [e.note ? `${t} · ${e.note}` : t, dayMonTime(e.at), col]; }),
     };
-    return msgs.filter((m) => m.type === 'system').map((m) => { const [t, c] = SYS[m.system_code ?? ''] ?? [m.system_code ?? 'Событие', '#D9822B']; return [t, dayMonTime(m.created_at), c]; });
   },
-  async resolveDispute(d: DisputeV, res: 'done' | 'not_done' | 'partial', comment: string) {
+  async lockDispute(d: DisputeV): Promise<Lock | null> {
+    if (!USE_API) return null;
+    return lockOf(await http<LockOut>(`/admin/disputes/${d.key}/lock`, { method: 'POST' }));
+  },
+  /** Запрос стороне: ответ придёт в карточку спора; пока не ответили — спор во вкладке «Ждут ответа» */
+  async requestDispute(d: DisputeV, side: 'client' | 'master', text: string) {
+    if (!USE_API) return wait((Object.assign(mem.disputes.find((x) => x.key === d.key)!, { waiting: true }), log('Вы', 'dispute.request', d.id, `${side === 'client' ? 'клиенту' : 'мастеру'}: ${text}`)));
+    return http(`/admin/disputes/${d.key}/request`, { method: 'POST', body: { to_side: side, text } });
+  },
+  async resolveDispute(d: DisputeV, res: 'done' | 'not_done' | 'partial', comment: string, termsDeadline: string | null = null) {
     if (!USE_API) {
       const x = mem.disputes.find((y) => y.key === d.key)!;
       Object.assign(x, { open: false, tone: 'grey', slaH: null, resolution: res, status: `Решён: ${{ done: 'выполнено', not_done: 'не выполнено', partial: 'частично' }[res]}` });
       log('Вы', 'dispute.resolve', d.id, `решение: ${x.status.slice(7)}`);
       return wait(null);
     }
-    return http(`/admin/disputes/${d.key}/resolve`, { method: 'POST', body: { resolution: res, comment } });
+    return http(`/admin/disputes/${d.key}/resolve`, { method: 'POST', body: { resolution: res, comment, terms_deadline: termsDeadline, acknowledged: true } });
   },
 
   /* ---------- 05 Отзывы ---------- */
   async reviews(tab: 'review' | 'all' | 'hidden'): Promise<ReviewV[]> {
     if (!USE_API) return wait(mem.reviews.filter((r) => (tab === 'all' ? r.status !== 'hidden' : r.status === tab)));
-    const p = await http<Page<ReviewRow>>('/admin/reviews', { query: { status: tab === 'all' ? 'published' : tab, limit: 100 } });
-    return Promise.all(
-      p.items.map(async (r) => ({
-        key: r.id, id: `R-${r.id}`, rating: r.rating, text: r.text, master: short(await masterName(r.master_id)), reason: r.hide_reason ?? (r.complaints_count ? 'Жалобы' : '—'),
-        tone: (r.complaints_count >= 2 ? 'bad' : r.complaints_count ? 'warn' : 'grey') as Tone, complaints: r.complaints_count, order: `O-${r.order_id}`, date: dayMon(r.created_at),
-        author: `Клиент #${r.author_id}`, reply: r.reply_text, complaintList: [], status: (r.status === 'hidden' ? 'hidden' : r.status === 'review' ? 'review' : 'published') as ReviewV['status'], hideReason: r.hide_reason,
-      })),
-    );
+    const l = await http<ReviewRow[]>('/admin/reviews', { query: { status: tab === 'all' ? 'published' : tab, limit: 100 } });
+    return l.map((r) => ({
+      key: r.id, id: `R-${r.id}`, rating: r.rating, text: r.text, master: short(r.master.name ?? `Мастер #${r.master.id}`),
+      reason: r.hide_reason ?? (r.flags.length ? REVIEW_FLAG[r.flags[0]] ?? r.flags[0] : r.complaints_count ? 'Жалобы' : '—'),
+      tone: (r.flags.length || r.complaints_count >= 2 ? 'bad' : r.complaints_count ? 'warn' : 'grey') as Tone, complaints: r.complaints_count, order: `O-${r.order_id} · ${r.task_title}`, date: dayMon(r.created_at),
+      author: r.author.name ?? `Клиент #${r.author.id}`, reply: r.reply_text, complaintList: r.complaints.map((c): [string, string] => [c.comment ? `${c.reason_ru}: «${c.comment}»` : c.reason_ru, dayMon(c.created_at)]),
+      status: r.status, hideReason: r.hide_reason,
+    }));
   },
-  async hideReview(r: ReviewV, reason: string) {
-    if (!USE_API) return wait((Object.assign(mem.reviews.find((x) => x.key === r.key)!, { status: 'hidden', hideReason: reason }), log('Вы', 'review.hide', r.id, `причина: ${reason.toLowerCase()}`)));
-    return http(`/admin/reviews/${r.key}/hide`, { method: 'POST', body: { reason } });
+  hideReasons: () => (USE_API ? adminApi.reasons('review_hide') : Promise.resolve(['Оскорбления', 'Не относится к заказу', 'Контакты / реклама', 'Персональные данные'].map((label, i) => ({ id: i + 1, code: `r${i}`, label })))),
+  async hideReview(r: ReviewV, reason: Reason, comment = '') {
+    if (!USE_API) return wait((Object.assign(mem.reviews.find((x) => x.key === r.key)!, { status: 'hidden', hideReason: reason.label }), log('Вы', 'review.hide', r.id, `причина: ${reason.label.toLowerCase()}`)));
+    return http(`/admin/reviews/${r.key}/hide`, { method: 'POST', body: { reason_id: reason.id, comment: comment || null } });
   },
   async keepReview(r: ReviewV) {
     if (!USE_API) return wait((Object.assign(mem.reviews.find((x) => x.key === r.key)!, { status: 'published', complaints: 0, tone: 'grey', reason: '—' }), log('Вы', 'review.restore', r.id, 'жалобы отклонены')));
-    return http(`/admin/reviews/${r.key}/restore`, { method: 'POST' });
+    return http(`/admin/reviews/${r.key}/keep`, { method: 'POST' });
   },
 
   /* ---------- 06 Пользователи ---------- */
@@ -340,83 +430,104 @@ export const adminApi = {
       );
       return wait({ items, total: 48210, masters: 3904 });
     }
-    const p = await http<Page<UserRow>>('/admin/users', { query: { q: f.q.trim() || null, role: f.role === 'Клиент' ? 'client' : f.role === 'Мастер' ? 'master' : null, status: f.status === 'all' ? null : f.status, limit: 100 } });
-    const items = p.items
-      .filter((u) => (!f.complaints || u.complaints_count > 0) && (f.city === 'all' || u.city_ru === f.city))
-      .map((u): UserV => {
-        const blocked = u.status === 'blocked';
-        const days = u.blocked_until ? Math.ceil((+new Date(u.blocked_until) - Date.now()) / 864e5) : null;
-        return {
-          key: u.id, id: `U-${u.id}`, name: u.name ?? `Аноним ${u.id}`, phone: phoneFmt(u.phone), role: u.is_client && u.is_master ? 'Оба' : u.is_master ? 'Мастер' : 'Клиент', city: u.city_ru ?? 'Онлайн',
-          status: blocked ? (days == null ? 'Навсегда' : `Блок ${days} дн`) : u.master_status === 'review' ? 'Проверка' : 'Активен', tone: blocked ? (days == null ? 'dark' : 'bad') : u.master_status === 'review' ? 'warn' : 'ok',
-          complaints: u.complaints_count, seen: seenText(u.last_seen_at), blocked,
-        };
-      });
-    return { items, total: items.length, masters: items.filter((u) => u.role !== 'Клиент').length };
+    const cityId = f.city === 'all' ? null : (ref.get()?.cities.find((c) => c.name.ru === f.city)?.id ?? null);
+    const p = await http<RegPage<UserRow>>('/admin/users', {
+      query: { q: f.q.trim().replace(/^U-/i, '') || null, role: f.role === 'Клиент' ? 'client' : f.role === 'Мастер' ? 'master' : null, status: f.status === 'all' ? null : f.status, city_id: cityId, with_complaints: f.complaints, limit: 100 },
+    });
+    const items = p.items.map(toUser);
+    return { items, total: p.total, masters: items.filter((u) => u.role !== 'Клиент').length };
   },
   async user(u: UserV): Promise<UserCard> {
     if (!USE_API) return wait(demo.demoUserCard(u), 100);
     const d = await http<UserDetail>(`/admin/users/${u.key}`);
     const since = new Date(d.created_at);
+    const sg = d.signals;
     return {
-      ...u, blockReason: d.block_reason, activeTasks: d.tasks_count,
-      stats: [[String(d.tasks_count), 'задания', false], [String(d.orders_as_client + d.orders_as_master), 'завершено', false], [String(d.complaints_count), 'жалобы', d.complaints_count >= 3], [`с ${['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'][since.getMonth()]}`, 'на eKor', false]],
-      signals: [d.disputes_count && `споров: ${d.disputes_count}`, d.reviews_written && `отзывов: ${d.reviews_written}`, d.block_reason && `прошлая блокировка: ${d.block_reason}`].filter(Boolean).join(' · ') || 'Сигналов нет',
+      ...u, ...toUser(d), blockReason: d.block_reason, activeTasks: d.tasks_count, phoneFull: phoneFmt(d.phone),
+      stats: [[String(d.tasks_count), 'задания', false], [String(d.orders_as_client + d.orders_as_master), 'заказы', false], [String(d.complaints_count), 'жалобы', d.complaints_count >= 3], [`с ${['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'][since.getMonth()]}`, 'на eKor', false]],
+      signals:
+        [sg.tasks_rejected && `отклонено заданий: ${sg.tasks_rejected}`, sg.complaints_against && `жалоб на пользователя: ${sg.complaints_against}`, sg.payment_talk_messages && `сообщений о предоплате: ${sg.payment_talk_messages}`, sg.card_numbers_in_chats && `номеров карт в чатах: ${sg.card_numbers_in_chats}`]
+          .filter(Boolean)
+          .join(' · ') || 'Сигналов нет',
+      sanctions: d.sanctions.map((x) => ({
+        warn: x.type === 'warn', active: x.active,
+        text: `${x.type === 'warn' ? 'Предупреждение' : `Блокировка ${DURATION[x.duration ?? ''] ?? ''}`.trim()}${x.reason_ru ? ` · ${x.reason_ru}` : ''}${x.comment ? ` — ${x.comment}` : ''}`,
+        meta: [dayMonTime(x.created_at), x.staff_name, x.lifted_at ? `снята ${dayMon(x.lifted_at)}${x.lifted_by ? ` · ${x.lifted_by}` : ''}` : ''].filter(Boolean).join(' · '),
+      })),
     };
   },
-  async block(u: UserV, reason: string, days: number | null, comment: string) {
+  blockReasons: () => (USE_API ? adminApi.reasons('user_block') : Promise.resolve(['Мошенничество: предоплата', 'Оскорбления и угрозы', 'Спам и реклама', 'Фейковый профиль', 'Обход правил платформы'].map((label, i) => ({ id: i + 47, code: `b${i}`, label })))),
+  async block(u: UserV, reason: Reason, days: number | null, comment: string, last4: string | null = null) {
     if (!USE_API) {
       Object.assign(mem.users.find((x) => x.key === u.key)!, { blocked: true, status: days ? `Блок ${days} дн` : 'Навсегда', tone: days ? 'bad' : 'dark' });
-      log('Вы', 'user.block', u.id, `${days ? `${days} дн` : 'навсегда'} · ${reason.toLowerCase()}`);
+      log('Вы', 'user.block', u.id, `${days ? `${days} дн` : 'навсегда'} · ${reason.label.toLowerCase()}`);
       return wait(null);
     }
-    return http(`/admin/users/${u.key}/block`, { method: 'POST', body: { reason: [reason, comment].filter(Boolean).join(' — '), days } });
+    const duration = days === 1 ? '24h' : days === 7 ? '7d' : days === 30 ? '30d' : 'forever';
+    return http(`/admin/users/${u.key}/block`, { method: 'POST', body: { reason_id: reason.id, duration, comment: comment || null, confirm_last4: last4 } });
   },
   async unblock(u: UserV, comment: string) {
     if (!USE_API) return wait((Object.assign(mem.users.find((x) => x.key === u.key)!, { blocked: false, status: 'Активен', tone: 'ok' }), log('Вы', 'user.unblock', u.id, comment)));
     return http(`/admin/users/${u.key}/unblock`, { method: 'POST', body: { comment } });
   },
+  /** Предупреждение: пользователь получит уведомление, запись — в истории санкций */
+  async warn(userId: number, reason: Reason | null, comment: string) {
+    if (!USE_API) return wait(log('Вы', 'user.warn', `U-${userId}`, comment));
+    return http(`/admin/users/${userId}/warn`, { method: 'POST', body: { reason_id: reason?.id ?? null, comment } });
+  },
 
-  /* ---------- 07 Чаты по жалобам ---------- */
+  /* ---------- 07 Жалобы и переписка ---------- */
   async complaints(): Promise<ComplaintV[]> {
     if (!USE_API) return wait(mem.complaints);
     const [o, r] = await Promise.all([
-      http<Page<ComplaintRow>>('/admin/complaints', { query: { status: 'open', subject_type: 'chat', limit: 50 } }),
-      http<Page<ComplaintRow>>('/admin/complaints', { query: { status: 'resolved', subject_type: 'chat', limit: 50 } }),
+      http<ComplaintRow[]>('/admin/complaints', { query: { status: 'new', limit: 100 } }),
+      http<ComplaintRow[]>('/admin/complaints', { query: { status: 'resolved', limit: 50 } }),
     ]);
-    return [...o.items, ...r.items].map((c) => ({
-      key: c.id, id: `C-${c.id}`, title: c.reason_ru, order: `Чат #${c.subject_id}`, status: c.status === 'open' ? 'Новая' : 'Решена', tone: c.status === 'open' ? 'info' : 'grey', open: c.status === 'open',
-      chatId: c.subject_id, text: c.comment ? `«${c.comment}»` : '', from: `От пользователя #${c.reporter_id}`, date: dayMonTime(c.created_at), who: '', detector: [], subject: '',
-    }));
+    return [...o, ...r].map((c) => {
+      const open = c.status === 'new';
+      const [what, side] = TARGET[c.target_type] ?? [c.target_type, ''];
+      return {
+        key: c.id, id: `C-${c.id}`, title: c.reason?.text_ru ?? 'Жалоба', order: c.order_id ? `${what} · заказ O-${c.order_id}` : `${what} #${c.target_id}`,
+        status: open ? 'Новая' : `Решена${c.resolved_by ? ` · ${short(c.resolved_by)}` : ''}`, tone: open ? 'info' : 'grey', open, chatId: c.has_chat ? c.id : null,
+        text: c.text ? `«${c.text}»` : '', from: `От: ${c.reporter.name ?? `#${c.reporter.id}`}`, date: dayMonTime(c.created_at), who: '', detector: [],
+        subject: side, subjectUserId: c.target_type === 'user' ? c.target_id : undefined, targetType: c.target_type, hasChat: c.has_chat, preview: c.target_preview,
+      } satisfies ComplaintV;
+    });
   },
   async chat(c: ComplaintV): Promise<{ msgs: ChatMsg[]; detector: string[] }> {
     if (!USE_API) return wait({ msgs: demo.demoChat, detector: c.detector }, 120);
-    if (!c.chatId) return { msgs: [], detector: [] };
-    const rows = await http<ChatRow[]>(`/admin/chats/${c.chatId}/messages`);
-    // Сторона: первая реплика в чате — мастер (после выбора пишет первым) — точнее, по заявителю: он клиент или мастер
-    const reporter = +c.from.replace(/\D/g, '') || null;
+    // Отрицательный ключ — переписка по спору (основание — спор)
+    const rows = c.key < 0 ? await http<ChatRow[]>(`/admin/disputes/${-c.key}/chat`) : c.hasChat ? await http<ChatRow[]>(`/admin/complaints/${c.key}/chat`) : [];
     const flags = new Map<string, number>();
     rows.forEach((m) => m.flags.forEach((f) => flags.set(f, (flags.get(f) ?? 0) + 1)));
     return {
       msgs: rows.map((m) => ({
-        sys: m.type === 'system', who: m.type === 'system' ? '' : m.sender_id === reporter ? 'Клиент' : 'Мастер', text: m.body ?? m.system_code ?? '', time: m.type === 'system' ? dayMon(m.created_at) : dayMonTime(m.created_at).split(', ')[1], flag: m.flags.length > 0,
+        id: m.id, hidden: m.hidden, photo: m.photo_url, sys: m.sender_side === 'system', who: m.sender_side === 'client' ? 'Клиент' : m.sender_side === 'master' ? 'Мастер' : '',
+        text: m.body ?? (m.photo_url ? 'Фото' : (SYS_MSG[m.system_code ?? ''] ?? m.system_code ?? '')), time: m.sender_side === 'system' ? dayMon(m.created_at) : hhmm(m.created_at), flag: m.flags.length > 0,
       })),
-      detector: [...flags].map(([f, n]) => (n > 1 ? `${f} × ${n}` : f)),
+      detector: [...flags].map(([f, n]) => { const l = CHAT_FLAG[f] ?? f; return n > 1 ? `${l} × ${n}` : l; }),
     };
   },
   async resolveComplaint(c: ComplaintV, resolution: string) {
     if (!USE_API) return wait((Object.assign(mem.complaints.find((x) => x.key === c.key)!, { open: false, status: 'Решена', tone: 'grey' }), log('Вы', 'complaint.resolve', c.id, resolution)));
     return http(`/admin/complaints/${c.key}/resolve`, { method: 'POST', body: { resolution } });
   },
+  /** Скрыть сообщения в чате (номер карты, оскорбления) — стороны видят «Сообщение скрыто модератором» */
+  async hideMessages(ids: number[], basis: string) {
+    if (!USE_API) return wait(log('Вы', 'message.hide', `${ids.length} сообщ.`, basis));
+    return http('/admin/messages/hide', { method: 'POST', body: { ids, basis } });
+  },
 
   /* ---------- 08 Справочники ---------- */
   async categories(): Promise<CatNode[]> {
     if (!USE_API) return wait(mem.cats);
-    const tree = await http<{ id: number; key: string; name_ru: string; name_tj: string; icon: string | null; allows_online: boolean; masters_count: number; children: { id: number; key: string; name_ru: string; name_tj: string; masters_count: number }[] }[]>('/categories');
-    return tree.flatMap((c) => [
-      { id: c.id, key: c.key, ru: c.name_ru, tj: c.name_tj, parentId: null, icon: c.icon ?? 'Wrench', masters: c.masters_count, hidden: false, aliases: [], online: c.allows_online },
-      ...c.children.map((k) => ({ id: k.id, key: k.key, ru: k.name_ru, tj: k.name_tj, parentId: c.id, icon: c.icon ?? 'Wrench', masters: k.masters_count, hidden: false, aliases: [], online: c.allows_online })),
-    ]);
+    const l = await http<CategoryAdmin[]>('/admin/dictionaries/categories');
+    return l
+      .sort((a, b) => a.sort - b.sort)
+      .map((c) => ({
+        id: c.id, key: c.key, ru: c.name_ru, tj: c.name_tj, parentId: c.parent_id, icon: c.icon ?? l.find((p) => p.id === c.parent_id)?.icon ?? 'Wrench', masters: c.masters_count, hidden: c.hidden, aliases: c.synonyms,
+        online: c.allows_online, photoRequired: c.photo_required, perHour: c.price_per_hour, sort: c.sort, openTasks: c.open_tasks_count, priceFrom: c.typical_price_from,
+      }));
   },
   async saveCategory(c: CatNode, isNew: boolean) {
     if (!USE_API) {
@@ -425,51 +536,108 @@ export const adminApi = {
       log('Вы', 'dict.update', `category:${c.id}`, isNew ? 'новая категория' : 'изменена категория');
       return wait(null);
     }
-    const body = { name_ru: c.ru, name_tj: c.tj, icon: c.icon, aliases: c.aliases, allows_online: c.online, active: !c.hidden };
-    if (isNew) return http('/admin/categories', { method: 'POST', body: { ...body, parent_id: c.parentId, key: c.key, typical_price_from: null, sort: 0 } });
-    return http(`/admin/categories/${c.id}`, { method: 'PATCH', body });
+    const body = {
+      name_ru: c.ru, name_tj: c.tj, icon: c.icon, synonyms: c.aliases, allows_online: c.online, photo_required: c.photoRequired ?? false, price_per_hour: c.perHour ?? false, hidden: c.hidden,
+      typical_price_from: c.priceFrom ?? null, sort: c.sort ?? 0,
+    };
+    if (isNew) return http('/admin/dictionaries/categories', { method: 'POST', body: { ...body, parent_id: c.parentId, key: c.key } });
+    return http(`/admin/dictionaries/categories/${c.id}`, { method: 'PATCH', body });
+  },
+  /** Порядок категорий после перетаскивания: PATCH sort только у сдвинутых */
+  async sortCategories(ids: number[], prev: CatNode[]) {
+    if (!USE_API) return wait(null);
+    await Promise.all(ids.map((id, i) => (prev.find((c) => c.id === id)?.sort !== i ? http(`/admin/dictionaries/categories/${id}`, { method: 'PATCH', body: { sort: i } }) : null)));
   },
   async cities(): Promise<CityNode[]> {
     if (!USE_API) return wait(demo.demoCities);
-    const R = ref.get();
-    return (R?.cities ?? []).map((c) => ({ id: c.id, ru: c.name.ru, tj: c.name.tj, region: c.sub.ru, masters: c.masters, districts: (R?.districts[c.key] ?? []).map((d) => ({ id: d.id, ru: d.name.ru, tj: d.name.tj, near: d.near })) }));
+    const [regions, cities, districts] = await Promise.all([
+      http<{ id: number; name_ru: string }[]>('/admin/dictionaries/regions'), http<CityAdmin[]>('/admin/dictionaries/cities'), http<DistrictAdmin[]>('/admin/dictionaries/districts'),
+    ]);
+    return cities
+      .sort((a, b) => a.sort - b.sort)
+      .map((c) => ({
+        id: c.id, ru: c.name_ru, tj: c.name_tj, region: regions.find((r) => r.id === c.region_id)?.name_ru ?? '', masters: ref.cityById(c.id)?.masters ?? 0, hidden: c.hidden,
+        districts: districts.filter((d) => d.city_id === c.id).sort((a, b) => a.sort - b.sort).map((d) => ({ id: d.id, ru: d.name_ru, tj: d.name_tj, near: d.near, neighbors: d.neighbor_ids, hidden: d.hidden })),
+      }));
   },
   async saveCity(id: number, ru: string, tj: string) {
     if (!USE_API) return wait(log('Вы', 'dict.update', `city:${id}`, `${ru} / ${tj}`));
-    return http(`/admin/cities/${id}`, { method: 'PATCH', body: { name_ru: ru, name_tj: tj } });
+    return http(`/admin/dictionaries/cities/${id}`, { method: 'PATCH', body: { name_ru: ru, name_tj: tj } });
   },
-  async rejectReasons(kind: 'task_reject' | 'master_reject'): Promise<Reason[]> {
+  async saveDistrict(id: number, p: { ru?: string; tj?: string; near?: boolean; neighbors?: number[]; hidden?: boolean }) {
+    if (!USE_API) return wait(log('Вы', 'dict.update', `district:${id}`, Object.keys(p).join(', ')));
+    return http(`/admin/dictionaries/districts/${id}`, { method: 'PATCH', body: { name_ru: p.ru ?? null, name_tj: p.tj ?? null, near: p.near ?? null, neighbor_ids: p.neighbors ?? null, hidden: p.hidden ?? null } });
+  },
+  async rejectReasons(kind: string): Promise<Reason[]> {
     if (!USE_API) return wait(kind === 'task_reject' ? demo.demoRejectReasons : demo.demoMasterReasons);
-    const l = await http<{ id: number; code: string; text_ru: string }[]>('/reasons', { query: { kind } });
-    return l.map((r) => ({ id: r.id, code: r.code, label: r.text_ru }));
+    const l = await reasonList(kind);
+    return l.sort((a, b) => a.sort - b.sort).map((r) => ({ id: r.id, code: r.code, label: r.text_ru, text: r.user_message_ru ?? undefined, needComment: r.requires_comment, hidden: r.hidden, system: r.system, kind: r.kind }));
   },
-  async saveReason(id: number, ru: string) {
+  async saveReason(id: number, ru: string, p: { hidden?: boolean; text?: string } = {}) {
     if (!USE_API) return wait(log('Вы', 'dict.update', `reason:${id}`, ru));
-    return http(`/admin/reasons/${id}`, { method: 'PATCH', body: { text_ru: ru } });
+    return http(`/admin/dictionaries/reasons/${id}`, { method: 'PATCH', body: { text_ru: ru, ...(p.hidden !== undefined && { hidden: p.hidden }), ...(p.text !== undefined && { user_message_ru: p.text }) } });
+  },
+  async createReason(kind: string, ru: string, text: string) {
+    if (!USE_API) return wait(log('Вы', 'dict.create', `reason:${kind}`, ru));
+    return http('/admin/dictionaries/reasons', { method: 'POST', body: { kind, code: `custom_${Date.now().toString(36)}`, text_ru: ru, text_tj: null, user_message_ru: text || null, user_message_tj: null, requires_comment: false, sort: 99, hidden: false } });
   },
 
   /* ---------- 09 Лимиты ---------- */
   async limits(): Promise<LimitV[]> {
     if (!USE_API) return wait(mem.limits.map((l) => ({ ...l })));
-    const l = await http<LimitOut[]>('/admin/limits');
-    return l.map((x) => ({ key: x.key, group: limitGroup(x.key), label: x.title, value: x.value, unit: limitUnit(x.key) }));
+    return (await http<LimitOut[]>('/admin/limits')).map(toLimit);
   },
   async limitHistory(): Promise<HistoryV[]> {
     if (!USE_API) return wait(mem.history);
-    const a = await http<Page<AuditRow>>('/admin/audit', { query: { action: 'limits.update', limit: 20 } }).catch(() => ({ items: [] as AuditRow[] }));
-    return a.items.flatMap((r) =>
-      Object.keys(r.after ?? {}).map((k): [string, string, boolean] => [`${k}: ${String(r.before?.[k] ?? '—')} → ${String(r.after?.[k])}`, `${dayMon(r.at)} · ${r.staff_name ?? '—'}`, false]),
-    );
+    const h = await http<{ items: { at: string; key: string; title: string | null; old: number | null; new: number | null; reason: string | null; staff_name: string | null }[] }>('/admin/limits/history', { query: { limit: 30 } });
+    return h.items.map((r): HistoryV => [`${r.title ?? r.key}: ${r.old ?? '—'} → ${r.new ?? '—'}${r.reason ? ` · ${r.reason}` : ''}`, `${dayMonTime(r.at)} · ${r.staff_name ?? '—'}`, false]);
   },
-  async saveLimits(values: Record<string, number>, prev: Record<string, number>, labels: Record<string, string>, comment: string) {
+  /**
+   * Сохранение лимитов. dryRun — сервер считает последствия (сколько заданий/мастеров затронет) и ничего не меняет.
+   * 409 version_conflict — лимит успели изменить, перечитайте.
+   */
+  async saveLimits(rows: { key: string; value: number; version?: number; label: string; prev: number }[], comment: string, dryRun = false): Promise<LimitEffect[]> {
     if (!USE_API) {
-      mem.limits.forEach((l) => l.key in values && (l.value = values[l.key]));
-      Object.keys(values).forEach((k) => mem.history.unshift([`${labels[k]}: ${prev[k]} → ${values[k]}`, `сейчас · вы`, false]));
-      log('Вы', 'limits.update', Object.keys(values).join(', '), comment);
-      return wait(null);
+      if (dryRun) return wait(rows.map((r) => ({ label: r.label, old: r.prev, next: r.value, effect: 'Применится к новым действиям', affected: null })), 150);
+      mem.limits.forEach((l) => { const r = rows.find((x) => x.key === l.key); if (r) l.value = r.value; });
+      rows.forEach((r) => mem.history.unshift([`${r.label}: ${r.prev} → ${r.value}`, `сейчас · вы`, false]));
+      log('Вы', 'limits.update', rows.map((r) => r.key).join(', '), comment);
+      return wait([]);
     }
-    // LimitsIn пока принимает только values — основание сервер не сохраняет (см. список для бэкенда)
-    return http('/admin/limits', { method: 'PUT', body: { values, basis: comment } });
+    const r = await http<LimitsResult>('/admin/limits', { method: 'PUT', query: { dry_run: dryRun }, body: { changes: rows.map((x) => ({ key: x.key, value: x.value, version: x.version ?? null })), reason: comment } });
+    return r.effects.map((e) => ({ label: e.title, old: e.old, next: e.new, effect: e.effect, affected: e.affected }));
+  },
+
+  /* ---------- 10 Шаблоны уведомлений ---------- */
+  async templates(): Promise<TplRow[]> {
+    if (!USE_API) return wait(demo.demoTemplates.map((t) => ({ code: t.code, title: t.title, ch: t.ch.map((c) => (c === 'SMS' ? 'sms' : 'push')), custom: [] })));
+    const l = await http<{ code: string; name: string; channels: TplRow['ch']; custom: string[] }[]>('/admin/templates');
+    return l.map((t) => ({ code: t.code, title: t.name, ch: t.channels, custom: t.custom }));
+  },
+  async template(code: string): Promise<TplCard> {
+    if (!USE_API) {
+      const t = demo.demoTemplates.find((x) => x.code === code)!;
+      const ch = t.ch.map((c): TplText['ch'] => (c === 'SMS' ? 'sms' : 'push'));
+      const SAMPLE: Record<string, string> = { code: '482917', minutes: '5', app: 'eKor', name: 'Фаррух Н.', task: 'Заменить 3 розетки', reason: 'нет фото работ', price: '120', result: 'выполнено', text: 'Выезжаю в 14:30' };
+      return wait({
+        code, title: t.title, ch, vars: t.vars.map((v) => v.slice(1, -1)).map((name) => ({ name, max: SAMPLE[name]?.length ?? 10, sample: SAMPLE[name] ?? name })),
+        texts: ch.flatMap((c) => (['ru', 'tj'] as const).map((lang) => ({ ch: c, lang, title: null, body: t[lang], custom: false, defBody: t[lang], preview: '', version: 0, sms: null }))),
+      });
+    }
+    const t = await http<{ code: string; name: string; channels: TplRow['ch']; vars: { name: string; max_len: number; sample: string }[]; texts: TplTextOut[] }>(`/admin/templates/${code}`);
+    return { code: t.code, title: t.name, ch: t.channels, vars: t.vars.map((v) => ({ name: v.name, max: v.max_len, sample: v.sample })), texts: t.texts.map(toTplText) };
+  },
+  async saveTemplate(code: string, x: TplText): Promise<TplCard> {
+    if (!USE_API) return (log('Вы', 'template.update', code, `${x.ch}/${x.lang}`), adminApi.template(code));
+    const t = await http<{ code: string; name: string; channels: TplRow['ch']; vars: { name: string; max_len: number; sample: string }[]; texts: TplTextOut[] }>(`/admin/templates/${code}`, {
+      method: 'PUT', body: { channel: x.ch, lang: x.lang, title: x.title, body: x.body, version: x.version },
+    });
+    return { code: t.code, title: t.name, ch: t.channels, vars: t.vars.map((v) => ({ name: v.name, max: v.max_len, sample: v.sample })), texts: t.texts.map(toTplText) };
+  },
+  /** Тестовая отправка на свой номер: сервер возвращает итоговый текст и число SMS-сегментов */
+  async testTemplate(code: string, phone: string, x: TplText) {
+    if (!USE_API) return wait({ sent_to: phone, text: x.body, sms: { segments: 1 } });
+    return http<{ sent_to: string; text: string; sms: { segments: number } }>(`/admin/templates/${code}/test`, { method: 'POST', body: { phone, channel: x.ch, lang: x.lang, title: x.title, body: x.body } });
   },
 
   /* ---------- 11, 20–22 Сотрудники ---------- */
@@ -530,74 +698,94 @@ export const adminApi = {
   },
 
   /* ---------- 23 Все задания ---------- */
-  async allTasks(f: { status: string; cityId: number | null; categoryId: number | null; flags: boolean; cursor?: string | null }): Promise<{ items: TaskRegRow[]; next: string | null }> {
+  async allTasks(f: { status: string; cityId: number | null; categoryId: number | null; flags: boolean; q?: string; days?: number | null; cursor?: string | null }): Promise<{ items: TaskRegRow[]; next: string | null; total: number | null; counts: Record<string, number> | null }> {
     if (!USE_API) {
       const st = f.status === 'all' ? null : TASK_TAB[f.status];
-      return wait({ items: demo.demoAllTasks.filter((r) => !st || st.includes(r.status)), next: null });
+      const ql = (f.q ?? '').trim().toLowerCase();
+      const items = demo.demoAllTasks.filter((r) => (!st || st.includes(r.status)) && (!ql || `${r.id} ${r.title} ${r.client}`.toLowerCase().includes(ql)));
+      return wait({ items, next: null, total: null, counts: null });
     }
-    const p = await http<Page<TaskRow>>('/admin/tasks', { query: { status: f.status === 'all' ? null : f.status, city_id: f.cityId, category_id: f.categoryId, limit: 50, cursor: f.cursor ?? null } });
+    const p = await http<RegPage<TaskRow>>('/admin/tasks', { query: { ...taskQuery(f), cursor: f.cursor ?? null, limit: 50 } });
     return {
-      next: p.next_cursor,
-      items: p.items
-        .filter((x) => !f.flags || x.flags.length)
-        .map((x) => {
-          const [status, tone] = TASK_ST[x.status] ?? [x.status, 'grey'];
-          return {
-            key: x.id, id: `T-${x.id}`, title: x.title, sub: [x.category_ru, [x.city_ru, x.district_ru].filter(Boolean).join(', ') || 'Онлайн'].join(' · '), client: `#${x.client_id}`, clientId: x.client_id,
-            budget: '—', responses: x.responses_count, status, tone, created: whenShort(x.published_at ?? x.created_at), flags: x.flags.map((g) => flagOf(g)[0]),
-          };
-        }),
+      next: p.next_cursor, total: p.total, counts: p.counts_by_status,
+      items: p.items.map((x) => {
+        const [status, tone] = TASK_ST[x.status] ?? [x.status, 'grey'];
+        return {
+          key: x.id, id: `T-${x.id}`, title: x.title, sub: [x.category.name_ru, [x.city?.name_ru, x.district?.name_ru].filter(Boolean).join(', ') || 'Онлайн'].join(' · '), client: x.client.name ?? `#${x.client.id}`, clientId: x.client.id,
+          budget: budgetText(x.budget_mode, x.budget_min, x.budget_max), responses: x.responses_count, status, tone, created: whenShort(x.published_at ?? x.created_at), flags: x.flags.map((g) => flagOf(g)[0]),
+        };
+      }),
     };
   },
+  tasksCsvUrl: (f: { status: string; cityId: number | null; categoryId: number | null; flags: boolean; q?: string; days?: number | null }) => (USE_API ? adminUrl('/admin/tasks.csv', taskQuery(f)) : null),
   async taskCard(r: TaskRegRow): Promise<TaskRegCard> {
     if (!USE_API) return wait(demo.demoTaskCard(r), 120);
-    const d = await http<{ task: TaskFull; flags: string[]; history: { from_status: string | null; to_status: string; comment: string | null; at: string }[]; responses: { master_id: number; master_name: string | null; price: number | null; inspect: boolean; status: string }[]; orders: { id: number; master_id: number; status: string; created_at: string }[] }>(`/admin/tasks/${r.key}`);
+    const d = await http<TaskCardOut>(`/admin/tasks/${r.key}`);
     const k = d.task;
     const order = d.orders[d.orders.length - 1];
     const chosen = d.responses.find((x) => x.status === 'chosen');
-    const budget = k.budget_mode === 'sum' ? (k.budget_min && k.budget_max ? `${k.budget_min}–${k.budget_max} смн` : k.budget_max ? `до ${k.budget_max} смн` : k.budget_min ? `от ${k.budget_min} смн` : 'договорная') : 'договорная';
     return {
-      id: r.id, key: r.key, status: r.status, tone: r.tone, title: k.title, sub: [r.sub, budget].join(' · '), client: `${k.client?.name ?? 'Клиент'} · U-${r.clientId}`, clientId: r.clientId,
-      phone: k.client_phone ?? '—', address: k.address ?? '—', master: chosen ? `${chosen.master_name ?? ''} · M-${chosen.master_id}` : '—', masterId: chosen?.master_id ?? order?.master_id ?? null,
-      order: order ? `O-${order.id} · ${TASK_ST[order.status]?.[0]?.toLowerCase() ?? order.status} · ${dayMon(order.created_at)}` : '—', flags: d.flags.length ? d.flags.map((g) => flagOf(g)[0]).join(', ') : 'нет',
-      responses: d.responses.map((x) => ({ name: x.master_name ?? `M-${x.master_id}`, price: x.inspect ? 'после осмотра' : x.price ? num(x.price) : '—', state: x.status === 'chosen' ? 'выбран' : x.status === 'withdrawn' ? 'отозван' : x.status === 'rejected' || x.status === 'closed' ? 'закрыт' : 'ждёт', chosen: x.status === 'chosen' })),
-      history: d.history.map((h) => [dayMonTime(h.at).replace(',', ''), `${TASK_ST[h.to_status]?.[0] ?? h.to_status}${h.comment ? ` · ${h.comment}` : ''}`]),
+      id: r.id, key: r.key, status: r.status, tone: r.tone, title: k.title, sub: [r.sub, budgetText(k.budget_mode, k.budget_min, k.budget_max), whenText(k.when, k.date)].join(' · '),
+      client: `${d.client.name ?? 'Клиент'} · U-${d.client.id} · с ${dayMon(d.client_registered_at)} ${new Date(d.client_registered_at).getFullYear()}`, clientId: d.client.id,
+      phone: phoneFmt(d.client.phone), address: k.address ?? '—', master: chosen ? `${chosen.master.name ?? ''} · M-${chosen.master.id}` : order ? `${order.master.name ?? ''} · M-${order.master.id}` : '—',
+      masterId: chosen?.master.id ?? order?.master.id ?? null,
+      order: order ? `O-${order.id} · ${ORDER_ST[order.status] ?? order.status}${order.price ? ` · ${num(order.price)} смн` : ''} · ${dayMon(order.created_at)}` : '—',
+      flags: d.complaints_count ? `жалоб: ${d.complaints_count}` : 'нет',
+      responses: d.responses.map((x) => ({
+        name: x.master.name ?? `M-${x.master.id}`, price: x.inspect ? 'после осмотра' : x.price ? `${num(x.price)} смн` : '—',
+        state: x.status === 'chosen' ? 'выбран' : x.status === 'withdrawn' ? 'отозван' : x.status === 'rejected' || x.status === 'closed' ? 'закрыт' : 'ждёт', chosen: x.status === 'chosen',
+      })),
+      history: d.events.map((h): [string, string] => [dayMonTime(h.at).replace(',', ''), [eventText(h.action), h.actor, h.comment].filter(Boolean).join(' · ')]),
       canUnpublish: k.status === 'open',
     };
   },
   async unpublishTask(key: number, reason: Reason, comment: string) {
     if (!USE_API) return wait(log('Вы', 'task.unpublish', `T-${key}`, `причина: ${reason.label}`));
-    return http(`/admin/tasks/${key}/reject`, { method: 'POST', body: { reason_id: reason.id, comment: comment || null } });
+    return http(`/admin/tasks/${key}/unpublish`, { method: 'POST', body: { reason_id: reason.id, comment: comment || null } });
   },
 
-  /* ---------- 24 Все мастера (реестр — по пользователям с ролью мастера) ---------- */
-  async allMasters(f: { q: string; status: string; cursor?: string | null }): Promise<{ items: MasterRegRow[]; next: string | null }> {
+  /* ---------- 24 Все мастера ---------- */
+  async allMasters(f: { q: string; status: string; cityId?: number | null; categoryId?: number | null; verified?: boolean | null; accepting?: boolean | null; ratingMin?: number | null; cursor?: string | null }): Promise<{ items: MasterRegRow[]; next: string | null; total: number | null; counts: Record<string, number> | null }> {
     if (!USE_API) {
       const ql = f.q.trim().toLowerCase();
       const st = f.status === 'all' ? null : MASTER_TAB[f.status];
-      return wait({ items: demo.demoAllMasters.filter((m) => (!st || m.status === st) && (!ql || `${m.name} ${m.id}`.toLowerCase().includes(ql))), next: null });
+      return wait({ items: demo.demoAllMasters.filter((m) => (!st || m.status === st) && (!ql || `${m.name} ${m.id}`.toLowerCase().includes(ql))), next: null, total: null, counts: null });
     }
-    const p = await http<Page<UserRow>>('/admin/users', { query: { q: f.q.trim() || null, role: 'master', limit: 50, cursor: f.cursor ?? null } });
+    const p = await http<RegPage<MasterRow>>('/admin/masters', { query: { ...masterQuery(f), cursor: f.cursor ?? null, limit: 50 } });
     return {
-      next: p.next_cursor,
-      items: p.items
-        .map((u): MasterRegRow => {
-          const [status, tone] = MASTER_ST[u.status === 'blocked' ? 'blocked' : (u.master_status ?? 'draft')] ?? [u.master_status ?? '—', 'grey'];
-          return { key: u.id, id: `M-${u.id}`, name: u.name ?? `#${u.id}`, profs: '', city: u.city_ru ?? 'Онлайн', rating: '—', orders: '—', status, tone, verified: false, seen: seenText(u.last_seen_at) };
-        })
-        .filter((m) => f.status === 'all' || m.status === MASTER_TAB[f.status]),
+      next: p.next_cursor, total: p.total, counts: p.counts_by_status,
+      items: p.items.map((u): MasterRegRow => {
+        const [status, tone] = MASTER_ST[u.status] ?? [u.status, 'grey'];
+        return {
+          key: u.id, id: `M-${u.id}`, name: u.name ?? `#${u.id}`, profs: u.headline?.name_ru ?? '', city: u.city?.name_ru ?? 'Онлайн', rating: u.rating_avg != null ? `${u.rating_avg.toFixed(1).replace('.', ',')} · ${u.reviews_count}` : '—',
+          orders: String(u.completed_orders_count), status, tone, verified: u.verified, seen: dayMon(u.created_at),
+        };
+      }),
     };
   },
+  mastersCsvUrl: (f: { q: string; status: string; cityId?: number | null; categoryId?: number | null; verified?: boolean | null; accepting?: boolean | null; ratingMin?: number | null }) => (USE_API ? adminUrl('/admin/masters.csv', masterQuery(f)) : null),
   async masterRegCard(m: MasterRegRow): Promise<MasterRegCard> {
     if (!USE_API) return wait(demo.demoMasterRegCard(m), 120);
-    const p = await http<OwnProfile & { accepting_orders: boolean; rating_avg: number | null; reviews_count: number; completed_orders_count: number; works_online: boolean }>(`/admin/masters/${m.key}/profile`);
-    const prices = p.professions.map((x) => `${x.name_ru} — ${x.negotiable || !x.price_from ? 'договорная' : `от ${x.price_from} смн`}`).join(' · ');
+    const d = await http<MasterCardOut>(`/admin/masters/${m.key}`);
+    const p = d.profile;
+    const x = d.metrics;
+    const prices = p.professions.map((y) => `${y.name_ru} — ${y.negotiable || !y.price_from ? 'договорная' : `от ${y.price_from} смн`}`).join(' · ');
+    const MST = MASTER_ST[p.status] ?? [m.status, m.tone];
     return {
-      key: m.key, id: m.id, name: m.name, status: m.status, tone: m.tone, verified: p.verified, suspended: p.status === 'suspended',
-      sub: [m.id, p.professions.map((x) => x.name_ru).join(', ')].filter(Boolean).join(' · '),
-      stats: [[p.rating_avg != null ? p.rating_avg.toFixed(1).replace('.', ',') : '—', `рейтинг · ${p.reviews_count}`], [String(p.completed_orders_count), 'заказов'], ['—', 'завершено'], ['—', 'до отклика']],
-      rows: [['Город', [p.city?.name_ru, p.districts.map((d) => d.name_ru).join(', ')].filter(Boolean).join(' · ') || (p.works_online ? 'Онлайн' : '—')], ['Цены', prices || '—'], ['Проверен', p.verified ? 'да' : '—'], ['Приём заказов', p.accepting_orders ? 'включён' : 'выключен']],
-      orders: [], warn: null,
+      key: m.key, id: m.id, name: m.name, status: MST[0], tone: MST[1], verified: p.verified, suspended: p.status === 'suspended',
+      sub: [m.id, p.professions.map((y) => y.name_ru).join(', ')].filter(Boolean).join(' · '),
+      stats: [
+        [x.rating_avg != null ? x.rating_avg.toFixed(1).replace('.', ',') : '—', `рейтинг · ${x.reviews_count}`], [String(x.orders_total), 'заказов'],
+        [x.completion_rate != null ? `${Math.round(x.completion_rate * 100)}%` : '—', 'завершено'], [x.median_response_minutes != null ? `${Math.round(x.median_response_minutes)} мин` : '—', 'до отклика'],
+      ],
+      rows: [
+        ['Телефон', phoneFmt(d.phone)], ['Город', [p.city?.name_ru, p.districts.map((y) => y.name_ru).join(', ')].filter(Boolean).join(' · ') || (p.works_online ? 'Онлайн' : '—')], ['Цены', prices || '—'],
+        ['Проверен', p.verified ? 'да' : '—'], ['Приём заказов', p.accepting_orders ? 'включён' : 'выключен'], ['Отклики сегодня', `${x.responses_today} из ${x.responses_limit}`],
+        ['Отказы после выбора', String(x.declines_after_choice)], ['На eKor', `с ${dayMon(d.registered_at)} ${new Date(d.registered_at).getFullYear()}`],
+      ],
+      // В recent_orders поле master — это контрагент (клиент)
+      orders: d.recent_orders.map((o): [string, string, string] => [`O-${o.id} · ${o.master.name ?? 'клиент'}`, `${ORDER_ST[o.status] ?? o.status}${o.price ? ` · ${num(o.price)} смн` : ''}`, dayMon(o.created_at)]),
+      warn: d.complaints_30d.length ? `Жалоб за 30 дней: ${d.complaints_30d.length} — ${d.complaints_30d.map((c) => c.reason_ru).join(', ')}` : null,
     };
   },
   async suspendMaster(key: number, on: boolean, comment: string) {
@@ -606,7 +794,7 @@ export const adminApi = {
   },
   async unverifyMaster(key: number, comment: string) {
     if (!USE_API) return wait(log('Вы', 'master.verify', `M-${key}`, `снят «Проверен» · ${comment}`));
-    return http(`/admin/masters/${key}/verify`, { method: 'POST', body: { verified: false, comment } });
+    return http(`/admin/masters/${key}/unverify`, { method: 'POST', body: { basis: comment } });
   },
 
   /* ---------- 12 Аудит ---------- */
@@ -628,24 +816,100 @@ export const adminApi = {
   auditCsvUrl: (f: { action: string; objectId: string; days: number; staffId?: number | null }) => (USE_API ? adminUrl('/admin/audit.csv', auditQuery(f)) : null),
 };
 
-/** Лимиты бэкенда: группа и единица по ключу */
-function limitGroup(k: string) {
-  if (/response/.test(k)) return 'Отклики';
-  if (/invite/.test(k)) return 'Приглашения';
-  if (/sla|moderation/.test(k)) return 'Модерация (SLA)';
-  if (/otp|sms|login|code/.test(k)) return 'Вход по SMS';
-  if (/review|complaint/.test(k)) return 'Отзывы';
-  if (/task|photo|desc|title/.test(k)) return 'Задания';
-  return 'Прочее';
+/* ---------- преобразования ответов ---------- */
+/**
+ * Причины: справочник админки читает только admin; остальным — публичный /reasons
+ * (там нет user_block и review_hide — для senior и moderator список будет пустым, нужен доступ на бэкенде).
+ */
+let dictDenied = false;
+async function reasonList(kind: string): Promise<ReasonAdmin[]> {
+  if (!dictDenied)
+    try {
+      return await http<ReasonAdmin[]>('/admin/dictionaries/reasons', { query: { kind } });
+    } catch (e) {
+      if ((e as { status?: number }).status !== 403) throw e;
+      dictDenied = true;
+    }
+  return http<ReasonAdmin[]>('/reasons', { query: { kind } });
 }
-function limitUnit(k: string) {
-  if (/minutes?$|_min$/.test(k)) return 'мин';
-  if (/hours?$|_h$/.test(k)) return 'ч';
-  if (/days?$/.test(k)) return 'дней';
-  if (/seconds?$|_sec$/.test(k)) return 'сек';
-  if (/len|chars|desc|title/.test(k)) return 'симв.';
-  return 'шт';
+const queueMasters = new Map<number, QueueMaster>();
+const plural = (n: number, one: string, few: string, many: string) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
+const lockOf = (l: LockOut | null | undefined): Lock | null => (l ? { name: short(l.staff_name ?? 'другой модератор'), mine: l.mine } : null);
+const hoursLeft = (iso: string | null) => (iso ? Math.floor((+new Date(iso) - Date.now()) / 36e5) : null);
+const placeText = (mode: string, city: Ref | null, district: Ref | null) => (mode === 'online' ? 'Онлайн' : [city?.name_ru, district?.name_ru].filter(Boolean).join(', ') || '—');
+function budgetText(mode: string, min: number | null, max: number | null) {
+  if (mode !== 'sum' || (!min && !max)) return 'Договорная';
+  if (min && max && min !== max) return `${num(min)}–${num(max)} смн`;
+  return max && !min ? `до ${num(max)} смн` : `${num((min ?? max)!)} смн`;
 }
+const WHEN: Record<string, string> = { today: 'Сегодня', tomorrow: 'Завтра', week: 'На этой неделе', flexible: 'Не срочно' };
+const whenText = (w: string, date: string | null) => (w === 'date' && date ? dayMon(date) : (WHEN[w] ?? w));
+const ORDER_ST: Record<string, string> = { active: 'в работе', work: 'в работе', wait: 'ждёт подтверждения', done: 'завершён', dispute: 'спор', cancelled: 'отменён', declined: 'отказ мастера' };
+const DURATION: Record<string, string> = { '24h': 'на 24 ч', '7d': 'на 7 дней', '30d': 'на 30 дней', forever: 'навсегда' };
+const TARGET: Record<string, [string, string]> = {
+  user: ['Пользователь', 'Пользователь'], task: ['Задание', 'Клиент · автор задания'], master_profile: ['Профиль мастера', 'Мастер'], chat: ['Чат', ''], message: ['Сообщение', ''], review: ['Отзыв', 'Клиент · автор отзыва'],
+};
+const REVIEW_FLAG: Record<string, string> = { insult: 'Оскорбления', contacts: 'Контакты', fake: 'Накрутка' };
+const CHAT_FLAG: Record<string, string> = { card: 'Номер карты', card_number: 'Номер карты', payment: 'Предоплата', payment_talk: 'Предоплата', contacts: 'Контакты', phone: 'Телефон', link: 'Ссылка', insult: 'Оскорбления' };
+const SYS_MSG: Record<string, string> = {
+  chosen: 'Клиент выбрал мастера', started: 'Мастер начал работу', marked_done: 'Мастер: «Работа выполнена»', confirmed: 'Клиент подтвердил выполнение', dispute_opened: 'Открыт спор',
+  cancelled_by_client: 'Клиент отменил выбор', declined_by_master: 'Мастер отказался', dispute_resolved: 'Спор решён',
+};
+const DISPUTE_EV: Record<string, [string, string]> = {
+  chosen: ['Клиент выбрал мастера', '#2647D9'], started: ['Мастер начал работу', '#2647D9'], marked_done: ['Мастер: «Работа выполнена»', '#2647D9'], confirmed: ['Клиент подтвердил выполнение', '#0B6E5E'],
+  opened: ['Открыт спор', '#B03A2E'], dispute_opened: ['Клиент: «Есть проблема» — открыт спор', '#B03A2E'], request: ['Запрос стороне', '#D9822B'], answer: ['Ответ стороны', '#2647D9'],
+  resolved: ['Спор решён', '#0B6E5E'], cancelled_by_client: ['Клиент отменил выбор', '#9AA5B4'], declined_by_master: ['Мастер отказался', '#9AA5B4'],
+};
+/** «—→review», «approve» → понятный текст истории задания */
+function eventText(a: string) {
+  const m = a.match(/^(.*)→(.*)$/);
+  if (m) return `${TASK_ST[m[2]]?.[0] ?? m[2]}`;
+  return ({ approve: 'Одобрено модератором', reject: 'Отклонено модератором', edit: 'Исправлено модератором', unpublish: 'Снято с публикации' } as Record<string, string>)[a.replace(/^task\./, '')] ?? a;
+}
+function toDispute(d: DisputeRow): DisputeV {
+  const open = d.status === 'open';
+  const RES: Record<string, string> = { done: 'выполнено', not_done: 'не выполнено', partial: 'частично' };
+  const cn = d.client.name ?? `Клиент #${d.client.id}`;
+  const mn = d.master.name ?? `Мастер #${d.master.id}`;
+  const left = hoursLeft(d.deadline);
+  return {
+    key: d.id, id: `D-${d.id}`, title: d.task_title, who: `${short(cn)} ↔ ${short(mn)}`, status: open ? (d.unanswered_requests ? 'Ждёт ответа' : 'Открыт') : `Решён: ${RES[d.resolution ?? ''] ?? d.resolution}`,
+    tone: open ? (d.overdue ? 'bad' : d.unanswered_requests ? 'warn' : 'bad') : 'grey', slaH: open ? Math.max(0, left ?? 24) : null, order: `O-${d.order_id}`, open, waiting: d.unanswered_requests > 0,
+    chatId: null, clientName: cn, masterName: mn, clientId: d.client.id, masterId: d.master.id, resolution: d.resolution ?? undefined, lock: lockOf(d.lock), unanswered: d.unanswered_requests,
+    client: { title: `Клиент · ${cn}`, text: [d.reason?.text_ru, d.text].filter(Boolean).join('. '), meta: `${phoneFmt(d.client.phone)} · ${dayMonTime(d.created_at)}` },
+    master: { title: `Мастер · ${mn}`, text: 'Позиция мастера — в переписке и ответах на запросы.', meta: phoneFmt(d.master.phone) }, photos: [],
+  };
+}
+function toUser(u: UserRow): UserV {
+  const blocked = u.status === 'blocked';
+  const days = u.blocked_until ? Math.ceil((+new Date(u.blocked_until) - Date.now()) / 864e5) : null;
+  return {
+    key: u.id, id: `U-${u.id}`, name: u.name ?? `Без имени · ${u.id}`, phone: phoneFmt(u.phone), role: u.is_client && u.is_master ? 'Оба' : u.is_master ? 'Мастер' : 'Клиент', city: u.city?.name_ru ?? '—',
+    status: blocked ? (days == null ? 'Навсегда' : `Блок ${days} дн`) : u.master_status === 'review' ? 'Проверка' : 'Активен', tone: blocked ? (days == null ? 'dark' : 'bad') : u.master_status === 'review' ? 'warn' : 'ok',
+    complaints: u.complaints_count, seen: seenText(u.last_seen_at), blocked,
+  };
+}
+const LIMIT_GROUP: Record<string, string> = { tasks: 'Задания', responses: 'Отклики и приглашения', reviews: 'Отзывы', otp: 'Вход по SMS', moderation: 'Модерация (SLA)' };
+const LIMIT_UNIT: Record<string, string> = { count: 'шт', seconds: 'сек', minutes: 'мин', hours: 'ч', days: 'дней' };
+const toLimit = (x: LimitOut): LimitV => ({ key: x.key, group: LIMIT_GROUP[x.group] ?? x.group, label: x.title, value: x.value, unit: LIMIT_UNIT[x.unit] ?? x.unit, version: x.version, min: x.min, max: x.max, def: x.default });
+type TplTextOut = { channel: TplText['ch']; lang: 'ru' | 'tj'; title: string | null; body: string; custom: boolean; default_body: string; preview: string; sms: { max_length: number; encoding: string; segments: number } | null; version: number };
+const toTplText = (t: TplTextOut): TplText => ({
+  ch: t.channel, lang: t.lang, title: t.title, body: t.body, custom: t.custom, defBody: t.default_body, preview: t.preview, version: t.version,
+  sms: t.sms ? { max: t.sms.max_length, segments: t.sms.segments, ucs2: t.sms.encoding === 'ucs2' } : null,
+});
+function periodFrom(days: number | null | undefined) {
+  if (!days) return null;
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - (days - 1));
+  return d.toISOString();
+}
+const taskQuery = (f: { status: string; cityId: number | null; categoryId: number | null; flags: boolean; q?: string; days?: number | null }) => ({
+  status: f.status === 'all' ? null : f.status, city_id: f.cityId, category_id: f.categoryId, flagged: f.flags, q: f.q?.trim().replace(/^T-/i, '') || null, from: periodFrom(f.days),
+});
+const masterQuery = (f: { q: string; status: string; cityId?: number | null; categoryId?: number | null; verified?: boolean | null; accepting?: boolean | null; ratingMin?: number | null }) => ({
+  sort: 'orders', status: f.status === 'all' ? null : f.status, q: f.q.trim().replace(/^M-/i, '') || null, city_id: f.cityId ?? null, category_id: f.categoryId ?? null, verified: f.verified ?? null, accepting: f.accepting ?? null, rating_min: f.ratingMin ?? null,
+});
 
 /* ---------- помощники админки ---------- */
 const DEMO_AUTH = 'ekor_admin_demo_auth';
@@ -665,9 +929,6 @@ function demoLock(v?: { fails: number; until: number }): { fails: number; until:
     return { fails: 0, until: 0 };
   }
 }
-type TaskFull = {
-  title: string; status: string; budget_mode: string; budget_min: number | null; budget_max: number | null; address: string | null; client_phone: string | null; client: { name: string } | null;
-};
 const toStaff = (x: StaffOut): StaffV => ({
   id: x.id, name: x.name, email: x.email, phone: x.contact_phone ?? '', role: x.role, regionIds: x.region_cities.map((c) => c.id),
   regions: x.region_cities.length ? x.region_cities.map((c) => c.name_ru).join(', ') : 'Все', status: x.status === 'active' ? 'Активен' : 'Отключён', tone: x.status === 'active' ? 'ok' : 'grey',

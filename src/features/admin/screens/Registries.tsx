@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BadgeX, ExternalLink, History, PauseCircle, TriangleAlert, X } from 'lucide-react';
-import { apiErrorText } from '@/lib/api';
+import { apiErrorText, USE_API } from '@/lib/api';
 import { ref } from '@/lib/api/ref';
 import { useToast } from '@/components/ui';
 import { useAdmin } from '../AdminShell';
@@ -79,8 +79,10 @@ export function AllTasks() {
   const [cat, setCat] = useState('all');
   const [period, setPeriod] = useState('30');
   const [flags, setFlags] = useState(false);
+  const [qDeb, setQDeb] = useState('');
   const [rows, setRows] = useState<TaskRegRow[] | null>(null);
   const [all, setAll] = useState<TaskRegRow[]>([]);
+  const [srv, setSrv] = useState<{ total: number | null; counts: Record<string, number> | null }>({ total: null, counts: null });
   const [selKey, setSelKey] = useState<number | null>(null);
   const [card, setCard] = useState<TaskRegCard | null>(null);
   const [reasons, setReasons] = useState<Reason[]>([]);
@@ -88,23 +90,26 @@ export function AllTasks() {
   const [busy, setBusy] = useState(false);
   const pages = usePages();
 
+  useEffect(() => {
+    const id = setTimeout(() => (setQDeb(q), pages.reset()), 300);
+    return () => clearTimeout(id);
+  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+  const filter = { status: tab, cityId: city === 'all' ? null : +city, categoryId: cat === 'all' ? null : +cat, flags, q: qDeb, days: +period };
   const load = () => {
     setRows(null);
-    adminApi
-      .allTasks({ status: tab, cityId: city === 'all' ? null : +city, categoryId: cat === 'all' ? null : +cat, flags, cursor: pages.cursor })
-      .then((p) => (setRows(p.items), pages.setNext(p.next)), (e) => (setRows([]), toast(apiErrorText(e, 'ru'))));
+    adminApi.allTasks({ ...filter, cursor: pages.cursor }).then(
+      (p) => (setRows(p.items), pages.setNext(p.next), setSrv((x) => ({ total: p.total, counts: tab === 'all' ? p.counts : (x.counts ?? p.counts) }))),
+      (e) => (setRows([]), toast(apiErrorText(e, 'ru'))),
+    );
   };
-  useEffect(load, [tab, city, cat, flags, pages.cursor]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [tab, city, cat, flags, qDeb, period, pages.cursor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    adminApi.allTasks({ status: 'all', cityId: null, categoryId: null, flags: false }).then((p) => setAll(p.items), () => {});
+    if (!USE_API) adminApi.allTasks({ status: 'all', cityId: null, categoryId: null, flags: false }).then((p) => setAll(p.items), () => {});
     adminApi.rejectReasons('task_reject').then(setReasons, () => {});
   }, []);
 
-  // Поиск по ID и тексту — по загруженной странице (серверного поиска в API пока нет)
-  const view = useMemo(() => {
-    const ql = q.trim().toLowerCase();
-    return (rows ?? []).filter((x) => !ql || x.id.toLowerCase().includes(ql) || x.title.toLowerCase().includes(ql) || x.client.toLowerCase().includes(ql));
-  }, [rows, q]);
+  // Поиск (ID, текст, телефон клиента) и период — на сервере
+  const view = rows ?? [];
   const cur = view.find((x) => x.key === selKey) ?? null;
   useEffect(() => {
     setCard(null);
@@ -113,7 +118,14 @@ export function AllTasks() {
   const idx = cur ? view.indexOf(cur) : -1;
   useHotkeys({ j: () => view[idx + 1] && setSelKey(view[idx + 1].key), k: () => idx > 0 && setSelKey(view[idx - 1].key), Escape: () => setSelKey(null) });
 
-  const counts: Record<string, number> | null = all.length ? Object.fromEntries(TASK_TABS.map(([k]) => [k, k === 'all' ? all.length : all.filter((x) => tabOf(x.status) === k).length])) : null;
+  // Вкладки и счётчики — из counts_by_status сервера (демо: по загруженным строкам)
+  const tabs: [string, string][] = USE_API && srv.counts ? [['all', 'Все'], ...Object.keys(srv.counts).map((k): [string, string] => [k, TASK_TAB_LABEL[k] ?? k])] : TASK_TABS;
+  const counts: Record<string, number> | null = USE_API
+    ? srv.counts && { all: Object.values(srv.counts).reduce((a, b) => a + b, 0), ...srv.counts }
+    : all.length
+      ? Object.fromEntries(TASK_TABS.map(([k]) => [k, k === 'all' ? all.length : all.filter((x) => tabOf(x.status) === k).length]))
+      : null;
+  const csvUrl = adminApi.tasksCsvUrl(filter);
   const cities = ref.get()?.cities ?? [];
   const cats = ref.get()?.cats ?? [];
   const canCsv = me.role !== 'moderator';
@@ -121,9 +133,14 @@ export function AllTasks() {
   return (
     <>
       <Head title="Все задания">
-        <RegTabs value={tab} onChange={(k) => (setTab(k), pages.reset(), setSelKey(null))} items={TASK_TABS.map(([k, l]) => [k, l, counts?.[k] ?? null])} />
+        <RegTabs value={tab} onChange={(k) => (setTab(k), pages.reset(), setSelKey(null))} items={tabs.map(([k, l]) => [k, l, counts?.[k] ?? null])} />
         <span className={s.grow} />
-        {canCsv && (
+        {canCsv && csvUrl && (
+          <a className={s.hbtn} href={csvUrl} download style={{ textDecoration: 'none', color: '#0F1B2A' }}>
+            CSV
+          </a>
+        )}
+        {canCsv && !csvUrl && (
           <button type="button" className={s.hbtn} disabled={!view.length} onClick={() => downloadCsv('ekor-tasks.csv', [['ID', 'Задание', 'Категория · город', 'Клиент', 'Бюджет', 'Откликов', 'Статус', 'Создано'], ...view.map((x) => [x.id, x.title, x.sub, x.client, x.budget, x.responses, x.status, x.created])])}>
             CSV
           </button>
@@ -133,7 +150,7 @@ export function AllTasks() {
         <SearchBox value={q} onChange={setQ} placeholder="ID, текст, телефон клиента" slash />
         <SelectChip label="Город" value={city} onChange={(v) => (setCity(v), pages.reset())} options={[['all', 'все'], ...cities.map((c): [string, string] => [String(c.id), c.name.ru])]} />
         <SelectChip label="Категория" value={cat} onChange={(v) => (setCat(v), pages.reset())} options={[['all', 'все'], ...cats.map((c): [string, string] => [String(c.id), c.name.ru])]} />
-        <SelectChip label="Период" value={period} onChange={setPeriod} options={[['7', '7 дней'], ['30', '30 дней'], ['90', '90 дней']]} />
+        <SelectChip label="Период" value={period} onChange={(v) => (setPeriod(v), pages.reset())} options={[['7', '7 дней'], ['30', '30 дней'], ['90', '90 дней'], ['0', 'всё время']]} />
         <ToggleChip on={flags} onClick={() => (setFlags(!flags), pages.reset())}>
           Есть флаги
         </ToggleChip>
@@ -178,7 +195,7 @@ export function AllTasks() {
               </div>
             ))}
           </div>
-          <Pager from={pages.page * PAGE} count={view.length} total={tab === 'all' && !pages.page && counts && !pages.next ? counts.all : null} canPrev={pages.page > 0} canNext={!!pages.next} onPrev={pages.prev} onNext={pages.forward} />
+          <Pager from={pages.page * PAGE} count={view.length} total={USE_API ? srv.total : tab === 'all' && !pages.page && counts && !pages.next ? counts.all : null} canPrev={pages.page > 0} canNext={!!pages.next} onPrev={pages.prev} onNext={pages.forward} />
         </div>
         {cur && (
           <div className={s.panel}>
@@ -301,6 +318,7 @@ export function AllTasks() {
     </>
   );
 }
+const TASK_TAB_LABEL: Record<string, string> = { draft: 'Черновики', review: 'На проверке', open: 'Открыто', chosen: 'В работе', closed: 'Закрыто', rejected: 'Отклонено', expired: 'Истекли', cancelled: 'Отменено' };
 function tabOf(status: string) {
   return status === 'На проверке' ? 'review' : status === 'Открыто' ? 'open' : ['Мастер выбран', 'В работе', 'Ждёт подтверждения'].includes(status) ? 'chosen' : status === 'Спор' ? 'dispute' : status === 'Завершено' ? 'done' : 'closed';
 }
@@ -321,6 +339,7 @@ export function AllMasters() {
   const [verified, setVerified] = useState('all');
   const [rows, setRows] = useState<MasterRegRow[] | null>(null);
   const [all, setAll] = useState<MasterRegRow[]>([]);
+  const [srv, setSrv] = useState<{ total: number | null; counts: Record<string, number> | null }>({ total: null, counts: null });
   const [selKey, setSelKey] = useState<number | null>(null);
   const [card, setCard] = useState<MasterRegCard | null>(null);
   const [act, setAct] = useState<null | { kind: 'unverify' | 'suspend' | 'unsuspend'; comment: string }>(null);
@@ -331,20 +350,27 @@ export function AllMasters() {
     const id = setTimeout(() => (setQDeb(q), pages.reset()), 300);
     return () => clearTimeout(id);
   }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Город, «Проверен» и рейтинг фильтрует сервер; в демо — по загруженной странице
+  const mf = { q: qDeb, status: tab, cityId: USE_API && city !== 'all' ? +city : null, verified: USE_API && verified !== 'all' ? verified === 'yes' : null, ratingMin: USE_API && rating !== 'any' ? +rating : null };
   const load = () => {
     setRows(null);
-    adminApi.allMasters({ q: qDeb, status: tab, cursor: pages.cursor }).then((p) => (setRows(p.items), pages.setNext(p.next)), (e) => (setRows([]), toast(apiErrorText(e, 'ru'))));
+    adminApi.allMasters({ ...mf, cursor: pages.cursor }).then(
+      (p) => (setRows(p.items), pages.setNext(p.next), setSrv((x) => ({ total: p.total, counts: tab === 'all' ? p.counts : (x.counts ?? p.counts) }))),
+      (e) => (setRows([]), toast(apiErrorText(e, 'ru'))),
+    );
   };
-  useEffect(load, [tab, qDeb, pages.cursor]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [tab, qDeb, city, verified, rating, pages.cursor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    adminApi.allMasters({ q: '', status: 'all' }).then((p) => setAll(p.items), () => {});
+    if (!USE_API) adminApi.allMasters({ q: '', status: 'all' }).then((p) => setAll(p.items), () => {});
   }, []);
 
   const view = useMemo(
     () =>
-      (rows ?? []).filter(
-        (m) => (city === 'all' || m.city === city) && (verified === 'all' || (verified === 'yes') === m.verified) && (rating === 'any' || (parseFloat(m.rating.replace(',', '.')) || 0) >= +rating),
-      ),
+      USE_API
+        ? (rows ?? [])
+        : (rows ?? []).filter(
+            (m) => (city === 'all' || m.city === city) && (verified === 'all' || (verified === 'yes') === m.verified) && (rating === 'any' || (parseFloat(m.rating.replace(',', '.')) || 0) >= +rating),
+          ),
     [rows, city, verified, rating],
   );
   const cur = view.find((x) => x.key === selKey) ?? null;
@@ -358,15 +384,22 @@ export function AllMasters() {
   const counts: Record<string, number> | null = all.length
     ? Object.fromEntries(MASTER_TABS.map(([k]) => [k, k === 'all' ? all.length : all.filter((x) => x.status === ({ approved: 'Одобрен', review: 'На проверке', rejected: 'Отклонён', suspended: 'Приостановлен' } as Record<string, string>)[k]).length]))
     : null;
-  const cities = [...new Set((rows ?? []).map((m) => m.city))];
+  const cities: [string, string][] = USE_API ? (ref.get()?.cities ?? []).map((c): [string, string] => [String(c.id), c.name.ru]) : [...new Set((rows ?? []).map((m) => m.city))].map((c): [string, string] => [c, c]);
   const canVerify = me.role !== 'moderator';
+  const csvUrl = adminApi.mastersCsvUrl(mf);
+  const mcounts = USE_API ? srv.counts && { all: Object.values(srv.counts).reduce((a, b) => a + b, 0), ...srv.counts } : counts;
 
   return (
     <>
       <Head title="Все мастера">
-        <RegTabs value={tab} onChange={(k) => (setTab(k), pages.reset(), setSelKey(null))} items={MASTER_TABS.map(([k, l]) => [k, l, counts?.[k] ?? null])} />
+        <RegTabs value={tab} onChange={(k) => (setTab(k), pages.reset(), setSelKey(null))} items={MASTER_TABS.map(([k, l]) => [k, l, mcounts ? (mcounts[k] ?? 0) : null])} />
         <span className={s.grow} />
-        {me.role !== 'moderator' && (
+        {me.role !== 'moderator' && csvUrl && (
+          <a className={s.hbtn} href={csvUrl} download style={{ textDecoration: 'none', color: '#0F1B2A' }}>
+            CSV
+          </a>
+        )}
+        {me.role !== 'moderator' && !csvUrl && (
           <button type="button" className={s.hbtn} disabled={!view.length} onClick={() => downloadCsv('ekor-masters.csv', [['ID', 'Мастер', 'Профессии', 'Город', 'Рейтинг', 'Заказов', 'Профиль', 'Проверен'], ...view.map((m) => [m.id, m.name, m.profs, m.city, m.rating, m.orders, m.status, m.verified ? 'да' : ''])])}>
             CSV
           </button>
@@ -374,9 +407,9 @@ export function AllMasters() {
       </Head>
       <div className={s.filters}>
         <SearchBox value={q} onChange={setQ} placeholder="Имя, телефон, M-ID" slash />
-        <SelectChip label="Город" value={city} onChange={setCity} options={[['all', 'все'], ...cities.map((c): [string, string] => [c, c])]} />
-        <SelectChip label="Рейтинг" value={rating} onChange={setRating} options={[['any', 'любой'], ['4.5', '4,5+'], ['4', '4+'], ['3', '3+']]} />
-        <SelectChip label="Проверен" value={verified} onChange={setVerified} options={[['all', 'все'], ['yes', 'да'], ['no', 'нет']]} />
+        <SelectChip label="Город" value={city} onChange={(v) => (setCity(v), pages.reset())} options={[['all', 'все'], ...cities]} />
+        <SelectChip label="Рейтинг" value={rating} onChange={(v) => (setRating(v), pages.reset())} options={[['any', 'любой'], ['4.5', '4,5+'], ['4', '4+'], ['3', '3+']]} />
+        <SelectChip label="Проверен" value={verified} onChange={(v) => (setVerified(v), pages.reset())} options={[['all', 'все'], ['yes', 'да'], ['no', 'нет']]} />
         {me.role === 'moderator' && <span className={s.muted}>Только ваши регионы</span>}
         <span className={s.grow} />
         <span className={s.muted}>Сортировка: заказы</span>
@@ -421,7 +454,7 @@ export function AllMasters() {
               </div>
             ))}
           </div>
-          <Pager from={pages.page * PAGE} count={view.length} total={null} canPrev={pages.page > 0} canNext={!!pages.next} onPrev={pages.prev} onNext={pages.forward} />
+          <Pager from={pages.page * PAGE} count={view.length} total={USE_API ? srv.total : null} canPrev={pages.page > 0} canNext={!!pages.next} onPrev={pages.prev} onNext={pages.forward} />
         </div>
         {cur && (
           <div className={s.panel}>

@@ -1,19 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TriangleAlert } from 'lucide-react';
+import { MessageSquareWarning, TriangleAlert } from 'lucide-react';
 import { apiErrorText } from '@/lib/api';
 import { useToast } from '@/components/ui';
 import { useAdmin } from '../AdminShell';
 import { adminApi } from '../data/api';
-import type { UserCard, UserV } from '../data/types';
+import type { Reason, UserCard, UserV } from '../data/types';
 import { initials, num } from '../core';
 import { cx, Head, Label, Loading, Modal, Pill, SearchBox, SelectChip, ToggleChip, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 
 const COLS = '72px minmax(0,1fr) 140px 92px 92px 92px 50px 90px';
-const REASONS = ['Мошенничество: предоплата', 'Оскорбления и угрозы', 'Спам и реклама', 'Фейковый профиль', 'Обход правил платформы'];
-const TERMS: [string, number | null][] = [['24 ч', 1], ['7 дней', 7], ['30 дней', 30], ['Навсегда', null]];
+const TERMS: [string, number | null][] = [
+  ['24 ч', 1],
+  ['7 дней', 7],
+  ['30 дней', 30],
+  ['Навсегда', null],
+];
 
 /** 06 — пользователи и блокировки; 16 — подтверждение вечной блокировки */
 export function Users({ initialId }: { initialId?: number }) {
@@ -25,10 +29,16 @@ export function Users({ initialId }: { initialId?: number }) {
   const [status, setStatus] = useState('all');
   const [withC, setWithC] = useState(false);
   const [city, setCity] = useState('all');
-  const [data, setData] = useState<{ items: UserV[]; total: number; masters: number } | null>(null);
+  const [data, setData] = useState<{
+    items: UserV[];
+    total: number;
+    masters: number;
+  } | null>(null);
   const [selKey, setSelKey] = useState<number | null>(initialId ?? null);
   const [card, setCard] = useState<UserCard | null>(null);
-  const [reason, setReason] = useState(REASONS[0]);
+  const [reasons, setReasons] = useState<Reason[]>([]);
+  const [reason, setReason] = useState<Reason | null>(null);
+  const [warn, setWarn] = useState<string | null>(null);
   const [term, setTerm] = useState<number | null>(7);
   const [comment, setComment] = useState('');
   const [forever, setForever] = useState(false);
@@ -37,6 +47,12 @@ export function Users({ initialId }: { initialId?: number }) {
   const [busy, setBusy] = useState(false);
   const senior = me.role !== 'moderator';
 
+  useEffect(() => {
+    adminApi.blockReasons().then(
+      (l) => (setReasons(l), setReason(l[0] ?? null)),
+      () => {},
+    );
+  }, []);
   useEffect(() => {
     const id = setTimeout(() => setQDeb(q), 300);
     return () => clearTimeout(id);
@@ -56,13 +72,20 @@ export function Users({ initialId }: { initialId?: number }) {
   }, [cur?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const idx = cur ? rows.indexOf(cur) : -1;
-  useHotkeys(cur ? { j: () => rows[idx + 1] && setSelKey(rows[idx + 1].key), k: () => idx > 0 && setSelKey(rows[idx - 1].key) } : {});
+  useHotkeys(
+    cur
+      ? {
+          j: () => rows[idx + 1] && setSelKey(rows[idx + 1].key),
+          k: () => idx > 0 && setSelKey(rows[idx - 1].key),
+        }
+      : {},
+  );
 
   const block = async () => {
-    if (!cur) return;
+    if (!cur || !reason) return;
     setBusy(true);
     try {
-      await adminApi.block(cur, reason, term, comment.trim());
+      await adminApi.block(cur, reason, term, comment.trim(), term === null ? digits : null);
       setForever(false);
       setDigits('');
       toast(term ? `Заблокирован на ${TERMS.find((t) => t[1] === term)?.[0]}` : 'Заблокирован навсегда');
@@ -73,7 +96,7 @@ export function Users({ initialId }: { initialId?: number }) {
     }
     setBusy(false);
   };
-  const last4 = cur ? cur.phone.replace(/\D/g, '').slice(-4) : '';
+  const last4 = (card?.phoneFull ?? cur?.phone ?? '').replace(/\D/g, '').slice(-4);
   const cities = [...new Set(rows.map((u) => u.city))];
 
   return (
@@ -138,18 +161,60 @@ export function Users({ initialId }: { initialId?: number }) {
             <div className={s.panel}>
               <div className={s.panelBody} style={{ padding: '16px 20px', gap: 14 }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <span style={{ width: 48, height: 48, borderRadius: '50%', background: '#EAEEFC', color: '#2647D9', fontWeight: 700, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{initials(cur.name)}</span>
+                  <span
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      background: '#EAEEFC',
+                      color: '#2647D9',
+                      fontWeight: 700,
+                      fontSize: 16,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flex: 'none',
+                    }}
+                  >
+                    {initials(cur.name)}
+                  </span>
                   <div className={s.col4} style={{ gap: 2 }}>
                     <span className={s.h17}>{cur.name}</span>
                     <span className={s.metaLine}>
-                      {cur.id} · {cur.phone}
+                      {cur.id} · {card.phoneFull ?? cur.phone}
                     </span>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4,1fr)',
+                    gap: 6,
+                  }}
+                >
                   {card.stats.map(([v, l, red]) => (
-                    <div key={l} style={{ padding: '8px 10px', borderRadius: 8, background: '#F7F9FB', display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                      <span style={{ fontSize: 17, fontWeight: 700, color: red ? '#B03A2E' : '#0F1B2A', whiteSpace: 'nowrap' }}>{v}</span>
+                    <div
+                      key={l}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: '#F7F9FB',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                        minWidth: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 17,
+                          fontWeight: 700,
+                          color: red ? '#B03A2E' : '#0F1B2A',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {v}
+                      </span>
                       <span className={s.muted} style={{ fontSize: 12 }}>
                         {l}
                       </span>
@@ -160,8 +225,56 @@ export function Users({ initialId }: { initialId?: number }) {
                   <Label>Сигналы</Label>
                   <span style={{ lineHeight: 1.5 }}>{card.signals}</span>
                 </div>
+                {!!card.sanctions?.length && (
+                  <div className={s.col6}>
+                    <Label>Блокировки и предупреждения</Label>
+                    {card.sanctions.map((x, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: 'flex',
+                          gap: 8,
+                          padding: '6px 0',
+                          borderBottom: '1px solid #EEF1F4',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            marginTop: 6,
+                            borderRadius: '50%',
+                            flex: 'none',
+                            background: x.active ? (x.warn ? '#D9822B' : '#B03A2E') : '#9AA5B4',
+                          }}
+                        />
+                        <div className={s.col4} style={{ gap: 2 }}>
+                          <span style={{ lineHeight: 1.4 }}>{x.text}</span>
+                          <span className={s.muted} style={{ fontSize: 12 }}>
+                            {x.meta}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!cur.blocked && (
+                  <button type="button" className={s.btn} style={{ alignSelf: 'flex-start' }} onClick={() => setWarn('')}>
+                    Предупредить…
+                  </button>
+                )}
                 {cur.blocked ? (
-                  <div style={{ border: '1.5px solid #DCE3EA', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, background: '#F7F9FB' }}>
+                  <div
+                    style={{
+                      border: '1.5px solid #DCE3EA',
+                      borderRadius: 10,
+                      padding: 14,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                      background: '#F7F9FB',
+                    }}
+                  >
                     <span style={{ fontSize: 14, fontWeight: 700 }}>Пользователь заблокирован · {cur.status}</span>
                     {card.blockReason && <span className={s.muted}>Причина: {card.blockReason}</span>}
                     {cur.status === 'Навсегда' && me.role !== 'admin' ? (
@@ -176,19 +289,47 @@ export function Users({ initialId }: { initialId?: number }) {
                     )}
                   </div>
                 ) : (
-                  <div style={{ border: '1.5px solid #E8C4BE', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, background: '#FFF9F8' }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#A5281B' }}>Заблокировать пользователя</span>
+                  <div
+                    style={{
+                      border: '1.5px solid #E8C4BE',
+                      borderRadius: 10,
+                      padding: 14,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                      background: '#FFF9F8',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: '#A5281B',
+                      }}
+                    >
+                      Заблокировать пользователя
+                    </span>
                     <label className={s.col4}>
                       <span className={s.fieldT}>Причина</span>
-                      <select className={s.select} value={reason} onChange={(e) => setReason(e.target.value)} style={{ height: 34 }}>
-                        {REASONS.map((r) => (
-                          <option key={r}>{r}</option>
+                      <select className={s.select} value={reason?.id ?? ''} onChange={(e) => setReason(reasons.find((r) => r.id === +e.target.value) ?? null)} style={{ height: 34 }}>
+                        {reasons.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.label}
+                          </option>
                         ))}
                       </select>
                     </label>
                     <div className={s.col4}>
                       <span className={s.fieldT}>Срок</span>
-                      <div style={{ display: 'flex', background: '#fff', border: '1px solid #C9D1DB', borderRadius: 7, padding: 2 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          background: '#fff',
+                          border: '1px solid #C9D1DB',
+                          borderRadius: 7,
+                          padding: 2,
+                        }}
+                      >
                         {TERMS.map(([l, v]) => {
                           const on = term === v;
                           const locked = v === null && !senior;
@@ -199,7 +340,16 @@ export function Users({ initialId }: { initialId?: number }) {
                               disabled={locked}
                               title={locked ? 'Блокировка навсегда — senior_moderator и admin' : ''}
                               onClick={() => setTerm(v)}
-                              style={{ flex: 1, height: 28, borderRadius: 5, border: 'none', background: on ? (v === null ? '#B03A2E' : '#0F1B2A') : 'transparent', color: on ? '#fff' : locked ? '#9AA5B4' : '#0F1B2A', fontWeight: on ? 600 : 400, fontSize: 13 }}
+                              style={{
+                                flex: 1,
+                                height: 28,
+                                borderRadius: 5,
+                                border: 'none',
+                                background: on ? (v === null ? '#B03A2E' : '#0F1B2A') : 'transparent',
+                                color: on ? '#fff' : locked ? '#9AA5B4' : '#0F1B2A',
+                                fontWeight: on ? 600 : 400,
+                                fontSize: 13,
+                              }}
                             >
                               {l}
                             </button>
@@ -211,10 +361,13 @@ export function Users({ initialId }: { initialId?: number }) {
                     {term === null && (
                       <div className={s.alertWarn}>
                         <TriangleAlert size={15} aria-hidden />
-                        <span>{card.activeTasks ? `${card.activeTasks} активн. заданий будет снято, мастера с откликами получат уведомление. ` : ''}Номер нельзя будет зарегистрировать снова.</span>
+                        <span>
+                          {card.activeTasks ? `${card.activeTasks} активн. заданий будет снято, мастера с откликами получат уведомление. ` : ''}
+                          Номер нельзя будет зарегистрировать снова.
+                        </span>
                       </div>
                     )}
-                    <button type="button" className={cx(s.btn, s.btnRed)} disabled={comment.trim().length < 5 || busy} onClick={() => (term === null ? setForever(true) : block())}>
+                    <button type="button" className={cx(s.btn, s.btnRed)} disabled={comment.trim().length < 5 || busy || !reason} onClick={() => (term === null ? setForever(true) : block())}>
                       {term === null ? 'Заблокировать навсегда' : `Заблокировать на ${TERMS.find((t) => t[1] === term)?.[0]}`}
                     </button>
                   </div>
@@ -248,7 +401,7 @@ export function Users({ initialId }: { initialId?: number }) {
           </div>
           <div className={s.softBox}>
             <span>Причина</span>
-            <b>{reason}</b>
+            <b>{reason?.label}</b>
             <span>Основание</span>
             <span>{comment.trim()}</span>
           </div>
@@ -256,7 +409,12 @@ export function Users({ initialId }: { initialId?: number }) {
             <span className={s.fieldT}>Для подтверждения введите последние 4 цифры номера</span>
             <input
               className={cx(s.input, digits.length > 0 && digits !== last4 && s.invalid)}
-              style={{ width: 140, height: 40, font: "600 16px 'JetBrains Mono', monospace", letterSpacing: '0.2em' }}
+              style={{
+                width: 140,
+                height: 40,
+                font: "600 16px 'JetBrains Mono', monospace",
+                letterSpacing: '0.2em',
+              }}
               inputMode="numeric"
               value={digits}
               onChange={(e) => setDigits(e.target.value.replace(/\D/g, '').slice(0, 4))}
@@ -268,6 +426,47 @@ export function Users({ initialId }: { initialId?: number }) {
           <div className={s.alertWarn}>
             <TriangleAlert size={15} aria-hidden />
             <span>Снять вечную блокировку может только admin, через карточку пользователя</span>
+          </div>
+        </Modal>
+      )}
+      {warn !== null && cur && (
+        <Modal
+          icon={MessageSquareWarning}
+          tone="blue"
+          title={`Предупредить ${cur.name}?`}
+          sub={`${cur.id} · пользователь получит уведомление; запись попадёт в историю санкций и аудит-лог`}
+          okText="Отправить предупреждение"
+          okDisabled={warn.trim().length < 10}
+          busy={busy}
+          onClose={() => setWarn(null)}
+          onOk={async () => {
+            setBusy(true);
+            try {
+              await adminApi.warn(cur.key, reason, warn.trim());
+              setWarn(null);
+              toast('Предупреждение отправлено');
+              adminApi.user(cur).then(setCard, () => {});
+            } catch (e) {
+              toast(apiErrorText(e, 'ru'));
+            }
+            setBusy(false);
+          }}
+        >
+          <label className={s.col4}>
+            <span className={s.fieldT}>Причина</span>
+            <select className={s.select} value={reason?.id ?? ''} onChange={(e) => setReason(reasons.find((r) => r.id === +e.target.value) ?? null)} style={{ height: 34 }}>
+              {reasons.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className={s.col4}>
+            <span className={s.fieldT}>
+              Текст предупреждения <span style={{ color: '#B03A2E' }}>*</span>
+            </span>
+            <textarea className={s.textarea} rows={3} value={warn} onChange={(e) => setWarn(e.target.value.slice(0, 500))} placeholder="Что нарушено и что будет при повторе" autoFocus />
           </div>
         </Modal>
       )}

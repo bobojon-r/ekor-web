@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { PencilLine, TriangleAlert } from 'lucide-react';
-import { apiErrorText, USE_API } from '@/lib/api';
+import { apiErrorText } from '@/lib/api';
 import { useToast } from '@/components/ui';
 import { useAdmin } from '../AdminShell';
 import { adminApi } from '../data/api';
-import type { Reason, TaskQ } from '../data/types';
-import { agoText, FLAG_TEXT, FLAGS, sla, splitContact } from '../core';
-import { Checkbox, cx, EmptyQueue, Head, Highlighted, Label, Loading, Modal, Photo, Pill, RefreshBtn, SearchBox, SelectChip, Tabs, ToggleChip, useHotkeys } from '../ui';
+import type { Lock, Reason, TaskQ } from '../data/types';
+import { agoText, FLAG_TEXT, FLAGS, sla } from '../core';
+import { Checkbox, cx, EmptyQueue, Head, Label, Marked, Loading, Modal, Photo, Pill, RefreshBtn, SearchBox, SelectChip, Tabs, ToggleChip, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 
 const COLS = '28px 64px minmax(0,1fr) 112px 150px 44px';
@@ -31,7 +31,13 @@ export function TasksQueue() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [reason, setReason] = useState<Reason | null>(null);
   const [busy, setBusy] = useState(false);
-  const [edit, setEdit] = useState<string | null>(null);
+  const [edit, setEdit] = useState<null | {
+    title: string;
+    text: string;
+    address: string;
+    note: string;
+  }>(null);
+  const [locks, setLocks] = useState<Record<string, Lock | null>>({});
   const [now, setNow] = useState(Date.now());
   const loadedAt = useRef(Date.now());
 
@@ -70,28 +76,82 @@ export function TasksQueue() {
   const isQueue = tab === 'queue';
 
   useEffect(() => setReason(null), [cur?.key]);
+  // Открытая карточка берётся в работу на 10 мин — у других модераторов строка помечена «Смотрит …»
+  useEffect(() => {
+    if (!cur || !isQueue || (cur.lock && !cur.lock.mine)) return;
+    let live = true;
+    const take = () =>
+      adminApi.lockTask(cur).then(
+        (l) => live && setLocks((m) => ({ ...m, [cur.key]: l })),
+        (e) =>
+          live &&
+          (e as { code?: string }).code === 'locked_by_other' &&
+          setLocks((m) => ({
+            ...m,
+            [cur.key]: { name: 'другой модератор', mine: false },
+          })),
+      );
+    take();
+    const id = setInterval(take, 8 * 60000);
+    return () => ((live = false), clearInterval(id));
+  }, [cur?.key, isQueue]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lockOf = (t: TaskQ) => (t.key in locks ? locks[t.key] : t.lock) ?? null;
+  const busyBy = (t: TaskQ) => {
+    const l = lockOf(t);
+    return l && !l.mine ? l.name : null;
+  };
+  const curBy = cur ? busyBy(cur) : null;
 
-  /** Правка текста модератором: в API пока нет PATCH /admin/tasks/{id} */
-  const openEdit = (text: string) => (USE_API ? toast('Правка текста появится, когда в API будет PATCH /admin/tasks/{id}. Пока — отклоните с причиной «Контакты в тексте».', 'info') : setEdit(text));
+  const openEdit = (t: TaskQ) =>
+    !busyBy(t) &&
+    setEdit({
+      title: t.title,
+      text: t.text,
+      address: t.address ?? '',
+      note: '',
+    });
+  /** 409: уже решено или смотрит другой — убираем строку и сообщаем */
+  const gone = (e: unknown, t: TaskQ) => {
+    const code = (e as { code?: string }).code;
+    if (code === 'already_resolved' || code === 'locked_by_other') {
+      setRows((r) => r?.filter((x) => x.key !== t.key) ?? r);
+      toast(code === 'already_resolved' ? `Уже обработано: ${t.id}` : `${t.id} смотрит другой модератор`);
+      refreshCounts();
+      return true;
+    }
+    return false;
+  };
   const next = (d: number) => setSel((i) => Math.max(0, Math.min(view.length - 1, i + d)));
   const toggle = (k: string) => setPicked((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
   const act = async (list: TaskQ[], ok: boolean) => {
     if (busy || !list.length) return;
     if (!ok && !reason) return toast('Выберите причину отказа — клавиши 1–5', 'info');
+    if (list.length === 1 && busyBy(list[0])) return toast(`Смотрит ${busyBy(list[0])} — дождитесь решения`, 'info');
     setBusy(true);
     try {
-      for (const t of list) await adminApi.moderateTask(t, ok, reason ?? undefined);
+      let done = list.map((t) => t.key);
+      let failed = 0;
+      if (list.length > 1) ({ done, failed } = await adminApi.bulkTasks(list, ok, reason ?? undefined));
+      else await adminApi.moderateTask(list[0], ok, reason ?? undefined);
       // После решения фокус — на следующей строке (индекс тот же)
-      const keys = new Set(list.map((t) => t.key));
+      const keys = new Set(done);
       setRows((r) => r?.filter((x) => !keys.has(x.key)) ?? r);
       setPicked(new Set());
       setReason(null);
-      if (ok) setApproved((n) => n + list.length);
-      toast(ok ? (list.length > 1 ? `Одобрено: ${list.length}` : `Одобрено: «${list[0].title}»`) : 'Отклонено. Автор получил уведомление с причиной');
+      if (ok) setApproved((n) => n + done.length);
+      toast(
+        failed
+          ? `${ok ? 'Одобрено' : 'Отклонено'}: ${done.length}, не обработано: ${failed} — уже решены или их смотрит другой модератор`
+          : ok
+            ? list.length > 1
+              ? `Одобрено: ${list.length}`
+              : `Одобрено: «${list[0].title}»`
+            : 'Отклонено. Автор получил уведомление с причиной',
+      );
       refreshCounts();
     } catch (e) {
-      toast(apiErrorText(e, 'ru'));
+      if (!(list.length === 1 && gone(e, list[0]))) toast(apiErrorText(e, 'ru'));
     }
     setBusy(false);
   };
@@ -99,7 +159,12 @@ export function TasksQueue() {
   useHotkeys(
     isQueue && cur
       ? {
-          j: () => next(1), k: () => next(-1), a: () => act([cur], true), r: () => act([cur], false), e: () => openEdit(cur.text), x: () => toggle(cur.key),
+          j: () => next(1),
+          k: () => next(-1),
+          a: () => act([cur], true),
+          r: () => act([cur], false),
+          e: () => openEdit(cur),
+          x: () => toggle(cur.key),
           ...Object.fromEntries(reasons.slice(0, 5).map((r, i) => [String(i + 1), () => setReason((x) => (x?.id === r.id ? null : r))])),
           Escape: () => (picked.size ? setPicked(new Set()) : setReason(null)),
         }
@@ -109,7 +174,6 @@ export function TasksQueue() {
   const cities = [...new Set((rows ?? []).map((r) => r.city.split(',')[0]))];
   const cats = [...new Set((rows ?? []).map((r) => r.cat))];
   const chosen = view.filter((r) => picked.has(r.key));
-  const parts = cur ? splitContact(cur.text) : null;
   const flagText = cur?.flags.map((f) => FLAG_TEXT[f]).find(Boolean);
 
   const header = (
@@ -193,7 +257,13 @@ export function TasksQueue() {
             {view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>Ничего не найдено</div>}
             {view.map((r, i) => {
               const left = r.slaLeft === null ? null : r.slaLeft - elapsed;
-              const sl = left === null ? { text: `${Math.round(r.ageMin + elapsed)}м`, color: '#6B7787' } : sla(left);
+              const sl =
+                left === null
+                  ? {
+                      text: `${Math.round(r.ageMin + elapsed)}м`,
+                      color: '#6B7787',
+                    }
+                  : sla(left);
               return (
                 <div
                   key={r.key}
@@ -209,6 +279,7 @@ export function TasksQueue() {
                   <span className={s.id}>{r.id}</span>
                   <span className={s.cell}>
                     <span className={s.rowTitle}>{r.title}</span> <span className={s.muted}>· {r.cat}</span>
+                    {busyBy(r) && <span className={s.lockTag}> · Смотрит {busyBy(r)}</span>}
                   </span>
                   <span className={s.cell} style={{ color: '#3B4756' }}>
                     {r.city}
@@ -228,7 +299,7 @@ export function TasksQueue() {
             })}
           </div>
         </div>
-        {cur && parts ? (
+        {cur ? (
           <div className={s.panel}>
             <div className={s.panelBody}>
               <div className={s.metaLine}>
@@ -257,7 +328,7 @@ export function TasksQueue() {
               </div>
               {cur.text && (
                 <div className={s.textBox}>
-                  <Highlighted {...parts} />
+                  <Marked text={cur.text} marks={cur.marks} />
                 </div>
               )}
               {cur.photos.length > 0 && (
@@ -265,6 +336,12 @@ export function TasksQueue() {
                   {cur.photos.slice(0, 5).map((p, i) => (
                     <Photo key={i} src={p || undefined} />
                   ))}
+                </div>
+              )}
+              {curBy && (
+                <div className={s.alertWarn}>
+                  <TriangleAlert size={15} aria-hidden />
+                  <span>Это задание сейчас смотрит {curBy}. Решение доступно, когда он закончит или через 10 минут.</span>
                 </div>
               )}
               {flagText && (
@@ -290,14 +367,25 @@ export function TasksQueue() {
             {isQueue && (
               <>
                 <div className={s.panelFoot}>
-                  <button type="button" className={cx(s.btn, s.btnOutRed)} disabled={busy || !reason} title={reason ? '' : 'Сначала выберите причину'} onClick={() => act([cur], false)}>
+                  <button type="button" className={cx(s.btn, s.btnOutRed)} disabled={busy || !reason || !!curBy} title={reason ? '' : 'Сначала выберите причину'} onClick={() => act([cur], false)}>
                     Отклонить <span className={s.key}>R</span>
                   </button>
-                  <button type="button" className={s.btn} onClick={() => openEdit(cur.text)}>
+                  <button type="button" className={s.btn} disabled={!!curBy} onClick={() => openEdit(cur)}>
                     Править <span className={s.key}>E</span>
                   </button>
                   <span className={s.grow} />
-                  <button type="button" className={cx(s.btn, s.btnGreen)} style={{ whiteSpace: 'normal', lineHeight: 1.15, padding: '0 12px', textAlign: 'left' }} disabled={busy} onClick={() => act([cur], true)}>
+                  <button
+                    type="button"
+                    className={cx(s.btn, s.btnGreen)}
+                    style={{
+                      whiteSpace: 'normal',
+                      lineHeight: 1.15,
+                      padding: '0 12px',
+                      textAlign: 'left',
+                    }}
+                    disabled={busy || !!curBy}
+                    onClick={() => act([cur], true)}
+                  >
                     Одобрить и далее <span className={s.key}>A</span>
                   </button>
                 </div>
@@ -309,23 +397,60 @@ export function TasksQueue() {
           <div className={s.loading}>Выберите задание</div>
         )}
       </div>
-      {edit !== null && cur && (
+      {edit && cur && (
         <Modal
           icon={PencilLine}
           tone="blue"
           title={`Править ${cur.id}`}
-          sub="Удалите контакты и лишнее — автор увидит, что текст изменён модератором."
+          sub="Удалите контакты и лишнее — автор увидит, что текст изменён модератором, и вашу заметку."
           okText="Сохранить и одобрить"
-          okDisabled={edit.trim().length < 10}
+          okDisabled={edit.title.trim().length < 5 || edit.text.trim().length < 10 || edit.note.trim().length < 5}
+          busy={busy}
           onClose={() => setEdit(null)}
-          onOk={() => {
-            setRows((r) => r?.map((x) => (x.key === cur.key ? { ...x, text: edit, flags: x.flags.filter((f) => f !== 'Контакты') } : x)) ?? r);
-            setEdit(null);
-            act([{ ...cur, text: edit }], true);
+          onOk={async () => {
+            setBusy(true);
+            try {
+              await adminApi.editTask(
+                cur,
+                {
+                  title: edit.title.trim(),
+                  text: edit.text.trim(),
+                  address: edit.address.trim() || null,
+                },
+                edit.note.trim(),
+              );
+              setRows((r) => r?.filter((x) => x.key !== cur.key) ?? r);
+              setApproved((n) => n + 1);
+              setEdit(null);
+              toast(`Исправлено и одобрено: «${edit.title.trim()}»`);
+              refreshCounts();
+            } catch (e) {
+              if (!gone(e, cur)) toast(apiErrorText(e, 'ru'));
+            }
+            setBusy(false);
           }}
         >
-          <textarea className={s.textarea} rows={6} value={edit} onChange={(e) => setEdit(e.target.value)} autoFocus />
-          <span className={s.muted}>Изменение запишется в аудит-лог (task.edit).</span>
+          <label className={s.col4}>
+            <span className={s.fieldT}>Заголовок</span>
+            <input className={s.input} value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value.slice(0, 80) })} />
+          </label>
+          <label className={s.col4}>
+            <span className={s.fieldT}>Описание</span>
+            <textarea className={s.textarea} rows={6} value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value.slice(0, 2000) })} autoFocus />
+          </label>
+          {cur.address != null && (
+            <label className={s.col4}>
+              <span className={s.fieldT}>Адрес (виден только выбранному мастеру)</span>
+              <input className={s.input} value={edit.address} onChange={(e) => setEdit({ ...edit, address: e.target.value.slice(0, 200) })} />
+            </label>
+          )}
+          <label className={s.col4}>
+            <span className={s.fieldT}>
+              Заметка для автора <span style={{ color: '#B03A2E' }}>*</span>
+            </span>
+            <input className={s.input} value={edit.note} onChange={(e) => setEdit({ ...edit, note: e.target.value.slice(0, 300) })} placeholder="Например: удалили номер телефона из описания" />
+            <span className={s.muted}>Изменение запишется в аудит-лог (task.edit).</span>
+          </label>
         </Modal>
       )}
     </>

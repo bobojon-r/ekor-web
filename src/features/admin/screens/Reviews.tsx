@@ -5,20 +5,24 @@ import { apiErrorText } from '@/lib/api';
 import { useToast } from '@/components/ui';
 import { useAdmin } from '../AdminShell';
 import { adminApi } from '../data/api';
-import type { ReviewV } from '../data/types';
+import type { Reason, ReviewV } from '../data/types';
 import { splitContact } from '../core';
 import { cx, Head, Highlighted, Label, Loading, Pill, Tabs, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 
 const COLS = '64px 60px minmax(0,1fr) 140px 110px 60px';
-const HIDE = ['Оскорбления', 'Не относится к заказу', 'Контакты / реклама', 'Персональные данные'];
 type TabK = 'review' | 'all' | 'hidden';
 
 /** Оскорбления помечены автофильтром как [оскорбление]; иначе подсвечиваем контакты */
 function parts(text: string) {
   const i = text.indexOf('[');
   const j = text.indexOf(']', i);
-  if (i >= 0 && j > i) return { pre: text.slice(0, i), hl: text.slice(i, j + 1), post: text.slice(j + 1) };
+  if (i >= 0 && j > i)
+    return {
+      pre: text.slice(0, i),
+      hl: text.slice(i, j + 1),
+      post: text.slice(j + 1),
+    };
   return splitContact(text);
 }
 
@@ -30,7 +34,9 @@ export function Reviews() {
   const [rows, setRows] = useState<ReviewV[] | null>(null);
   const [all, setAll] = useState<ReviewV[]>([]);
   const [sel, setSel] = useState(0);
-  const [reason, setReason] = useState<string | null>(null);
+  const [reason, setReason] = useState<Reason | null>(null);
+  const [hide, setHide] = useState<Reason[]>([]);
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = () =>
@@ -39,6 +45,9 @@ export function Reviews() {
       (e) => (setRows([]), toast(apiErrorText(e, 'ru'))),
     );
   useEffect(() => {
+    adminApi.hideReasons().then(setHide, () => {});
+  }, []);
+  useEffect(() => {
     setRows(null);
     setSel(0);
     load();
@@ -46,15 +55,15 @@ export function Reviews() {
 
   const view = rows ?? [];
   const cur = view[Math.min(sel, view.length - 1)] ?? null;
-  useEffect(() => setReason(null), [cur?.key]);
+  useEffect(() => (setReason(null), setNote('')), [cur?.key]);
 
-  const act = async (hide: boolean) => {
-    if (!cur || busy || (hide && !reason)) return;
+  const act = async (doHide: boolean) => {
+    if (!cur || busy || (doHide && (!reason || (reason.needComment && note.trim().length < 5)))) return;
     setBusy(true);
     try {
-      if (hide) await adminApi.hideReview(cur, reason!);
+      if (doHide) await adminApi.hideReview(cur, reason!, note.trim());
       else await adminApi.keepReview(cur);
-      toast(hide ? 'Отзыв скрыт. Автор получил причину' : tab === 'hidden' ? 'Отзыв возвращён' : 'Отзыв оставлен, жалобы отклонены');
+      toast(doHide ? 'Отзыв скрыт. Автор получил причину' : tab === 'hidden' ? 'Отзыв возвращён' : 'Отзыв оставлен, жалобы отклонены');
       await load();
       refreshCounts();
     } catch (e) {
@@ -63,7 +72,15 @@ export function Reviews() {
     setBusy(false);
   };
 
-  useHotkeys(cur ? { j: () => setSel((i) => Math.min(view.length - 1, i + 1)), k: () => setSel((i) => Math.max(0, i - 1)), ...Object.fromEntries(HIDE.map((h, i) => [String(i + 1), () => setReason(h)])) } : {});
+  useHotkeys(
+    cur
+      ? {
+          j: () => setSel((i) => Math.min(view.length - 1, i + 1)),
+          k: () => setSel((i) => Math.max(0, i - 1)),
+          ...Object.fromEntries(hide.slice(0, 5).map((h, i) => [String(i + 1), () => setReason(h)])),
+        }
+      : {},
+  );
 
   return (
     <>
@@ -123,7 +140,16 @@ export function Reviews() {
                   <Highlighted {...parts(cur.text)} />
                 </div>
                 {cur.reply && (
-                  <div style={{ padding: '10px 12px', borderRadius: 8, background: '#F7F9FB', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      background: '#F7F9FB',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                  >
                     <Label>Ответ мастера</Label>
                     <span style={{ lineHeight: 1.5 }}>{cur.reply}</span>
                   </div>
@@ -132,7 +158,15 @@ export function Reviews() {
                   <Label>Жалобы · {cur.complaints}</Label>
                   {cur.complaintList.length === 0 && <span className={s.muted}>{cur.complaints ? 'Подробности жалоб — в разделе «Чаты по жалобам»' : 'Жалоб нет'}</span>}
                   {cur.complaintList.map(([t, d]) => (
-                    <div key={t} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #EEF1F4' }}>
+                    <div
+                      key={t}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '8px 0',
+                        borderBottom: '1px solid #EEF1F4',
+                      }}
+                    >
                       <span>{t}</span>
                       <span className={s.muted}>{d}</span>
                     </div>
@@ -146,12 +180,13 @@ export function Reviews() {
                   <div className={s.col6}>
                     <Label>Причина скрытия</Label>
                     <div className={s.wrap4}>
-                      {HIDE.map((h) => (
-                        <button key={h} type="button" aria-pressed={reason === h} className={cx(s.reason, reason === h && s.reasonOn)} style={{ height: 28, padding: '0 10px' }} onClick={() => setReason(reason === h ? null : h)}>
-                          {h}
+                      {hide.map((h) => (
+                        <button key={h.id} type="button" aria-pressed={reason?.id === h.id} className={cx(s.reason, reason?.id === h.id && s.reasonOn)} style={{ height: 28, padding: '0 10px' }} onClick={() => setReason(reason?.id === h.id ? null : h)}>
+                          {h.label}
                         </button>
                       ))}
                     </div>
+                    {reason?.needComment && <input className={s.input} value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Комментарий к причине (обязательно)" />}
                     <span className={s.muted} style={{ lineHeight: 1.45 }}>
                       Автор получит причину и сможет написать отзыв заново один раз. Оценка скрытого отзыва не входит в рейтинг.
                     </span>
@@ -169,7 +204,7 @@ export function Reviews() {
                       Оставить, жалобы отклонить
                     </button>
                     <span className={s.grow} />
-                    <button type="button" className={cx(s.btn, s.btnRed)} disabled={busy || !reason} onClick={() => act(true)}>
+                    <button type="button" className={cx(s.btn, s.btnRed)} disabled={busy || !reason || (reason.needComment && note.trim().length < 5)} onClick={() => act(true)}>
                       Скрыть отзыв
                     </button>
                   </>

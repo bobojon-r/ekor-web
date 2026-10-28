@@ -224,3 +224,19 @@ export const demoAudit: AuditV[] = [
   A(12, '12:40:10', 'Фаррух Б.', 'task.approve', 'T-48150', '', 'ok'), A(13, '12:39:51', 'Фаррух Б.', 'task.approve', 'T-48149', '', 'ok'), A(14, '12:31:02', 'Алишер Н.', 'dict.update', 'category:12', 'добавлены синонимы TJ', 'info'),
   A(15, '12:10:37', 'Мунира С.', 'master.verify', 'M-1311', '«Проверен» · звонок + паспорт', 'ok'), A(16, '11:58:20', 'Джамшед К.', 'user.warn', 'U-71944', 'жалоба C-198', 'warn'),
 ];
+
+/** Шаблоны уведомлений (демо) */
+export const demoTemplates: { code: string; title: string; ch: ('SMS' | 'Push')[]; ru: string; tj: string; vars: string[] }[] = [
+  { code: 'auth.otp', title: 'Код входа', ch: ['SMS'], ru: '{code} — код входа в {app}. Никому не сообщайте его.', tj: '{code} — рамзи воридшавӣ ба {app}. Онро ба ҳеҷ кас нагӯед.', vars: ['{code}', '{minutes}', '{app}'] },
+  { code: 'master.approved', title: 'Профиль мастера одобрен', ch: ['SMS', 'Push'], ru: '{app}: профиль одобрен. Вы в каталоге и можете откликаться.', tj: '{app}: профил тасдиқ шуд. Шумо дар каталог ҳастед.', vars: ['{app}'] },
+  { code: 'master.rejected', title: 'Профиль отклонён', ch: ['SMS', 'Push'], ru: '{app}: профиль не прошёл проверку — {reason}. Исправьте в приложении.', tj: '{app}: профил аз санҷиш нагузашт — {reason}.', vars: ['{reason}', '{app}'] },
+  { code: 'invite.new', title: 'Новое приглашение', ch: ['SMS', 'Push'], ru: '{app}: {name} предлагает работу «{task}». Ответьте за 24 ч.', tj: '{app}: {name} кор пешниҳод мекунад «{task}».', vars: ['{name}', '{task}', '{app}'] },
+  { code: 'order.chosen', title: 'Вас выбрали', ch: ['SMS', 'Push'], ru: '{app}: вас выбрали — «{task}». Адрес и телефон в приложении.', tj: '{app}: шуморо интихоб карданд — «{task}».', vars: ['{task}', '{app}'] },
+  { code: 'order.done', title: 'Мастер отметил «выполнено»', ch: ['SMS', 'Push'], ru: '{app}: мастер отметил «{task}» выполненным. Подтвердите.', tj: '{app}: усто «{task}»-ро иҷрошуда қайд кард.', vars: ['{task}', '{app}'] },
+  { code: 'response.new', title: 'Новый отклик', ch: ['Push'], ru: 'Новый отклик: {name} · {price} смн', tj: 'Ҷавоби нав: {name} · {price} смн', vars: ['{name}', '{price}'] },
+  { code: 'task.approved', title: 'Задание одобрено', ch: ['Push'], ru: 'Задание «{task}» опубликовано — мастера уже видят его', tj: 'Супориши «{task}» нашр шуд', vars: ['{task}'] },
+  { code: 'task.no_responses', title: 'Нет откликов 24 ч', ch: ['Push'], ru: 'На «{task}» пока нет откликов. Поднимите бюджет или уточните описание', tj: 'Ба «{task}» ҳоло ҷавоб нест', vars: ['{task}'] },
+  { code: 'response.closed', title: 'Выбран другой мастер', ch: ['Push'], ru: 'Клиент выбрал другого мастера — «{task}»', tj: 'Мизоҷ устои дигарро интихоб кард — «{task}»', vars: ['{task}'] },
+  { code: 'chat.message', title: 'Новое сообщение', ch: ['Push'], ru: '{name}: {text}', tj: '{name}: {text}', vars: ['{name}', '{text}'] },
+  { code: 'dispute.resolved', title: 'Спор решён', ch: ['SMS', 'Push'], ru: '{app}: спор по «{task}» решён — {result}. Подробности в приложении.', tj: '{app}: баҳс оид ба «{task}» ҳал шуд — {result}.', vars: ['{task}', '{result}', '{app}'] },
+];

@@ -46,7 +46,6 @@ function Categories({ creating }: { creating: number }) {
   const [draft, setDraft] = useState<CatNode | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [alias, setAlias] = useState('');
-  const [extra, setExtra] = useState<Record<number, { photo: boolean; hourly: boolean }>>({});
   const [drag, setDrag] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -67,7 +66,7 @@ function Categories({ creating }: { creating: number }) {
   useEffect(() => {
     if (!creating || !cats) return;
     setIsNew(true);
-    setDraft({ id: 0, key: '', ru: '', tj: '', parentId: null, icon: 'Wrench', masters: 0, hidden: false, aliases: [], online: false });
+    setDraft({ id: 0, key: '', ru: '', tj: '', parentId: null, icon: 'Wrench', masters: 0, hidden: false, aliases: [], online: false, photoRequired: false, perHour: false, sort: cats.length });
   }, [creating]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const ql = q.trim().toLowerCase();
@@ -99,19 +98,26 @@ function Categories({ creating }: { creating: number }) {
     }
     setBusy(false);
   };
-  // Перетаскивание — порядок внутри одного родителя (сохраняется локально, порядок в API — поле sort)
-  const drop = (target: CatNode) => {
+  // Перетаскивание — порядок внутри одного родителя; сохраняется полем sort у сдвинутых категорий
+  const drop = async (target: CatNode) => {
     if (!cats || drag === null || drag === target.id) return;
     const d = cats.find((c) => c.id === drag)!;
-    if (d.parentId !== target.parentId) return toast('Переносить можно внутри одной категории', 'info');
-    const list = cats.filter((c) => c.id !== drag);
-    list.splice(list.indexOf(target), 0, d);
-    setCats(list);
     setDrag(null);
-    toast('Порядок изменён');
+    if (d.parentId !== target.parentId) return toast('Переносить можно внутри одной категории', 'info');
+    const list = cats.filter((c) => c.id !== d.id);
+    list.splice(list.indexOf(target), 0, d);
+    const prev = cats;
+    setCats(list);
+    try {
+      await adminApi.sortCategories(list.filter((c) => c.parentId === d.parentId).map((c) => c.id), prev);
+      toast('Порядок сохранён');
+      load();
+    } catch (e) {
+      setCats(prev);
+      toast(apiErrorText(e, 'ru'));
+    }
   };
   const parent = ed?.parentId ? cats?.find((c) => c.id === ed.parentId) : null;
-  const ex = (ed && extra[ed.id]) ?? { photo: false, hourly: false };
 
   if (!cats) return <Loading />;
   return (
@@ -224,14 +230,14 @@ function Categories({ creating }: { creating: number }) {
             <div className={s.col6}>
               <span className={s.fieldT}>Поля задания для категории</span>
               <div className={s.wrap4} style={{ gap: 6 }}>
-                {([['photo', 'Фото обязательно'], ['online', 'Онлайн-формат'], ['hourly', 'Цена «за час»']] as const).map(([k, l]) => {
-                  const on = k === 'online' ? ed.online : ex[k];
+                {([['photoRequired', 'Фото обязательно'], ['online', 'Онлайн-формат'], ['perHour', 'Цена «за час»']] as const).map(([k, l]) => {
+                  const on = !!ed[k];
                   return (
                     <button
                       key={k}
                       type="button"
                       aria-pressed={on}
-                      onClick={() => (k === 'online' ? setDraft({ ...ed, online: !ed.online }) : setExtra({ ...extra, [ed.id]: { ...ex, [k]: !on } }))}
+                      onClick={() => setDraft({ ...ed, [k]: !on })}
                       style={{ height: 28, padding: '0 10px', borderRadius: 6, border: on ? '1.5px solid #2647D9' : '1px solid #DCE3EA', background: on ? '#F7F9FF' : '#fff', fontWeight: on ? 600 : 400, fontSize: 13, color: '#0F1B2A' }}
                     >
                       {l}
@@ -244,7 +250,9 @@ function Categories({ creating }: { creating: number }) {
               <Switch on={!ed.hidden} onClick={() => setDraft({ ...ed, hidden: !ed.hidden })} label="Показывать в приложении" />
               <div className={s.col4} style={{ gap: 2 }}>
                 <span className={s.fieldT}>Показывать в приложении</span>
-                <span className={s.muted}>{num(ed.masters)} мастеров. Удалить нельзя — только скрыть; мастера сохранят категорию в профиле.</span>
+                <span className={s.muted}>
+                  {num(ed.masters)} мастеров{ed.openTasks ? `, ${num(ed.openTasks)} открытых заданий` : ''}. Удалить нельзя — только скрыть; мастера сохранят категорию в профиле.
+                </span>
               </div>
             </div>
             {(!TJ_CHARS.test(ed.tj) || ed.tj === ed.ru) && ed.tj && (
@@ -278,12 +286,13 @@ function Cities() {
   const [selId, setSelId] = useState<number | null>(null);
   const [ru, setRu] = useState('');
   const [tj, setTj] = useState('');
+  const [dist, setDist] = useState<{ id: number; near: number[] } | null>(null);
   useEffect(() => {
     adminApi.cities().then((c) => (setCities(c), setSelId(c[0]?.id ?? null)), (e) => toast(apiErrorText(e, 'ru')));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const sel = cities?.find((c) => c.id === selId) ?? null;
   useEffect(() => {
-    if (sel) (setRu(sel.ru), setTj(sel.tj));
+    if (sel) (setRu(sel.ru), setTj(sel.tj), setDist(null));
   }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!cities) return <Loading />;
   const COLS = 'minmax(0,1fr) 160px 90px 90px';
@@ -327,15 +336,56 @@ function Cities() {
             <div className={s.col6}>
               <span className={s.fieldT}>Районы · {sel.districts.length}</span>
               {sel.districts.length === 0 && <span className={s.muted}>Районы не заданы</span>}
-              {sel.districts.map((d) => (
-                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #EEF1F4' }}>
-                  <span>
-                    {d.ru} <span className={s.muted}>/ {d.tj}</span>
-                  </span>
-                  {d.near && <span className={s.muted}>пригород</span>}
-                </div>
-              ))}
-              <span className={s.muted}>Синонимы RU/TJ/лат. (Ходжент / Худжанд / Khujand) и соседние районы — для пустых выдач.</span>
+              {sel.districts.map((d) => {
+                const on = dist?.id === d.id;
+                const names = (d.neighbors ?? []).map((id) => sel.districts.find((x) => x.id === id)?.ru).filter(Boolean);
+                return (
+                  <div key={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '7px 0', borderBottom: '1px solid #EEF1F4' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                      <span>
+                        {d.ru} <span className={s.muted}>/ {d.tj}</span>
+                        {d.near && <span className={s.muted}> · пригород</span>}
+                      </span>
+                      {USE_API && (
+                        <button type="button" className={s.linkBtn} onClick={() => setDist(on ? null : { id: d.id, near: [...(d.neighbors ?? [])] })}>
+                          {on ? 'Свернуть' : 'Соседние районы'}
+                        </button>
+                      )}
+                    </div>
+                    {!on && names.length > 0 && <span className={s.muted} style={{ fontSize: 12 }}>Соседи: {names.join(', ')}</span>}
+                    {on && dist && (
+                      <>
+                        <div className={s.wrap4} style={{ gap: 6 }}>
+                          {sel.districts
+                            .filter((x) => x.id !== d.id)
+                            .map((x) => {
+                              const n = dist.near.includes(x.id);
+                              return (
+                                <button key={x.id} type="button" aria-pressed={n} className={cx(s.reason, n && s.reasonOn)} style={{ height: 28, padding: '0 10px' }} onClick={() => setDist({ ...dist, near: n ? dist.near.filter((y) => y !== x.id) : [...dist.near, x.id] })}>
+                                  {x.ru}
+                                </button>
+                              );
+                            })}
+                        </div>
+                        <button
+                          type="button"
+                          className={cx(s.btn, s.btnBlue)}
+                          style={{ alignSelf: 'flex-start', height: 30 }}
+                          onClick={() =>
+                            adminApi.saveDistrict(d.id, { neighbors: dist.near }).then(
+                              () => (setCities(cities.map((c) => (c.id === sel.id ? { ...c, districts: c.districts.map((x) => (x.id === d.id ? { ...x, neighbors: dist.near } : x)) } : c))), setDist(null), toast('Соседние районы сохранены')),
+                              (e) => toast(apiErrorText(e, 'ru')),
+                            )
+                          }
+                        >
+                          Сохранить соседей
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              <span className={s.muted}>Соседние районы расширяют ленту мастеров, когда в своём районе заданий мало.</span>
             </div>
           </div>
           <div className={s.panelFoot} style={{ padding: '12px 22px' }}>
@@ -361,20 +411,22 @@ function Reasons({ kind }: { kind: 'reject' | 'block' }) {
   const [rows, setRows] = useState<(Reason & { group: string })[] | null>(null);
   const [edit, setEdit] = useState<Record<number, string>>({});
   useEffect(() => {
-    if (kind === 'block') return setRows(BLOCK.map((l, i) => ({ id: i + 1, code: `block_${i + 1}`, label: l, group: 'Блокировка пользователя' })));
-    Promise.all([adminApi.rejectReasons('task_reject'), adminApi.rejectReasons('master_reject')]).then(
-      ([t, m]) => setRows([...t.map((r) => ({ ...r, group: 'Задание' })), ...m.map((r) => ({ ...r, group: 'Профиль мастера' }))]),
+    if (kind === 'block' && !USE_API) return setRows(BLOCK.map((l, i) => ({ id: i + 1, code: `block_${i + 1}`, label: l, group: 'Блокировка пользователя' })));
+    const kinds: [string, string][] = kind === 'block' ? [['user_block', 'Блокировка пользователя'], ['review_hide', 'Скрытие отзыва']] : [['task_reject', 'Задание'], ['master_reject', 'Профиль мастера']];
+    Promise.all(kinds.map(([k]) => adminApi.rejectReasons(k))).then(
+      (ls) => setRows(ls.flatMap((l, i) => l.map((r) => ({ ...r, group: kinds[i][1] })))),
       (e) => toast(apiErrorText(e, 'ru')),
     );
   }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!rows) return <Loading />;
-  const COLS = '140px 160px minmax(0,1fr) 110px';
+  const COLS = '160px 160px minmax(0,1fr) 110px 110px';
   return (
     <div className={s.list} style={{ borderRight: 'none', flex: 1 }}>
       <div className={s.thead} style={{ gridTemplateColumns: COLS, padding: '0 20px' }}>
         <span>Где</span>
         <span>Код</span>
         <span>Текст причины (RU)</span>
+        <span>{USE_API ? 'В списке' : ''}</span>
         <span />
       </div>
       <div className={s.scroll}>
@@ -382,7 +434,16 @@ function Reasons({ kind }: { kind: 'reject' | 'block' }) {
           <div key={`${r.group}${r.id}`} className={s.row} style={{ gridTemplateColumns: COLS, padding: '0 20px', height: 44, cursor: 'default' }}>
             <span className={s.muted}>{r.group}</span>
             <span className={s.id}>{r.code}</span>
-            <input className={s.input} style={{ height: 32 }} value={edit[r.id] ?? r.label} disabled={kind === 'block'} onChange={(e) => setEdit({ ...edit, [r.id]: e.target.value })} />
+            <input className={s.input} style={{ height: 32 }} value={edit[r.id] ?? r.label} disabled={kind === 'block' && !USE_API} title={r.text ? `Пользователь увидит: ${r.text}` : undefined} onChange={(e) => setEdit({ ...edit, [r.id]: e.target.value })} />
+            <span>
+              {USE_API && (
+                <Switch
+                  on={!r.hidden}
+                  label={`Показывать «${r.label}»`}
+                  onClick={() => adminApi.saveReason(r.id, r.label, { hidden: !r.hidden }).then(() => setRows(rows.map((x) => (x.id === r.id ? { ...x, hidden: !r.hidden } : x))), (e) => toast(apiErrorText(e, 'ru')))}
+                />
+              )}
+            </span>
             <span className={s.right}>
               {edit[r.id] !== undefined && edit[r.id] !== r.label && (
                 <button type="button" className={cx(s.btn, s.btnBlue)} style={{ height: 32 }} onClick={() => adminApi.saveReason(r.id, edit[r.id].trim()).then(() => (setRows(rows.map((x) => (x.id === r.id && x.group === r.group ? { ...x, label: edit[r.id] } : x))), toast('Сохранено')), (e) => toast(apiErrorText(e, 'ru')))}>
@@ -393,7 +454,7 @@ function Reasons({ kind }: { kind: 'reject' | 'block' }) {
           </div>
         ))}
         <div className={s.hint} style={{ padding: '14px 20px' }}>
-          {kind === 'block' ? (USE_API ? 'Причины блокировки — текстом в карточке пользователя; справочника в API пока нет.' : 'Причины блокировки — выбор в карточке пользователя.') : 'Порядок причин совпадает с клавишами 1–5 в очередях модерации. Удалить нельзя — причины используются в истории.'}
+          {kind === 'block' ? 'Причины блокировки и скрытия отзывов — выбор в карточке пользователя и в очереди отзывов. Удалить нельзя — только скрыть.' : 'Порядок причин совпадает с клавишами 1–5 в очередях модерации. Удалить нельзя — причины используются в истории; ненужную можно скрыть.'}
         </div>
       </div>
     </div>

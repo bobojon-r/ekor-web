@@ -41,17 +41,29 @@ type Form = { name: string; email: string; phone: string; role: string; regions:
 type Panel = { mode: 'new' } | { mode: 'edit'; staff: StaffV };
 
 /** 11 — сотрудники и роли (admin); 20 — добавить; 21 — редактировать; 22 — удалить / отключить */
-export function Staff() {
+export function Staff({ open }: { open?: 'new' | number }) {
   const { me } = useAdmin();
   const toast = useToast();
   const [rows, setRows] = useState<StaffV[] | null>(null);
-  const [panel, setPanel] = useState<Panel | null>(null);
+  const [panel, setPanelState] = useState<Panel | null>(open === 'new' ? { mode: 'new' } : null);
+  // Адрес панели как в макете: /admin/staff/new (20), /admin/staff/:id (21) — без перезагрузки раздела
+  const setPanel = (p: Panel | null) => {
+    setPanelState(p);
+    const url = !p ? '/admin/staff' : p.mode === 'new' ? '/admin/staff/new' : `/admin/staff/${p.staff.id}`;
+    if (location.pathname !== url) history.replaceState(history.state, '', url);
+  };
   const cities = (ref.get()?.cities ?? []).length ? ref.get()!.cities.map((c) => ({ id: c.id, ru: c.name.ru })) : demoCities.map((c) => ({ id: c.id, ru: c.ru }));
 
   const load = () => adminApi.staff().then(setRows, (e) => (setRows([]), toast(apiErrorText(e, 'ru'))));
   useEffect(() => {
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (typeof open !== 'number' || !rows || panel) return;
+    const x = rows.find((r) => r.id === open);
+    if (x) setPanelState({ mode: 'edit', staff: x });
+    else (toast('Сотрудник не найден'), setPanel(null));
+  }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const active = rows?.filter((r) => r.active).length ?? 0;
   const selId = panel?.mode === 'edit' ? panel.staff.id : null;
 

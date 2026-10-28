@@ -5,7 +5,7 @@ import { Lock, SlidersHorizontal } from 'lucide-react';
 import { apiErrorText } from '@/lib/api';
 import { useToast } from '@/components/ui';
 import { adminApi } from '../data/api';
-import type { HistoryV, LimitV } from '../data/types';
+import type { HistoryV, LimitEffect, LimitV } from '../data/types';
 import { cx, Head, Label, Loading, Modal, Pill } from '../ui';
 import s from '../Admin.module.css';
 
@@ -20,6 +20,7 @@ export function Limits() {
   const [confirm, setConfirm] = useState(false);
   const [why, setWhy] = useState('');
   const [busy, setBusy] = useState(false);
+  const [effects, setEffects] = useState<LimitEffect[] | null>(null);
 
   const load = () =>
     Promise.all([adminApi.limits(), adminApi.limitHistory()]).then(
@@ -31,7 +32,36 @@ export function Limits() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changes = useMemo(() => (rows ?? []).filter((r) => vals[r.key] !== undefined && vals[r.key] !== '' && +vals[r.key] !== r.value), [rows, vals]);
-  const invalid = (rows ?? []).some((r) => vals[r.key] === '' || !(+vals[r.key] >= 0));
+  const outOf = (r: LimitV) => vals[r.key] === '' || !(+vals[r.key] >= (r.min ?? 0)) || (r.max != null && +vals[r.key] > r.max);
+  const invalid = (rows ?? []).some(outOf);
+  const payload = () =>
+    changes.map((r) => ({
+      key: r.key,
+      value: +vals[r.key],
+      version: r.version,
+      label: r.label,
+      prev: r.value,
+    }));
+
+  // Уход со страницы с несохранёнными изменениями — подтверждение браузера
+  useEffect(() => {
+    if (!changes.length) return;
+    const h = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [changes.length]);
+
+  /** «Сохранить…» — сначала dry_run: сервер считает, что изменится, и ничего не сохраняет */
+  const preview = async () => {
+    setBusy(true);
+    try {
+      setEffects(await adminApi.saveLimits(payload(), 'предпросмотр', true));
+      setConfirm(true);
+    } catch (e) {
+      toast(apiErrorText(e, 'ru'));
+    }
+    setBusy(false);
+  };
   const groups = useMemo(() => {
     const m = new Map<string, LimitV[]>();
     (rows ?? []).forEach((r) => m.set(r.group, [...(m.get(r.group) ?? []), r]));
@@ -41,14 +71,18 @@ export function Limits() {
   const save = async () => {
     setBusy(true);
     try {
-      const values = Object.fromEntries(changes.map((r) => [r.key, +vals[r.key]]));
-      await adminApi.saveLimits(values, Object.fromEntries(changes.map((r) => [r.key, r.value])), Object.fromEntries(changes.map((r) => [r.key, r.label])), why.trim());
+      await adminApi.saveLimits(payload(), why.trim());
       setConfirm(false);
       setWhy('');
       toast('Лимиты сохранены. Применятся в течение 5 минут');
       await load();
     } catch (e) {
-      toast(apiErrorText(e, 'ru'));
+      // 409 — кто-то успел изменить лимит: перечитываем значения
+      if ((e as { status?: number }).status === 409) {
+        toast('Лимиты успели изменить — значения обновлены, проверьте и сохраните снова');
+        setConfirm(false);
+        await load();
+      } else toast(apiErrorText(e, 'ru'));
     }
     setBusy(false);
   };
@@ -66,24 +100,100 @@ export function Limits() {
         <Loading />
       ) : (
         <div className={s.split} style={{ gridTemplateColumns: 'minmax(0,1fr) 340px' }}>
-          <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignContent: 'start', overflowY: 'auto', background: '#F7F9FB' }}>
+          <div
+            style={{
+              padding: '16px 20px',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 12,
+              alignContent: 'start',
+              overflowY: 'auto',
+              background: '#F7F9FB',
+            }}
+          >
             {groups.map(([g, items]) => (
-              <div key={g} style={{ background: '#fff', border: '1px solid #E1E6EC', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ padding: '10px 14px', fontSize: 14, fontWeight: 700, borderBottom: '1px solid #EEF1F4' }}>{g}</div>
+              <div
+                key={g}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #E1E6EC',
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    borderBottom: '1px solid #EEF1F4',
+                  }}
+                >
+                  {g}
+                </div>
                 {items.map((i) => {
                   const ch = changes.includes(i);
                   return (
-                    <label key={i.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 80px 64px', gap: 10, alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #EEF1F4', background: ch ? '#F7F9FF' : '#fff' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <label
+                      key={i.key}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(0,1fr) 80px 64px',
+                        gap: 10,
+                        alignItems: 'center',
+                        padding: '8px 14px',
+                        borderBottom: '1px solid #EEF1F4',
+                        background: ch ? '#F7F9FF' : '#fff',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 1,
+                        }}
+                      >
                         <span>{i.label}</span>
-                        {ch && <span style={{ fontSize: 11, color: '#2647D9', fontWeight: 600 }}>было {i.value}</span>}
+                        {ch && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: '#2647D9',
+                              fontWeight: 600,
+                            }}
+                          >
+                            было {i.value}
+                          </span>
+                        )}
+                        {outOf(i) && i.min != null && (
+                          <span style={{ fontSize: 11, color: '#A5281B' }}>
+                            от {i.min} до {i.max}
+                          </span>
+                        )}
                       </div>
                       <input
                         inputMode="numeric"
                         value={vals[i.key] ?? ''}
-                        onChange={(e) => setVals({ ...vals, [i.key]: e.target.value.replace(/\D/g, '').slice(0, 6) })}
-                        className={cx(vals[i.key] === '' && s.invalid)}
-                        style={{ height: 32, borderRadius: 7, border: `1.5px solid ${ch ? '#2647D9' : '#C9D1DB'}`, background: '#fff', textAlign: 'right', padding: '0 10px', font: "600 13px 'JetBrains Mono', monospace", width: '100%', boxSizing: 'border-box', outline: 'none' }}
+                        onChange={(e) =>
+                          setVals({
+                            ...vals,
+                            [i.key]: e.target.value.replace(/\D/g, '').slice(0, 6),
+                          })
+                        }
+                        className={cx(outOf(i) && s.invalid)}
+                        title={i.min != null ? `от ${i.min} до ${i.max} · по умолчанию ${i.def}` : undefined}
+                        style={{
+                          height: 32,
+                          borderRadius: 7,
+                          border: `1.5px solid ${ch ? '#2647D9' : '#C9D1DB'}`,
+                          background: '#fff',
+                          textAlign: 'right',
+                          padding: '0 10px',
+                          font: "600 13px 'JetBrains Mono', monospace",
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          outline: 'none',
+                        }}
                       />
                       <span className={s.muted}>{i.unit}</span>
                     </label>
@@ -92,12 +202,28 @@ export function Limits() {
               </div>
             ))}
           </div>
-          <div style={{ borderLeft: '1px solid #E1E6EC', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div
+            style={{
+              borderLeft: '1px solid #E1E6EC',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+            }}
+          >
             <div className={s.panelBody} style={{ gap: 12 }}>
               <Label>История изменений</Label>
               {[...changes.map((r): HistoryV => [`${r.label}: ${r.value} → ${vals[r.key]}`, 'черновик · вы', true]), ...hist].map(([t, d, draft], i) => (
                 <div key={i} style={{ display: 'flex', gap: 10 }}>
-                  <span style={{ width: 8, height: 8, marginTop: 5, borderRadius: '50%', background: draft ? '#2647D9' : '#9AA5B4', flex: 'none' }} />
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      marginTop: 5,
+                      borderRadius: '50%',
+                      background: draft ? '#2647D9' : '#9AA5B4',
+                      flex: 'none',
+                    }}
+                  />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <span style={{ lineHeight: 1.4 }}>{t}</span>
                     <span className={s.muted} style={{ fontSize: 12 }}>
@@ -112,13 +238,22 @@ export function Limits() {
                 <span>Новые лимиты применяются к новым действиям. Уже отправленные отклики и открытые задания не меняются.</span>
               </div>
             </div>
-            <div style={{ padding: '14px 18px', borderTop: '1px solid #E1E6EC', display: 'flex', flexDirection: 'column', gap: 8, background: '#fff' }}>
+            <div
+              style={{
+                padding: '14px 18px',
+                borderTop: '1px solid #E1E6EC',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                background: '#fff',
+              }}
+            >
               <span className={s.fieldT}>{changes.length ? `${changes.length} ${plural(changes.length)}` : 'Изменений нет'}</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className={s.btn} style={{ flex: 1 }} disabled={!changes.length} onClick={() => setVals(Object.fromEntries(rows.map((x) => [x.key, String(x.value)])))}>
                   Сбросить
                 </button>
-                <button type="button" className={cx(s.btn, s.btnBlue)} style={{ flex: 1.4 }} disabled={!changes.length || invalid} onClick={() => setConfirm(true)}>
+                <button type="button" className={cx(s.btn, s.btnBlue)} style={{ flex: 1.4 }} disabled={!changes.length || invalid || busy} onClick={preview}>
                   Сохранить…
                 </button>
               </div>
@@ -138,14 +273,38 @@ export function Limits() {
           onClose={() => setConfirm(false)}
           onOk={save}
         >
-          <div style={{ border: '1px solid #E1E6EC', borderRadius: 8, overflow: 'hidden' }}>
-            <div className={s.label} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 70px 70px', gap: 8, padding: '8px 12px', background: '#F7F9FB' }}>
+          <div
+            style={{
+              border: '1px solid #E1E6EC',
+              borderRadius: 8,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              className={s.label}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0,1fr) 70px 70px',
+                gap: 8,
+                padding: '8px 12px',
+                background: '#F7F9FB',
+              }}
+            >
               <span>Параметр</span>
               <span className={s.right}>Было</span>
               <span className={s.right}>Станет</span>
             </div>
             {changes.map((r) => (
-              <div key={r.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 70px 70px', gap: 8, padding: '9px 12px', borderTop: '1px solid #EEF1F4' }}>
+              <div
+                key={r.key}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0,1fr) 70px 70px',
+                  gap: 8,
+                  padding: '9px 12px',
+                  borderTop: '1px solid #EEF1F4',
+                }}
+              >
                 <span>{r.label}</span>
                 <span className={cx(s.right, s.mono)} style={{ color: '#5B6878' }}>
                   {r.value} {r.unit === 'мин' ? 'мин' : ''}
@@ -158,8 +317,19 @@ export function Limits() {
           </div>
           <div className={s.bullets}>
             <b>Что изменится</b>
-            <span>· Новые значения действуют для новых действий во всех городах</span>
-            <span>· Уже отправленные отклики, открытые задания и текущие блокировки остаются по прежним правилам</span>
+            {effects?.length ? (
+              effects.map((x) => (
+                <span key={x.label}>
+                  · {x.label}: {x.effect}
+                  {x.affected != null ? ` (затронет: ${x.affected})` : ''}
+                </span>
+              ))
+            ) : (
+              <>
+                <span>· Новые значения действуют для новых действий во всех городах</span>
+                <span>· Уже отправленные отклики, открытые задания и текущие блокировки остаются по прежним правилам</span>
+              </>
+            )}
           </div>
           <div className={s.col4}>
             <span className={s.fieldT}>

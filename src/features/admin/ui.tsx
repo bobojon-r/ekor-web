@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Check, ChevronDown, Inbox, Lock, RefreshCw, Search, type LucideIcon } from 'lucide-react';
-import { ST, type Tone } from './core';
+import { splitContact, ST, type Tone } from './core';
 import s from './Admin.module.css';
 
 export const cx = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(' ');
@@ -101,6 +101,27 @@ export function Highlighted({ pre, hl, post }: { pre: string; hl: string; post: 
       {post}
     </>
   );
+}
+
+/** Текст с подсветкой фрагментов, найденных автодетектором сервера (matches); без них — по своему поиску контактов */
+export function Marked({ text, marks }: { text: string; marks?: [number, number][] }) {
+  if (!marks?.length) return <Highlighted {...splitContact(text)} />;
+  const out: ReactNode[] = [];
+  let at = 0;
+  [...marks]
+    .sort((a, b) => a[0] - b[0])
+    .forEach(([a, b], i) => {
+      if (a < at) return;
+      out.push(
+        text.slice(at, a),
+        <span key={i} className={s.hl}>
+          {text.slice(a, b)}
+        </span>,
+      );
+      at = b;
+    });
+  out.push(text.slice(at));
+  return <>{out}</>;
 }
 
 export function Photo({ src, ratio }: { src?: string; ratio?: string }) {
