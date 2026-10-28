@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { http, MAX_TRIES, realtime, reasonId, uiLang, uploadPhoto, type ChatRole, type Msg, type SysKey, type Thread } from '@/lib/api';
+import { uuid } from '@/lib/browser';
 
 type MessageOut = { id: number; type: 'text' | 'photo' | 'system'; mine: boolean; body: string | null; system_code: string | null; photo_url: string | null; client_msg_id: string | null; created_at: string };
 type ChatItem = {
@@ -129,7 +130,7 @@ export function useRealChats(role: ChatRole, openId?: string, enabled = true) {
   });
 
   const send = (tid: string, body: { x?: string; photo?: string; file?: Blob }) => {
-    const mid = crypto.randomUUID();
+    const mid = uuid();
     out.current[mid] = { tid, body: { x: body.x, file: body.file } };
     setMsgs((all) => ({ ...all, [tid]: [...(all[tid] ?? []), { id: mid, f: 'me', x: body.x, photo: body.photo, t: hhmm(new Date().toISOString()), state: 'sending', tries: 0 }] }));
     deliver(mid, 0);

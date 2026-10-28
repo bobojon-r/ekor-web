@@ -16,6 +16,7 @@ import { Button, ButtonLink, EmptyState, LangSwitch, Sheet, Skeleton, useToast }
 import { feedDict } from './i18n';
 import { LoadState } from '@/features/system/SystemStates';
 import s from './Tasks.module.css';
+import { copyText } from '@/lib/browser';
 
 type T = (typeof feedDict)['ru'];
 type Sort = NonNullable<FeedQuery['sort']>;
@@ -325,7 +326,7 @@ function ShareBtn({ t }: { t: T }) {
         try {
           if (navigator.share) await navigator.share({ url: location.href });
           else {
-            await navigator.clipboard.writeText(location.href);
+            await copyText(location.href);
             toast(t.linkCopied);
           }
         } catch {}

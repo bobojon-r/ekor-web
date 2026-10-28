@@ -14,6 +14,7 @@ import { ButtonLink, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { InviteSheet } from '@/features/invite/InviteSheet';
 import { mastersDict } from './i18n';
 import s from './Profile.module.css';
+import { copyText } from '@/lib/browser';
 
 type T = (typeof mastersDict)['ru'];
 
@@ -45,7 +46,7 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
     try {
       if (navigator.share) await navigator.share({ title: data?.master.name, url: location.href });
       else {
-        await navigator.clipboard.writeText(location.href);
+        await copyText(location.href);
         toast(t.linkCopied);
       }
     } catch {}

@@ -5,6 +5,7 @@
  * 401 на любом запросе — на страницу входа с возвратом на текущий адрес.
  */
 import { ApiError } from '@/lib/api';
+import { uuid } from '@/lib/browser';
 
 const CSRF_KEY = 'ekor_admin_csrf';
 type Opts = { method?: string; body?: unknown; query?: Record<string, string | number | boolean | null | undefined>; noRedirect?: boolean };
@@ -47,7 +48,7 @@ export async function adminHttp<T>(path: string, o: Opts = {}): Promise<T> {
     headers: {
       ...(o.body !== undefined && { 'content-type': 'application/json' }),
       ...(token && { 'x-csrf-token': token }),
-      ...(mutating && { 'idempotency-key': crypto.randomUUID() }),
+      ...(mutating && { 'idempotency-key': uuid() }),
     },
     body: o.body !== undefined ? JSON.stringify(o.body) : undefined,
   });

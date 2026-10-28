@@ -12,6 +12,7 @@ import type { SessionV, StaffV } from '../data/types';
 import { cx, Head, Loading, Modal, Pill, Switch, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 import st from './Staff.module.css';
+import { copyText } from '@/lib/browser';
 
 const COLS = 'minmax(0,1fr) minmax(0,1fr) 136px 110px 92px 32px';
 const ROLES: [string, string, string][] = [['moderator', 'moderator', 'Очереди своих регионов'], ['senior_moderator', 'senior', 'Споры, отзывы, чаты'], ['admin', 'admin', 'Всё, включая сотрудников']];
@@ -458,7 +459,7 @@ function PasswordInput({ value, onChange, show = true, setShow, invalid }: { val
         type="button"
         className={st.copy}
         onClick={() =>
-          navigator.clipboard?.writeText(value).then(
+          copyText(value).then(
             () => toast('Пароль скопирован'),
             () => toast('Не удалось скопировать — выделите вручную', 'info'),
           )
