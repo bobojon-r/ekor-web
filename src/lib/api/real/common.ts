@@ -32,7 +32,7 @@ export const intl = (d9: string) => `+992${d9}`;
 export const TERM = ['today', 'tomorrow', '2_3_days', 'discuss'] as const;
 export const termIdx = (t: string | null | undefined) => Math.max(0, TERM.indexOf((t ?? 'discuss') as (typeof TERM)[number]));
 
-export async function upload(kind: 'avatar' | 'portfolio' | 'task_photo' | 'chat_photo' | 'dispute_photo', file: Blob) {
+export async function upload(kind: 'avatar' | 'portfolio' | 'task_photo' | 'chat_photo' | 'dispute_photo' | 'verify_doc', file: Blob) {
   const fd = new FormData();
   fd.append('kind', kind);
   fd.append('file', file);

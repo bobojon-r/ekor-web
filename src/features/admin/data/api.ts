@@ -24,22 +24,24 @@ type QueueTask = {
   flags: string[]; matches: Match[]; submitted_at: string | null; sla_deadline: string | null; overdue: boolean; lock: LockOut | null;
 };
 type QueueMaster = {
-  id: number; type: 'new' | 'changes'; name: string | null; phone: string; city: Ref | null; works_online: boolean; about: string | null; experience: string | null;
+  id: number; type: 'new' | 'changes' | 'verify_request'; name: string | null; phone: string; city: Ref | null; works_online: boolean; about: string | null; experience: string | null;
   professions: { category: Ref; price_from: number | null; negotiable: boolean; status: string }[]; services: { title?: string; price?: number | null }[]; portfolio: { upload_id: number; url: string }[];
   avatar_url: string | null; flags: string[]; matches: Match[]; submitted_at: string | null; sla_deadline: string | null; overdue: boolean; lock: LockOut | null;
+  changes: { field: string; label: string; before: string | string[] | null; after: string | string[] | null }[] | null; verified: boolean;
+  verify_request: { id: number; comment: string | null; photos: { upload_id: number; url: string }[]; created_at: string } | null;
 };
 type RegPage<T> = { items: T[]; next_cursor: string | null; total: number; counts_by_status: Record<string, number> };
 type TaskRow = {
   id: number; title: string; status: string; category: Ref; city: Ref | null; district: Ref | null; client: Party; budget_mode: string; budget_min: number | null; budget_max: number | null;
   responses_count: number; views_count: number; flags: string[]; created_at: string; published_at: string | null;
 };
-type MasterRow = { id: number; name: string | null; phone: string; status: string; city: Ref | null; headline: Ref | null; verified: boolean; accepting_orders: boolean; rating_avg: number | null; reviews_count: number; completed_orders_count: number; created_at: string };
+type MasterRow = { id: number; name: string | null; phone: string; status: string; city: Ref | null; headline: Ref | null; verified: boolean; accepting_orders: boolean; rating_avg: number | null; reviews_count: number; completed_orders_count: number; created_at: string; last_seen_at: string | null };
 type StatsOut = {
   date_from: string; date_to: string; computed_at: string | null;
   kpi: { tasks_created: number; response_24h_rate: number | null; choice_rate: number | null; completion_rate: number | null; masters_approved: number; moderation_median_minutes: number | null };
   funnel: { step: string; count: number }[];
   daily: { day: string; created: number; published: number; responded_24h: number; chosen: number; done: number; masters_approved: number }[];
-  by_city: { city_id: number | null; name_ru: string; created: number; published: number; response_24h_rate: number | null; first_response_median_minutes: number | null }[];
+  by_city: { city_id: number | null; name_ru: string; created: number; published: number; chosen: number; done: number; response_24h_rate: number | null; choice_rate: number | null; completion_rate: number | null; first_response_median_minutes: number | null }[];
   deficit: { city_id: number | null; city_name_ru: string; category_id: number; category_name_ru: string; published: number; without_response_24h: number; share: number }[];
   queues: { queue: string; count: number; overdue: number | null; oldest_at: string | null }[];
 };
@@ -90,7 +92,7 @@ type OwnProfile = {
 type MasterCardOut = {
   profile: OwnProfile; phone: string; registered_at: string;
   metrics: { rating_avg: number | null; reviews_count: number; orders_total: number; orders_done: number; completion_rate: number | null; declines_after_choice: number; median_response_minutes: number | null; responses_today: number; responses_limit: number };
-  recent_orders: { id: number; master: Party; status: string; price: number | null; created_at: string }[]; complaints_30d: { id: number; reason_ru: string; comment: string | null; status: string; created_at: string }[];
+  recent_orders: { id: number; task_title: string; client: Party; master: Party; status: string; price: number | null; created_at: string }[]; complaints_30d: { id: number; reason_ru: string; comment: string | null; status: string; created_at: string }[];
 };
 type TaskCardOut = {
   task: { id: number; status: string; title: string; description: string; address: string | null; budget_mode: string; budget_min: number | null; budget_max: number | null; when: string; date: string | null };
@@ -197,18 +199,17 @@ export const adminApi = {
   },
 
   /* ---------- 01 Дашборд ---------- */
-  async dashboard(days: number, cityId: number | null, catId: number | null = null): Promise<Dash> {
+  /** Период — даты Душанбе (YYYY-MM-DD) включительно */
+  async dashboard(range: { from: string; to: string }, cityId: number | null, catId: number | null = null): Promise<Dash> {
     if (!USE_API) return wait(demo.demoDash);
-    // Период — по датам Душанбе: последние N дней включая сегодня
-    const day = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dushanbe' }).format(d);
-    const st = await http<StatsOut>('/admin/stats', { query: { from: day(new Date(Date.now() - (days - 1) * 864e5)), to: day(new Date()), city: cityId, category: catId } });
+    const st = await http<StatsOut>('/admin/stats', { query: { from: range.from, to: range.to, city: cityId, category: catId } });
     const k = st.kpi;
     const step = (n: string) => st.funnel.find((f) => f.step === n)?.count ?? 0;
     const P = step('published');
     const rate = (x: number | null) => (x == null ? '—' : `${Math.round(x * 100)}%`);
     const fmtD = (iso: string) => dayMon(`${iso}T12:00:00`);
     return {
-      period: days === 1 ? 'сегодня' : `${fmtD(st.date_from)} – ${fmtD(st.date_to)}`,
+      period: st.date_from === st.date_to ? fmtD(st.date_from) : `${fmtD(st.date_from)} – ${fmtD(st.date_to)}`,
       kpis: [
         ['Новые задания', num(k.tasks_created), `опубликовано ${num(P)}`, true], ['Отклик за 24 ч', rate(k.response_24h_rate), `с откликом всего ${pct(step('responded'), P)}%`, true],
         ['Выбор мастера', rate(k.choice_rate), `${num(step('chosen'))} заданий`, true], ['Завершено', rate(k.completion_rate), `${num(step('done'))} заказов`, true],
@@ -221,7 +222,7 @@ export const adminApi = {
       ],
       bars: st.daily.slice(-14).map((d) => ({ d: +d.day.slice(8), v: d.created })),
       cities: st.by_city.map((c): Dash['cities'][number] => [
-        c.name_ru, num(c.created), num(ref.cityById(c.city_id ?? -1)?.masters ?? 0), rate(c.response_24h_rate), '—', '—', c.first_response_median_minutes != null ? `${Math.round(c.first_response_median_minutes)} мин` : '—',
+        c.name_ru, num(c.created), num(ref.cityById(c.city_id ?? -1)?.masters ?? 0), rate(c.response_24h_rate), rate(c.choice_rate), rate(c.completion_rate), c.first_response_median_minutes != null ? `${Math.round(c.first_response_median_minutes)} мин` : '—',
       ]),
       deficit: st.deficit.slice(0, 6).map((x): [string, string, number] => [x.category_name_ru, x.city_name_ru, Math.round(x.share * 100)]),
     };
@@ -307,7 +308,7 @@ export const adminApi = {
       return {
         key: String(x.id), id: `M-${x.id}`, userId: x.id, name: x.name ?? `#${x.id}`, cats: x.professions.map((p) => p.category.name_ru).join(', ') || '—', city: x.city?.name_ru ?? (x.works_online ? 'Онлайн' : '—'),
         agoMin: minutesSince(x.submitted_at), slaLeft: x.sla_deadline ? (+new Date(x.sla_deadline) - Date.now()) / 60000 : 24 * 60,
-        type: x.type === 'changes' ? 'Изменения' : again ? 'Повторно' : 'Новый', tone: x.type === 'changes' ? 'grey' : again ? 'warn' : 'info', kind: 'master', lock: lockOf(x.lock), flags: x.flags.map((f) => flagOf(f)[0]),
+        type: x.type === 'verify_request' ? '«Проверен»' : x.type === 'changes' ? 'Изменения' : again ? 'Повторно' : 'Новый', tone: x.type === 'verify_request' ? 'ok' : x.type === 'changes' ? 'grey' : again ? 'warn' : 'info', kind: 'master', lock: lockOf(x.lock), flags: x.flags.map((f) => flagOf(f)[0]),
       } satisfies MasterQ;
     });
   },
@@ -324,7 +325,9 @@ export const adminApi = {
     return {
       name: q.name, sub: [x.professions.map((p) => p.category.name_ru).join(', '), x.experience ? EXP[x.experience] : ''].filter(Boolean).join(' · '), meta: `${q.id} · ${phoneFmt(x.phone)} · подано ${agoText(q.agoMin)}`,
       avatar: x.avatar_url ?? undefined, city: [x.city?.name_ru, x.works_online ? 'онлайн' : ''].filter(Boolean).join(' · ') || '—', prices: prices || '—', about: about || '—', phone: x.phone,
-      photos: x.portfolio.map((p) => p.url), verified: false, marks: x.matches.filter((m) => m.field === 'about').map((m): [number, number] => [m.start, m.end]),
+      photos: x.portfolio.map((p) => p.url), verified: x.verified, marks: x.matches.filter((m) => m.field === 'about').map((m): [number, number] => [m.start, m.end]),
+      changes: (x.changes ?? []).map((c) => ({ label: c.label, before: changeText(c.before), after: changeText(c.after) })),
+      verifyReq: x.verify_request && { comment: x.verify_request.comment, photos: x.verify_request.photos.map((p) => p.url), meta: `запрос ${agoText(minutesSince(x.verify_request.created_at))}` },
       checklist: [
         ['Фото — лицо видно, без логотипов и текста', x.avatar_url ? 2 : 0, x.avatar_url ? 'проверьте фото' : 'фото нет'], ['Имя похоже на настоящее', /\S+\s+\S+/.test(q.name) ? 1 : 2, ''],
         ['Категории соответствуют опыту и портфолио', x.portfolio.length ? 2 : 0, x.portfolio.length ? '' : 'портфолио пусто'], ['Описание без контактов и ссылок', contacts ? 0 : 1, contacts ? 'автодетектор: контакты в «О себе»' : ''],
@@ -351,6 +354,9 @@ export const adminApi = {
     if (!USE_API) return adminApi.moderateMaster(q, false, { id: 0, code: 'return', label: 'на правки' }, comment);
     return http(`/admin/masters/${q.userId}/return`, { method: 'POST', body: { comment } });
   },
+  /** Отказ на запрос «Проверен»: основание уходит мастеру */
+  declineVerify: (q: MasterQ, basis: string) =>
+    USE_API ? http(`/admin/masters/${q.userId}/verify-decline`, { method: 'POST', body: { basis } }) : wait(log('Вы', 'master.verify_decline', q.id, basis), 150),
   verifyMaster: (q: MasterQ, verified: boolean, comment: string) =>
     USE_API ? http(`/admin/masters/${q.userId}/${verified ? 'verify' : 'unverify'}`, { method: 'POST', body: { basis: comment } }) : wait(log('Вы', 'master.verify', q.id, comment), 150),
 
@@ -758,7 +764,7 @@ export const adminApi = {
         const [status, tone] = MASTER_ST[u.status] ?? [u.status, 'grey'];
         return {
           key: u.id, id: `M-${u.id}`, name: u.name ?? `#${u.id}`, profs: u.headline?.name_ru ?? '', city: u.city?.name_ru ?? 'Онлайн', rating: u.rating_avg != null ? `${u.rating_avg.toFixed(1).replace('.', ',')} · ${u.reviews_count}` : '—',
-          orders: String(u.completed_orders_count), status, tone, verified: u.verified, seen: dayMon(u.created_at),
+          orders: String(u.completed_orders_count), status, tone, verified: u.verified, seen: u.last_seen_at ? seenText(u.last_seen_at) : '—',
         };
       }),
     };
@@ -783,8 +789,7 @@ export const adminApi = {
         ['Проверен', p.verified ? 'да' : '—'], ['Приём заказов', p.accepting_orders ? 'включён' : 'выключен'], ['Отклики сегодня', `${x.responses_today} из ${x.responses_limit}`],
         ['Отказы после выбора', String(x.declines_after_choice)], ['На eKor', `с ${dayMon(d.registered_at)} ${new Date(d.registered_at).getFullYear()}`],
       ],
-      // В recent_orders поле master — это контрагент (клиент)
-      orders: d.recent_orders.map((o): [string, string, string] => [`O-${o.id} · ${o.master.name ?? 'клиент'}`, `${ORDER_ST[o.status] ?? o.status}${o.price ? ` · ${num(o.price)} смн` : ''}`, dayMon(o.created_at)]),
+      orders: d.recent_orders.map((o): [string, string, string] => [`O-${o.id} · ${o.task_title} · ${o.client.name ?? 'клиент'}`, `${ORDER_ST[o.status] ?? o.status}${o.price ? ` · ${num(o.price)} смн` : ''}`, dayMon(o.created_at)]),
       warn: d.complaints_30d.length ? `Жалоб за 30 дней: ${d.complaints_30d.length} — ${d.complaints_30d.map((c) => c.reason_ru).join(', ')}` : null,
     };
   },
@@ -833,6 +838,7 @@ async function reasonList(kind: string): Promise<ReasonAdmin[]> {
   return http<ReasonAdmin[]>('/reasons', { query: { kind } });
 }
 const queueMasters = new Map<number, QueueMaster>();
+const changeText = (v: string | string[] | null) => (v == null || (Array.isArray(v) && !v.length) ? '—' : Array.isArray(v) ? v.join(', ') : v || '—');
 const plural = (n: number, one: string, few: string, many: string) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
 const lockOf = (l: LockOut | null | undefined): Lock | null => (l ? { name: short(l.staff_name ?? 'другой модератор'), mine: l.mine } : null);
 const hoursLeft = (iso: string | null) => (iso ? Math.floor((+new Date(iso) - Date.now()) / 36e5) : null);

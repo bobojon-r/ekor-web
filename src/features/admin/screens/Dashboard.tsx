@@ -13,24 +13,32 @@ import { Head, Loading, Seg, SelectChip } from '../ui';
 import d from './Dashboard.module.css';
 import s from '../Admin.module.css';
 
-const PERIODS: ['1' | '7' | '30', string][] = [['1', 'Сегодня'], ['7', '7 дней'], ['30', '30 дней']];
+type PeriodK = '7' | '30' | '90' | 'custom';
+const PERIODS: [PeriodK, string][] = [['7', '7 дней'], ['30', '30 дней'], ['90', '90 дней'], ['custom', 'Свой']];
+/** Дата по Душанбе в формате YYYY-MM-DD */
+const day = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dushanbe' }).format(d);
+const daysAgo = (n: number) => day(new Date(Date.now() - n * 864e5));
 
 export function Dashboard() {
   const { counts } = useAdmin();
   const toast = useToast();
-  const [period, setPeriod] = useState<'1' | '7' | '30'>('7');
+  const [period, setPeriod] = useState<PeriodK>('7');
+  const [own, setOwn] = useState({ from: daysAgo(13), to: day(new Date()) });
   const [city, setCity] = useState('all');
   const [cat, setCat] = useState('all');
   const [data, setData] = useState<Dash | null>(null);
   const [at, setAt] = useState('');
 
+  const range = period === 'custom' ? own : { from: daysAgo(+period - 1), to: day(new Date()) };
+  const badRange = period === 'custom' && (!own.from || !own.to || own.from > own.to);
   useEffect(() => {
+    if (badRange) return;
     setData(null);
-    adminApi.dashboard(+period, city === 'all' ? null : +city, cat === 'all' ? null : +cat).then(
+    adminApi.dashboard(range, city === 'all' ? null : +city, cat === 'all' ? null : +cat).then(
       (x) => (setData(x), setAt(hhmm(new Date().toISOString()))),
       () => toast('Сервер не ответил'),
     );
-  }, [period, city, cat]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [range.from, range.to, city, cat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cities = ref.get()?.cities ?? [];
   const cats = ref.get()?.cats ?? [];
@@ -46,7 +54,7 @@ export function Dashboard() {
 
   const csv = () =>
     data &&
-    downloadCsv(`ekor-dashboard-${period}d.csv`, [
+    downloadCsv(`ekor-dashboard-${range.from}_${range.to}.csv`, [
       ['Показатель', 'Значение', 'Комментарий'], ...data.kpis.map(([l, v, c]) => [l, v, c]), [], ['Воронка', 'Число', 'Конверсия'], ...data.funnel.map(([l, n, p]) => [l, n, p]),
       [], ['Город', 'Задания', 'Мастера', 'Отклик 24ч', 'Выбор', 'Заверш.', '1-й отклик'], ...data.cities,
     ]);
@@ -55,6 +63,13 @@ export function Dashboard() {
     <>
       <Head title="Дашборд">
         <Seg value={period} onChange={setPeriod} items={PERIODS} />
+        {period === 'custom' && (
+          <>
+            <input type="date" className={s.chip} aria-label="С" value={own.from} max={own.to || undefined} onChange={(e) => setOwn({ ...own, from: e.target.value })} />
+            <span className={s.muted}>–</span>
+            <input type="date" className={s.chip} aria-label="По" value={own.to} min={own.from || undefined} max={day(new Date())} onChange={(e) => setOwn({ ...own, to: e.target.value })} />
+          </>
+        )}
         <SelectChip label="" value={city} onChange={setCity} options={[['all', 'Все города'], ...cities.map((c): [string, string] => [String(c.id), c.name.ru])]} />
         <SelectChip label="" value={cat} onChange={setCat} options={[['all', 'Все категории'], ...cats.map((c): [string, string] => [String(c.id), c.name.ru])]} />
         <span className={s.grow} />
@@ -101,12 +116,12 @@ export function Dashboard() {
             <div className={d.card} style={{ padding: '14px 16px', gap: 10 }}>
               <div className={d.cardHead}>
                 <span className={d.cardT}>Новые задания по дням</span>
-                <span className={s.muted}>14 дней</span>
+                <span className={s.muted}>последние {data.bars.length} дн.</span>
               </div>
-              <div className={d.bars}>
+              <div className={d.bars} style={{ gridTemplateColumns: `repeat(${Math.max(data.bars.length, 7)}, 1fr)` }}>
                 {data.bars.map((b, i) => (
                   <div key={i} className={d.bar} title={`${b.d}: ${b.v}`}>
-                    <div style={{ height: `${(b.v / barMax) * 100}%`, background: i >= 7 ? '#2647D9' : '#C9D4F7' }} />
+                    <div style={{ height: `${(b.v / barMax) * 100}%`, background: i >= data.bars.length - 7 ? '#2647D9' : '#C9D4F7' }} />
                     <span>{b.d}</span>
                   </div>
                 ))}

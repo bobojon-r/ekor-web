@@ -30,6 +30,8 @@ export type Check = [string, 0 | 1 | 2, string];
 export type MasterCard = {
   name: string; sub: string; meta: string; avatar?: string; city: string; prices: string; about: string; photos: string[]; checklist: Check[]; verified: boolean;
   marks?: [number, number][]; phone?: string;
+  /** Изменения профиля «было / стало» и запрос «Проверен» с документами */
+  changes?: { label: string; before: string; after: string }[]; verifyReq?: { comment: string | null; photos: string[]; meta: string } | null;
 };
 
 export type DisputeV = {

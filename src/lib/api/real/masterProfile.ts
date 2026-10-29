@@ -9,7 +9,7 @@ type Own = {
   professions: { category_id: number; price_from: number | null; negotiable: boolean; status: 'review' | 'approved' }[];
   city: NR | null; districts: (NR & { near: boolean })[]; works_online: boolean; experience: (typeof EXP)[number] | null; about: string | null;
   languages: string[]; services: { title: string; price: number | null }[]; portfolio: { upload_id: number; url: string; caption: string | null }[];
-  avatar_url: string | null; show_phone: boolean; accepting_orders: boolean; available_today: boolean; notify_new_tasks: boolean; notify_chat: boolean; notify_channel: 'sms' | 'push';
+  avatar_url: string | null; verified: boolean; show_phone: boolean; accepting_orders: boolean; available_today: boolean; notify_new_tasks: boolean; notify_chat: boolean; notify_channel: 'sms' | 'push';
 };
 
 const EXP = ['lt1', '1_3', '3_10', 'gt10'] as const;
@@ -34,6 +34,7 @@ function toData(o: Own): MasterProfileData {
     about: o.about ?? '',
     showPhone: o.show_phone,
     langs: o.languages,
+    verified: o.verified,
     avatar: !!o.avatar_url,
     avatarUrl: o.avatar_url ?? undefined,
     photos: o.portfolio.map((x) => x.upload_id),

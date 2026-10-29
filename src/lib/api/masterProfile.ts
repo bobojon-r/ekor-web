@@ -17,6 +17,8 @@ export type MasterProfileData = {
   showPhone: boolean;
   langs?: string[];
   avatar?: boolean;
+  /** Отметка «Проверен» (ставит модератор после сверки документа) */
+  verified?: boolean;
   /** Портфолио: id фото (файлы хранит сервер) */
   photos?: number[];
   /** Профессии, добавленные после одобрения и ждущие модерации */

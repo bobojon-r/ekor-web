@@ -15,11 +15,12 @@ import { masterDict } from '@/features/master/i18n';
 import { profs } from '@/features/onboarding/i18n';
 import { ALL_AREAS, phoneDict, settingsDict } from './i18n';
 import { CHAT } from '@/lib/features';
+import { VerifyRequest } from '@/components/VerifyRequest';
 import s from './Settings.module.css';
 
 const DEFAULT: MasterProfileData = {
   status: 'approved', profs: ['electric', 'furniture'], city: 'Душанбе', areas: ['Сино', 'Фирдавсӣ', 'Шоҳмансур'], online: false, prices: { electric: 50, furniture: null },
-  exp: 2, about: '', showPhone: false, accepting: true, freeToday: true, notifyTasks: true, notifyChat: true, channel: 'sms',
+  exp: 2, about: '', showPhone: false, verified: true, accepting: true, freeToday: true, notifyTasks: true, notifyChat: true, channel: 'sms',
 };
 
 export function MasterSettings() {
@@ -97,7 +98,7 @@ export function MasterSettings() {
         <div className={s.profileText}>
           <span className={desktop ? s.nameD : s.nameM}>
             {name}
-            {desktop && p.status === 'approved' && (
+            {desktop && p.verified && (
               <span className={s.verifiedPill}>
                 <ShieldCheck size={16} aria-hidden />
                 {t.verified}
@@ -107,7 +108,7 @@ export function MasterSettings() {
           <span className={s.muted14}>
             {p.profs.map(pName).join(', ')} · {p.city}
           </span>
-          {!desktop && p.status === 'approved' && (
+          {!desktop && p.verified && (
             <span className={s.verifiedTxt}>
               <ShieldCheck size={16} aria-hidden />
               {t.verified}
@@ -312,6 +313,7 @@ export function MasterSettings() {
         </div>
         <div className={s.mBody}>
           {profileCard(false)}
+          {p.status === 'approved' && !p.verified && <VerifyRequest />}
           {availability(false)}
           <div className={s.overline}>{t.work}</div>
           {work}
@@ -331,6 +333,7 @@ export function MasterSettings() {
         <SideNav items={masterSideItems(mt, [0, 0, 0], 0)} />
         <div className={s.dMain}>
           {profileCard(true)}
+          {p.status === 'approved' && !p.verified && <VerifyRequest />}
           <div className={s.dGrid}>
             <div className={s.dCol}>
               {availability(true)}

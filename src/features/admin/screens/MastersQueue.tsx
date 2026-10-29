@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { BadgeCheck, Check, CircleHelp, TriangleAlert, UserX, X } from 'lucide-react';
 import { apiErrorText } from '@/lib/api';
 import { useToast } from '@/components/ui';
@@ -37,7 +37,7 @@ export function MastersQueue() {
     reason: Reason | null;
     comment: string;
   }>(null);
-  const [ver, setVer] = useState<null | { on: boolean; comment: string }>(null);
+  const [ver, setVer] = useState<null | { on: boolean; comment: string; decline?: boolean }>(null);
   const [verified, setVerified] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lock, setLock] = useState<Lock | null>(null);
@@ -79,6 +79,7 @@ export function MastersQueue() {
   const failed = checks.filter((c) => c[1] === 0).length;
   const by = lock && !lock.mine ? lock.name : null;
   const senior = me.role !== 'moderator';
+  const isReq = cur?.type === '«Проверен»';
   const decide = async (ok: boolean, reason?: Reason, comment?: string, back = false) => {
     if (!cur || busy || by) return;
     if (ok && !back) {
@@ -130,8 +131,8 @@ export function MastersQueue() {
       ? {
           j: () => setSel((i) => Math.min(view.length - 1, i + 1)),
           k: () => setSel((i) => Math.max(0, i - 1)),
-          a: () => !failed && card && decide(true),
-          r: () => !by && setRej({ back: false, reason: null, comment: '' }),
+          a: () => (isReq ? senior && !by && setVer({ on: true, comment: '' }) : !failed && card && decide(true)),
+          r: () => !by && (isReq ? senior && setVer({ on: false, comment: '', decline: true }) : setRej({ back: false, reason: null, comment: '' })),
         }
       : {},
   );
@@ -226,9 +227,7 @@ export function MastersQueue() {
                       <span style={{ color: '#3B4756' }}>{card.sub}</span>
                       <span className={s.metaLine}>{card.meta}</span>
                     </div>
-                    <Pill big tone="warn">
-                      На проверке
-                    </Pill>
+                    <Pill big tone={isReq ? 'ok' : 'warn'}>{isReq ? 'Запрос «Проверен»' : 'На проверке'}</Pill>
                   </div>
                   <div
                     className={s.kv}
@@ -246,6 +245,38 @@ export function MastersQueue() {
                       <Marked text={card.about} marks={card.marks} />
                     </span>
                   </div>
+                  {card.verifyReq && (
+                    <div className={s.col6}>
+                      <Label>Запрос «Проверен» · {card.verifyReq.meta}</Label>
+                      <span style={{ lineHeight: 1.5 }}>{card.verifyReq.comment || 'Без комментария'}</span>
+                      {card.verifyReq.photos.length ? (
+                        <div className={s.photos6}>
+                          {card.verifyReq.photos.map((p, i) => (
+                            <Photo key={i} src={p || undefined} />
+                          ))}
+                        </div>
+                      ) : (
+                        <span className={s.muted}>Документы не приложены — сверьте по звонку</span>
+                      )}
+                    </div>
+                  )}
+                  {!!card.changes?.length && (
+                    <div className={s.col6}>
+                      <Label>Было → стало · {card.changes.length}</Label>
+                      <div className={s.kv} style={{ gridTemplateColumns: '110px 1fr 1fr', gap: '6px 12px' }}>
+                        <span />
+                        <span className={s.muted}>Было</span>
+                        <span className={s.muted}>Стало</span>
+                        {card.changes.map((c) => (
+                          <Fragment key={c.label}>
+                            <span>{c.label}</span>
+                            <span style={{ fontWeight: 400, color: '#A5281B', textDecoration: 'line-through', lineHeight: 1.5 }}>{c.before}</span>
+                            <span style={{ fontWeight: 400, color: '#0B6E5E', lineHeight: 1.5 }}>{c.after}</span>
+                          </Fragment>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className={s.col6}>
                     <Label>Портфолио · {card.photos.length} фото</Label>
                     {card.photos.length ? (
@@ -331,7 +362,13 @@ export function MastersQueue() {
                       <span>Этот профиль сейчас смотрит {by}. Решение доступно, когда он закончит или через 10 минут.</span>
                     </div>
                   )}
-                  {senior && (
+                  {isReq && !senior && (
+                    <div className={s.alertWarn}>
+                      <TriangleAlert size={15} aria-hidden />
+                      <span>Запрос «Проверен» решает старший модератор или администратор.</span>
+                    </div>
+                  )}
+                  {senior && !isReq && (
                     <div className={s.swRow}>
                       <Switch on={verified} onClick={() => setVer({ on: !verified, comment: '' })} label="Отметка «Проверен»" />
                       <div className={s.col4} style={{ gap: 2 }}>
@@ -341,6 +378,17 @@ export function MastersQueue() {
                     </div>
                   )}
                 </div>
+                {isReq ? (
+                  <div className={s.panelFoot} style={{ padding: '12px 20px' }}>
+                    <button type="button" className={cx(s.btn, s.btnOutRed)} disabled={!!by || !senior} onClick={() => setVer({ on: false, comment: '', decline: true })}>
+                      Отказать…
+                    </button>
+                    <span className={s.grow} />
+                    <button type="button" className={cx(s.btn, s.btnGreen)} disabled={!!by || !senior || verified} onClick={() => setVer({ on: true, comment: '' })}>
+                      {verified ? 'Уже «Проверен»' : 'Отметить «Проверен»…'}
+                    </button>
+                  </div>
+                ) : (
                 <div className={s.panelFoot} style={{ padding: '12px 20px' }}>
                   <button type="button" className={cx(s.btn, s.btnOutRed)} disabled={!!by} onClick={() => setRej({ back: false, reason: null, comment: '' })}>
                     Отклонить…
@@ -353,6 +401,7 @@ export function MastersQueue() {
                     {failed ? `Одобрить — ${failed} ${failed === 1 ? 'пункт не пройден' : 'пункта не пройдено'}` : 'Одобрить'}
                   </button>
                 </div>
+                )}
               </>
             )}
           </div>
@@ -395,20 +444,24 @@ export function MastersQueue() {
       {ver && cur && (
         <Modal
           icon={BadgeCheck}
-          tone="blue"
-          title={ver.on ? `Отметить ${cur.name} «Проверен»?` : 'Снять отметку «Проверен»?'}
-          sub="Только после звонка и сверки документа"
-          okText={ver.on ? 'Поставить отметку' : 'Снять отметку'}
+          tone={ver.decline ? 'red' : 'blue'}
+          title={ver.decline ? `Отказать ${cur.name} в «Проверен»?` : ver.on ? `Отметить ${cur.name} «Проверен»?` : 'Снять отметку «Проверен»?'}
+          sub={ver.decline ? 'Мастер увидит объяснение и сможет запросить снова' : 'Только после звонка и сверки документа'}
+          okText={ver.decline ? 'Отказать' : ver.on ? 'Поставить отметку' : 'Снять отметку'}
+          okTone={ver.decline ? 'red' : undefined}
           okDisabled={ver.comment.trim().length < 10}
           busy={busy}
           onClose={() => setVer(null)}
           onOk={async () => {
             setBusy(true);
             try {
-              await adminApi.verifyMaster(cur, ver.on, ver.comment.trim());
-              setVerified(ver.on);
+              if (ver.decline) await adminApi.declineVerify(cur, ver.comment.trim());
+              else await adminApi.verifyMaster(cur, ver.on, ver.comment.trim());
+              setVerified(ver.on && !ver.decline);
               setVer(null);
-              toast(ver.on ? 'Отметка «Проверен» поставлена' : 'Отметка снята');
+              toast(ver.decline ? 'Отказано. Мастер получил объяснение' : ver.on ? 'Отметка «Проверен» поставлена' : 'Отметка снята');
+              // Запрос решён — уходит из очереди
+              if (isReq) (setRows((r) => r?.filter((x) => x.key !== cur.key) ?? r), refreshCounts());
             } catch (e) {
               toast(apiErrorText(e, 'ru'));
             }
@@ -417,10 +470,10 @@ export function MastersQueue() {
         >
           <div className={s.col4}>
             <span className={s.fieldT}>
-              Что проверено <span style={{ color: '#B03A2E' }}>*</span>
+              {ver.decline ? 'Почему отказано' : 'Что проверено'} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
-            <textarea className={s.textarea} rows={3} value={ver.comment} onChange={(e) => setVer({ ...ver, comment: e.target.value.slice(0, 300) })} placeholder="Например: звонок + паспорт, совпадает с фото" autoFocus />
-            <span className={s.muted}>Попадёт в аудит-лог (master.verify)</span>
+            <textarea className={s.textarea} rows={3} value={ver.comment} onChange={(e) => setVer({ ...ver, comment: e.target.value.slice(0, 300) })} placeholder={ver.decline ? 'Например: на фото документа не видно имени' : 'Например: звонок + паспорт, совпадает с фото'} autoFocus />
+            <span className={s.muted}>{ver.decline ? 'Мастер увидит это объяснение. Запись — в аудит-логе' : 'Попадёт в аудит-лог (master.verify)'}</span>
           </div>
         </Modal>
       )}
