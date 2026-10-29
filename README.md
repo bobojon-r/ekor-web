@@ -19,7 +19,7 @@ npm run typecheck
 
 ```bash
 NEXT_PUBLIC_API=real npm run dev
-NEXT_PUBLIC_API=real ./deploy.sh
+./deploy.sh                      # выкладка на bbs@100.81.2.104:7788 (по умолчанию real)
 ```
 
 - Браузер ходит на `/api` своего домена, Next проксирует в `API_ORIGIN` (rewrites) — CORS не нужен.
