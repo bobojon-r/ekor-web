@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation';
 import { BadgeCheck, ChevronLeft, Flag, Info, Languages, MapPin, Phone, Share2, ShieldCheck, Star, UserSearch } from 'lucide-react';
 import { api, apiErrorText, type Master, type Review } from '@/lib/api';
 import { useSession } from '@/lib/session/SessionProvider';
-import { countReviews, initials, money, phoneMask, rating, useDict, useLang, type Lang } from '@/lib/i18n';
+import { countReviews, money, phoneMask, rating, useDict, useLang, type Lang } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { SiteHeader } from '@/components/layout';
-import { ButtonLink, EmptyState, Skeleton, useToast } from '@/components/ui';
+import { ButtonLink, EmptyState, Skeleton, useToast, Face } from '@/components/ui';
 import { InviteSheet } from '@/features/invite/InviteSheet';
 import { mastersDict } from './i18n';
 import s from './Profile.module.css';
@@ -118,7 +118,7 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
             <div className={s.mHero}>
               <div className={s.mHeroRow}>
                 <span className={s.av} style={{ width: 80, height: 80, fontSize: 22 }}>
-                  {initials(m.name)}
+                  <Face src={m.avatarUrl} name={m.name} />
                 </span>
                 <div className={s.mHeroText}>
                   <h1 className={s.mName}>{m.name}</h1>
@@ -231,7 +231,7 @@ export function MasterProfile({ id, inviteOpen = false }: { id: number; inviteOp
             <div className={s.dMain}>
               <div className={s.dHero}>
                 <span className={s.av} style={{ width: 120, height: 120, fontSize: 30 }}>
-                  {initials(m.name)}
+                  <Face src={m.avatarUrl} name={m.name} />
                 </span>
                 <div className={s.dHeroText}>
                   <h1 className={s.dName}>{m.name}</h1>

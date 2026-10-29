@@ -16,7 +16,7 @@ import { useRegion } from '@/lib/hooks/useRegion';
 import { useSession } from '@/lib/session/SessionProvider';
 import { Footer, TabBar } from '@/components/layout';
 import { SiteHeader } from '@/components/layout/SiteHeader';
-import { Icon, LangSwitch, Segmented, VerifiedBadge } from '@/components/ui';
+import { Icon, LangSwitch, Segmented, VerifiedBadge, Face } from '@/components/ui';
 import { homeDict } from './i18n';
 import { LoadState } from '@/features/system/SystemStates';
 import s from './Home.module.css';
@@ -605,7 +605,7 @@ function MasterRow({ m, lang }: { m: Master; lang: Lang }) {
   return (
     <Link href={`/masters/${m.id}`} className={s.mMaster}>
       <span className={s.avStriped} style={{ width: 56, height: 56, fontSize: 15 }}>
-        {initials(m.name)}
+        <Face src={m.avatarUrl} name={m.name} />
       </span>
       <span className={s.mMasterBody}>
         <span className={s.mMasterName}>
@@ -637,7 +637,7 @@ function MasterCardD({ m, lang, offer }: { m: Master; lang: Lang; offer: string 
     <div className={s.dMaster}>
       <div className={s.dMasterTop}>
         <span className={s.avStriped} style={{ width: 64, height: 64, fontSize: 17 }}>
-          {initials(m.name)}
+          <Face src={m.avatarUrl} name={m.name} />
         </span>
         {m.available && <span className={s.availBadge}>{c.availableToday}</span>}
       </div>

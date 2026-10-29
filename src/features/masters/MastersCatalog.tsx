@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpDown, ChevronLeft, Search, SearchX, ShieldCheck, SlidersHorizontal, Star, X } from 'lucide-react';
 import { api, type CatalogCategory, type Master, type MastersQuery, type RegionKey } from '@/lib/api';
-import { countReviews, initials, money, rating, useDict, useLang, type Lang } from '@/lib/i18n';
+import { countReviews, money, rating, useDict, useLang, type Lang } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { useRegion } from '@/lib/hooks/useRegion';
 import { SiteHeader, TabBar } from '@/components/layout';
-import { LangSwitch, Sheet } from '@/components/ui';
+import { LangSwitch, Sheet, Face } from '@/components/ui';
 import { mastersDict } from './i18n';
 import { LoadState } from '@/features/system/SystemStates';
 import s from './Masters.module.css';
@@ -408,7 +408,7 @@ function MasterCardM({ m, lang }: { m: Master; lang: Lang }) {
     <Link href={`/masters/${m.id}`} className={s.mCard}>
       <span className={s.mCardTop}>
         <span className={s.av} style={{ width: 56, height: 56, fontSize: 15 }}>
-          {initials(m.name)}
+          <Face src={m.avatarUrl} name={m.name} />
         </span>
         <span className={s.mCardBody}>
           <span className={s.mName}>
@@ -438,7 +438,7 @@ function MasterCardD({ m, lang }: { m: Master; lang: Lang }) {
   return (
     <div className={s.dCard}>
       <span className={s.av} style={{ width: 72, height: 72, fontSize: 18 }}>
-        {initials(m.name)}
+        <Face src={m.avatarUrl} name={m.name} />
       </span>
       <div className={s.dCardBody}>
         <div className={s.dNameRow}>

@@ -8,12 +8,12 @@ import {
   MapPin, MessageCircle, MessagesSquare, Phone, Plus, Send, Settings, ShieldAlert, ShieldCheck, Star, Users, Wallet, ClipboardList,
 } from 'lucide-react';
 import { api, apiErrorText, clientTasks, isArchived, USE_API, type ClientTask, type ClientTaskStatus, type TaskResponse } from '@/lib/api';
-import { countResponses, initials, num, phoneMask, rating as fmtRating, useDict, useLang, type Lang } from '@/lib/i18n';
+import { countResponses, num, phoneMask, rating as fmtRating, useDict, useLang, type Lang } from '@/lib/i18n';
 import { useLoad } from '@/lib/hooks/useLoad';
 import { useSession } from '@/lib/session/SessionProvider';
 import { ProfileCard, SideNav, SiteHeader, TabBar, type SideItem } from '@/components/layout';
 import { LoadState } from '@/features/system/SystemStates';
-import { Button, ButtonLink, LangSwitch, Segmented, Sheet, Skeleton, useToast } from '@/components/ui';
+import { Button, ButtonLink, LangSwitch, Segmented, Sheet, Skeleton, useToast, Face } from '@/components/ui';
 import { clientDict } from './i18n';
 import { DisputeRequests } from '@/components/DisputeRequests';
 import { CHAT } from '@/lib/features';
@@ -465,7 +465,7 @@ function TaskDetail({ k, wide, t, lang, act, openModal }: { k: ClientTask; wide:
           <span className={s.overline}>{t.yourMaster}</span>
           <div className={s.masterRow}>
             <span className={s.avStriped} style={{ width: 52, height: 52 }}>
-              {initials(k.master.name)}
+              <Face src={k.master.avatarUrl} name={k.master.name} />
             </span>
             <div className={s.masterText}>
               <span className={s.masterName}>
@@ -607,7 +607,7 @@ function ResponseCard({ r, t, best, cheapest, price, onChoose }: { r: TaskRespon
     <div className={s.resp} style={{ borderColor: best ? '#f1d3af' : 'var(--line-200)' }}>
       <div className={s.respTop}>
         <span className={s.avStriped} style={{ width: 48, height: 48 }}>
-          {initials(r.name)}
+          <Face src={r.avatarUrl} name={r.name} />
         </span>
         <div className={s.respWho}>
           <span className={s.masterName}>
@@ -688,7 +688,7 @@ function ActionModal({ modal, tasks, t, onClose, act }: { modal: NonNullable<Mod
           <>
             <div className={s.chooseCard}>
               <span className={s.avStriped} style={{ width: 48, height: 48 }}>
-                {initials(r.name)}
+                <Face src={r.avatarUrl} name={r.name} />
               </span>
               <div className={s.respWho}>
                 <span className={s.masterName}>{r.name}</span>

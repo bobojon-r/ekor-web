@@ -133,6 +133,14 @@ export function Skeleton({ w = '100%', h = 14, r = 4, light }: { w?: number | st
 }
 
 /** Аватар — инициалы на brand-100 (фото пока заглушки) */
+/** Фото человека, а если его нет или не загрузилось — инициалы. Кладётся внутрь круглой «подложки» экрана */
+export function Face({ src, name }: { src?: string | null; name: string }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  if (!src || broken) return <>{toInitials(name)}</>;
+  return <img src={src} alt="" onError={() => setBroken(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }} />;
+}
+
 export function Avatar({ name, size = 52, tone = 'brand', striped }: { name: string; size?: number; tone?: 'brand' | 'success' | 'warn'; striped?: boolean }) {
   return (
     <span

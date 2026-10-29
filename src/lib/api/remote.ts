@@ -43,6 +43,7 @@ function toMaster(m: MasterCardOut, full?: MasterPublicOut): Master {
   const v: Master = {
     id: m.id,
     name: m.name ?? '',
+    avatarUrl: m.avatar_url ?? undefined,
     profession: l10n(m.headline),
     category: catKey(m.headline),
     region: cityKey(m.city),

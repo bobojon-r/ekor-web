@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, CircleHelp, Eye, FileText, Globe, Lock, LogOut, MapPin, Pause, Phone, Plus, Repeat, ShieldCheck, Wrench, X } from 'lucide-react';
 import { api, apiErrorText, masterProfile, USE_API, type MasterProfileData } from '@/lib/api';
 import { LoadState } from '@/features/system/SystemStates';
-import { initials, num, phoneMask, useDict, useLang } from '@/lib/i18n';
+import { num, phoneMask, useDict, useLang } from '@/lib/i18n';
 import { useRequireMaster, useSession } from '@/lib/session/SessionProvider';
 import { SideNav, SiteHeader, TabBar } from '@/components/layout';
-import { Button, ConfirmSheet, OtpInput, PhoneField, Segmented, Sheet, Switch, TestCodeNotice, useToast } from '@/components/ui';
+import { Button, ConfirmSheet, OtpInput, PhoneField, Segmented, Sheet, Switch, TestCodeNotice, useToast, Face } from '@/components/ui';
 import { masterSideItems } from '@/features/master/MasterCabinet';
 import { masterDict } from '@/features/master/i18n';
 import { profs } from '@/features/onboarding/i18n';
@@ -93,7 +93,7 @@ export function MasterSettings() {
     <div className={desktop ? s.profileD : s.profileM}>
       <div className={s.profileRow}>
         <span className={s.av} style={{ width: desktop ? 64 : 56, height: desktop ? 64 : 56, fontSize: desktop ? 22 : 20 }}>
-          {initials(name)}
+          <Face src={p.avatarUrl} name={name} />
         </span>
         <div className={s.profileText}>
           <span className={desktop ? s.nameD : s.nameM}>

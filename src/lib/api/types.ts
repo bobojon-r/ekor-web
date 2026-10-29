@@ -18,6 +18,8 @@ export type CatalogCategory = 'repair' | 'plumbing' | 'electric' | 'appliances' 
 export type Master = {
   id: number;
   name: string;
+  /** Фото профиля (публичная ссылка бэкенда) */
+  avatarUrl?: string;
   profession: L10n;
   category: CatalogCategory;
   region?: RegionKey;

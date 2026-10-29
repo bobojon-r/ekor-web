@@ -10,6 +10,7 @@ export type ClientTaskStatus = 'review' | 'open' | 'chosen' | 'wait' | 'dispute'
 
 export type TaskResponse = {
   id: string;
+  avatarUrl?: string;
   masterId?: number;
   name: string;
   rating: number;
@@ -22,7 +23,7 @@ export type TaskResponse = {
   msg: string;
 };
 
-export type ChosenMaster = { name: string; masterId?: number; rating: number; reviews: number; verified: boolean; category: CatalogCategory | 'other'; price: number | null; phone: string };
+export type ChosenMaster = { name: string; avatarUrl?: string; masterId?: number; rating: number; reviews: number; verified: boolean; category: CatalogCategory | 'other'; price: number | null; phone: string };
 
 export type ClientTask = {
   id: number;

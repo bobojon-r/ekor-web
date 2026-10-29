@@ -13,11 +13,11 @@ type Reason = { code: string; text_ru: string; user_message_ru: string | null } 
 export type TaskOwnOut = TaskCardOut & {
   description: string; address: string | null; created_at: string; reject_reason: Reason; reject_comment: string | null;
 };
-type MasterBrief = { id: number; name: string | null; rating_avg: number | null; reviews_count: number; verified: boolean; experience: keyof typeof YEARS | null };
+type MasterBrief = { id: number; name: string | null; avatar_url: string | null; rating_avg: number | null; reviews_count: number; verified: boolean; experience: keyof typeof YEARS | null };
 type RespOut = { id: number; status: string; price: number | null; inspect: boolean; term: string; message: string; created_at: string; master: MasterBrief };
 export type OrderOut = {
   id: number; status: 'chosen' | 'work' | 'wait' | 'dispute' | 'done' | 'cancelled' | 'declined'; task: TaskCardOut & { district: NR | null }; price: number | null;
-  term: string | null; address: string | null; counterpart: { id: number; name: string; phone: string | null }; chat_id: number | null; created_at: string;
+  term: string | null; address: string | null; counterpart: { id: number; name: string; phone: string | null; avatar_url: string | null }; chat_id: number | null; created_at: string;
   actions: string[]; dispute?: { id: number; status: 'open' | 'resolved' } | null;
 };
 type MyReview = { order_id: number; rating: number; text: string; created_at: string; reply_text: string | null };
@@ -29,6 +29,7 @@ const toResp = (r: RespOut): TaskResponse => ({
   id: String(r.id),
   masterId: r.master.id,
   name: r.master.name ?? '',
+  avatarUrl: r.master.avatar_url ?? undefined,
   rating: r.master.rating_avg ?? 0,
   reviews: r.master.reviews_count,
   verified: r.master.verified,
@@ -92,6 +93,7 @@ async function build(): Promise<ClientTask[]> {
       responses: status === 'open' ? rs.filter((r) => r.status === 'sent' || r.status === 'viewed').map(toResp) : undefined,
       master: o && {
         name: o.counterpart.name,
+        avatarUrl: o.counterpart.avatar_url ?? undefined,
         masterId: o.counterpart.id,
         rating: chosen?.master.rating_avg ?? 0,
         reviews: chosen?.master.reviews_count ?? 0,
