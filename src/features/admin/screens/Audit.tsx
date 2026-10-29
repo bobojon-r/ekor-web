@@ -9,6 +9,7 @@ import type { AuditV } from '../data/types';
 import { downloadCsv, num } from '../core';
 import { cx, Head, Loading, Pill, SearchBox, SelectChip, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 const COLS = '96px 110px 140px 150px minmax(0,1fr)';
 const QUICK = ['user.block', 'chat.view', 'limits.*'];
@@ -49,10 +50,10 @@ export function Audit() {
 
   return (
     <>
-      <Head title="Аудит-лог">
-        <span className={s.muted}>{rows ? `${period === 'today' ? 'сегодня' : period === '7' ? '7 дней' : '30 дней'} · ${num(view.length)} записей` : ''}</span>
+      <Head title={L.audit.auditLog}>
+        <span className={s.muted}>{rows ? L.audit.zapisey(period === 'today' ? L.audit.segodnya : period === '7' ? L.audit._7Dney : L.audit._30Dney, num(view.length)) : ''}</span>
         <span className={s.grow} />
-        <SearchBox value={q} onChange={setQ} placeholder="ID объекта" slash />
+        <SearchBox value={q} onChange={setQ} placeholder={L.audit.idObekta} slash />
         <button
           type="button"
           className={s.hbtn}
@@ -61,7 +62,7 @@ export function Audit() {
             // С бэкендом — серверная выгрузка (до 50 000 строк, сама пишется в аудит); в демо — из таблицы
             const url = adminApi.auditCsvUrl({ action, objectId: qDeb, days: period === 'today' ? 1 : +period });
             if (url) window.location.href = url;
-            else downloadCsv('ekor-audit.csv', [['Время', 'Сотрудник', 'Действие', 'Объект', 'Детали'], ...view.map((a) => [a.time, a.who, a.action, a.obj, a.details])]);
+            else downloadCsv('ekor-audit.csv', [[L.audit.vremya, L.audit.sotrudnik, L.audit.deystvie, L.audit.obekt, L.audit.detali], ...view.map((a) => [a.time, a.who, a.action, a.obj, a.details])]);
           }}
         >
           <Download size={15} aria-hidden />
@@ -69,9 +70,9 @@ export function Audit() {
         </button>
       </Head>
       <div className={s.filters}>
-        <SelectChip label="" value={period} onChange={setPeriod} options={[['today', 'Сегодня'], ['7', '7 дней'], ['30', '30 дней']]} />
-        <SelectChip label="Сотрудник" value={who} onChange={setWho} options={[['all', 'все'], ...people.map((p): [string, string] => [p, p])]} />
-        <SelectChip label="Действие" value={QUICK.includes(action) || !action ? '' : action} onChange={setAction} options={[['', 'все'], ...actions.map((a): [string, string] => [a, a])]} />
+        <SelectChip label="" value={period} onChange={setPeriod} options={[['today', L.audit.segodnya2], ['7', L.audit._7Dney], ['30', L.audit._30Dney]]} />
+        <SelectChip label={L.audit.sotrudnik} value={who} onChange={setWho} options={[['all', L.audit.vse], ...people.map((p): [string, string] => [p, p])]} />
+        <SelectChip label={L.audit.deystvie} value={QUICK.includes(action) || !action ? '' : action} onChange={setAction} options={[['', L.audit.vse], ...actions.map((a): [string, string] => [a, a])]} />
         {QUICK.map((a) => (
           <button key={a} type="button" aria-pressed={action === a} className={cx(s.chip, action === a ? s.chipOn : s.chipLight)} onClick={() => setAction(action === a ? '' : a)}>
             {a}
@@ -84,14 +85,14 @@ export function Audit() {
         <div className={s.split} style={{ gridTemplateColumns: 'minmax(0,1fr) 400px' }}>
           <div className={s.list}>
             <div className={s.thead} style={{ gridTemplateColumns: COLS, padding: '0 16px' }}>
-              <span>Время</span>
-              <span>Сотрудник</span>
-              <span>Действие</span>
-              <span>Объект</span>
-              <span>Детали</span>
+              <span>{L.audit.vremya}</span>
+              <span>{L.audit.sotrudnik}</span>
+              <span>{L.audit.deystvie}</span>
+              <span>{L.audit.obekt}</span>
+              <span>{L.audit.detali}</span>
             </div>
             <div className={s.scroll}>
-              {view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>Записей нет</div>}
+              {view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>{L.audit.zapiseyNet}</div>}
               {view.map((a) => (
                 <div key={a.key} role="button" tabIndex={0} onClick={() => setSelKey(a.key)} onKeyDown={(e) => e.key === 'Enter' && setSelKey(a.key)} className={cx(s.row, cur?.key === a.key && s.rowOn)} style={{ gridTemplateColumns: COLS, padding: '0 16px' }}>
                   <span className={s.id} title={a.date}>{period === 'today' ? a.time : `${a.date ?? ''} ${a.time.slice(0, 5)}`}</span>
@@ -122,15 +123,15 @@ export function Audit() {
                 </span>
               </div>
               <div className={s.kv} style={{ gridTemplateColumns: '100px 1fr', gap: '6px 10px' }}>
-                <span>Сотрудник</span>
+                <span>{L.audit.sotrudnik}</span>
                 <span style={{ fontWeight: 400 }}>{cur.who}</span>
-                <span>Объект</span>
+                <span>{L.audit.obekt}</span>
                 <span style={{ fontWeight: 400, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{cur.obj}</span>
-                <span>Основание</span>
+                <span>{L.audit.osnovanie}</span>
                 <span style={{ fontWeight: 400 }}>{cur.comment || '—'}</span>
                 {(cur.ip || cur.device) && (
                   <>
-                    <span>IP / устройство</span>
+                    <span>{L.audit.ipUstroystvo}</span>
                     <span style={{ fontWeight: 400, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{[cur.ip, cur.device].filter(Boolean).join(' · ')}</span>
                   </>
                 )}
@@ -138,7 +139,7 @@ export function Audit() {
               {diffKeys.length > 0 && (
                 <div style={{ border: '1px solid #E1E6EC', borderRadius: 8, overflow: 'hidden', font: "500 12px/1.7 'JetBrains Mono', monospace" }}>
                   <div className={s.label} style={{ display: 'block', padding: '6px 12px', background: '#F7F9FB', borderBottom: '1px solid #E1E6EC' }}>
-                    Было → стало
+                    {L.audit.byloStalo}
                   </div>
                   {diffKeys.map((k) => (
                     <div key={k}>
@@ -150,11 +151,11 @@ export function Audit() {
               )}
               <div className={s.alertInfo}>
                 <Lock size={15} aria-hidden />
-                <span>Записи нельзя изменить или удалить. Хранение — 3 года.</span>
+                <span>{L.audit.zapisiNelzyaIzmenitIli}</span>
               </div>
             </div>
           ) : (
-            <div className={s.loading}>Выберите запись</div>
+            <div className={s.loading}>{L.audit.vyberiteZapis}</div>
           )}
         </div>
       )}

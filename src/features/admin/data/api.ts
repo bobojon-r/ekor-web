@@ -10,6 +10,7 @@ import * as demo from './demo';
 import type {
   AuditV, CatNode, ChatMsg, CityNode, ComplaintV, Counts, Dash, DisputeV, HistoryV, LimitEffect, LimitV, Lock, MasterCard, MasterQ, MasterRegCard, MasterRegRow, Me, Reason, ReviewV, SessionV, StaffV, TaskQ, TaskRegCard, TaskRegRow, TimelineItem, TplCard, TplRow, TplText, UserCard, UserV,
 } from './types';
+import { L } from '../i18n';
 
 const wait = <T,>(v: T, ms = 250) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 /* ======================= типы ответов API ======================= */
@@ -108,7 +109,7 @@ const phoneFmt = (p: string) => {
   return d.length === 9 ? `+992 ${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 7)} ${d.slice(7)}` : p;
 };
 const minutesSince = (iso: string | null | undefined) => (iso ? Math.max(0, (Date.now() - +new Date(iso)) / 60000) : 0);
-const EXP: Record<string, string> = { lt1: 'опыт до 1 года', '1_3': 'опыт 1–3 года', '3_10': 'опыт 3–10 лет', gt10: 'опыт больше 10 лет' };
+const EXP: Record<string, string> = { lt1: L.api.opytDo1Goda, '1_3': L.api.opyt13Goda, '3_10': L.api.opyt310Let, gt10: L.api.opytBolshe10Let };
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 const ACT_TONE = (a: string): Tone => (/reject|block|hide|suspend/.test(a) ? 'bad' : /approve|resolve|verify|unblock|restore/.test(a) ? 'ok' : /edit|update|warn|limits/.test(a) ? 'warn' : 'info');
 const OBJ_PREFIX: Record<string, string> = { task: 'T-', master: 'M-', master_profile: 'M-', user: 'U-', review: 'R-', dispute: 'D-', order: 'O-', chat: 'O-', complaint: 'C-' };
@@ -156,7 +157,7 @@ export const adminApi = {
         const n = st.fails + 1;
         demoLock({ fails: n >= 5 ? 0 : n, until: n >= 5 ? Date.now() + 15 * 60000 : 0 });
         if (n >= 5) throw Object.assign(new Error('locked'), { status: 423, code: 'locked', details: { until: new Date(Date.now() + 15 * 60000).toISOString() } });
-        throw Object.assign(new Error('Неверная почта или пароль'), { status: 401, code: 'invalid_credentials', details: { attempts_left: 5 - n } });
+        throw Object.assign(new Error(L.api.nevernayaPochtaIliParol), { status: 401, code: 'invalid_credentials', details: { attempts_left: 5 - n } });
       }
       demoLock({ fails: 0, until: 0 });
       try {
@@ -181,7 +182,7 @@ export const adminApi = {
 
   /** Счётчики меню; moderator не видит споры, отзывы и жалобы — их не запрашиваем (иначе 403) */
   async counts(role: Role = 'admin'): Promise<Counts> {
-    if (!USE_API) return wait({ ...demo.demoCounts, tasks: mem.tasks.length, masters: mem.masters.filter((m) => m.type === 'Новый' || m.type === 'Повторно').length, disputes: mem.disputes.filter((d) => d.open).length, reviews: mem.reviews.filter((r) => r.status === 'review').length, chats: mem.complaints.filter((c) => c.open).length }, 0);
+    if (!USE_API) return wait({ ...demo.demoCounts, tasks: mem.tasks.length, masters: mem.masters.filter((m) => m.type === L.api.novyy || m.type === L.api.povtorno).length, disputes: mem.disputes.filter((d) => d.open).length, reviews: mem.reviews.filter((r) => r.status === 'review').length, chats: mem.complaints.filter((c) => c.open).length }, 0);
     const senior = role !== 'moderator';
     const [t, m, d, r, c] = await Promise.all([
       http<QueuePage<QueueTask>>('/admin/moderation/tasks', { query: { limit: 1 } }).catch(() => null),
@@ -194,7 +195,7 @@ export const adminApi = {
     const hot = d.map((x) => hoursLeft(x.deadline)).filter((h): h is number => h != null && h <= 6);
     return {
       tasks: t?.total ?? 0, tasksLate: t?.overdue ?? 0, masters: m?.total ?? 0, disputes: d.length,
-      disputesHot: hot.length ? `${hot.length} горит · ${Math.max(0, Math.min(...hot))} ч` : 'в норме', reviews: r.length, chats: c.length,
+      disputesHot: hot.length ? L.api.goritCh(hot.length, Math.max(0, Math.min(...hot))) : L.api.vNorme, reviews: r.length, chats: c.length,
     };
   },
 
@@ -211,18 +212,18 @@ export const adminApi = {
     return {
       period: st.date_from === st.date_to ? fmtD(st.date_from) : `${fmtD(st.date_from)} – ${fmtD(st.date_to)}`,
       kpis: [
-        ['Новые задания', num(k.tasks_created), `опубликовано ${num(P)}`, true], ['Отклик за 24 ч', rate(k.response_24h_rate), `с откликом всего ${pct(step('responded'), P)}%`, true],
-        ['Выбор мастера', rate(k.choice_rate), `${num(step('chosen'))} заданий`, true], ['Завершено', rate(k.completion_rate), `${num(step('done'))} заказов`, true],
-        ['Новые мастера', num(k.masters_approved), `одобрено за период`, true],
-        ['Медиана модерации', k.moderation_median_minutes != null ? `${Math.round(k.moderation_median_minutes)} мин` : '—', 'норма 30 мин', (k.moderation_median_minutes ?? 0) <= 30],
+        [L.api.novyeZadaniya, num(k.tasks_created), L.api.opublikovano(num(P)), true], [L.api.otklikZa24Ch, rate(k.response_24h_rate), L.api.sOtklikomVsego(pct(step('responded'), P)), true],
+        [L.api.vyborMastera, rate(k.choice_rate), L.api.zadaniy(num(step('chosen'))), true], [L.api.zaversheno, rate(k.completion_rate), L.api.zakazov(num(step('done'))), true],
+        [L.api.novyeMastera, num(k.masters_approved), L.api.odobrenoZaPeriod, true],
+        [L.api.medianaModeratsii, k.moderation_median_minutes != null ? L.api.min(Math.round(k.moderation_median_minutes)) : '—', L.api.norma30Min, (k.moderation_median_minutes ?? 0) <= 30],
       ],
       funnel: [
-        ['Опубликовано', P, ''], ['С откликом', step('responded'), `${pct(step('responded'), P)}%`], ['Мастер выбран', step('chosen'), `${pct(step('chosen'), step('responded'))}%`],
-        ['Завершено', step('done'), `${pct(step('done'), step('chosen'))}%`], ['С отзывом', step('reviewed'), `${pct(step('reviewed'), step('done'))}%`],
+        [L.api.opublikovano2, P, ''], [L.api.sOtklikom, step('responded'), `${pct(step('responded'), P)}%`], [L.api.masterVybran, step('chosen'), `${pct(step('chosen'), step('responded'))}%`],
+        [L.api.zaversheno, step('done'), `${pct(step('done'), step('chosen'))}%`], [L.api.sOtzyvom, step('reviewed'), `${pct(step('reviewed'), step('done'))}%`],
       ],
       bars: st.daily.slice(-14).map((d) => ({ d: +d.day.slice(8), v: d.created })),
       cities: st.by_city.map((c): Dash['cities'][number] => [
-        c.name_ru, num(c.created), num(ref.cityById(c.city_id ?? -1)?.masters ?? 0), rate(c.response_24h_rate), rate(c.choice_rate), rate(c.completion_rate), c.first_response_median_minutes != null ? `${Math.round(c.first_response_median_minutes)} мин` : '—',
+        c.name_ru, num(c.created), num(ref.cityById(c.city_id ?? -1)?.masters ?? 0), rate(c.response_24h_rate), rate(c.choice_rate), rate(c.completion_rate), c.first_response_median_minutes != null ? L.api.min(Math.round(c.first_response_median_minutes)) : '—',
       ]),
       deficit: st.deficit.slice(0, 6).map((x): [string, string, number] => [x.category_name_ru, x.city_name_ru, Math.round(x.share * 100)]),
     };
@@ -235,7 +236,7 @@ export const adminApi = {
       const q = await http<QueuePage<QueueTask>>('/admin/moderation/tasks', { query: { limit: 100 } });
       return q.items.map((x) => ({
         key: String(x.id), id: `T-${x.id}`, title: x.title, cat: (x.subcategory ?? x.category).name_ru, city: placeText(x.mode, x.city, x.district),
-        author: x.author.name ?? `#${x.author.id}`, authorMeta: [phoneFmt(x.author.phone), `${x.author.tasks_count} ${plural(x.author.tasks_count, 'задание', 'задания', 'заданий')}`, `с ${dayMon(x.author.registered_at)} ${new Date(x.author.registered_at).getFullYear()}`].join(' · '),
+        author: x.author.name ?? `#${x.author.id}`, authorMeta: [phoneFmt(x.author.phone), `${x.author.tasks_count} ${plural(x.author.tasks_count, L.api.zadanie, L.api.zadaniya, L.api.zadaniy2)}`, L.api.s(dayMon(x.author.registered_at), new Date(x.author.registered_at).getFullYear())].join(' · '),
         budget: budgetText(x.budget_mode, x.budget_min, x.budget_max), when: whenText(x.when, x.date), ageMin: minutesSince(x.submitted_at), slaLeft: x.sla_deadline ? (+new Date(x.sla_deadline) - Date.now()) / 60000 : null,
         flags: [...new Set(x.flags.map((f) => flagOf(f)[0]))], text: x.description, photos: x.photos.map((p) => p.url), lock: lockOf(x.lock), address: x.address, authorId: x.author.id,
         marks: x.matches.filter((m) => m.field === 'description').map((m): [number, number] => [m.start, m.end]),
@@ -245,7 +246,7 @@ export const adminApi = {
     today.setHours(0, 0, 0, 0);
     const p = await http<RegPage<TaskRow>>('/admin/tasks', { query: tab === 'rejected' ? { status: 'rejected', limit: 100 } : { status: 'open', from: today.toISOString(), limit: 100 } });
     return p.items.map((t) => ({
-      key: String(t.id), id: `T-${t.id}`, title: t.title, cat: t.category.name_ru, city: [t.city?.name_ru, t.district?.name_ru].filter(Boolean).join(', ') || 'Онлайн', author: t.client.name ?? `#${t.client.id}`, authorMeta: t.client.phone,
+      key: String(t.id), id: `T-${t.id}`, title: t.title, cat: t.category.name_ru, city: [t.city?.name_ru, t.district?.name_ru].filter(Boolean).join(', ') || L.api.onlayn, author: t.client.name ?? `#${t.client.id}`, authorMeta: t.client.phone,
       budget: budgetText(t.budget_mode, t.budget_min, t.budget_max), when: '—', ageMin: minutesSince(t.created_at), slaLeft: null, flags: t.flags.map((f) => flagOf(f)[0]), text: '', photos: [],
     }));
   },
@@ -272,7 +273,7 @@ export const adminApi = {
       mem.tasks = mem.tasks.filter((x) => x.key !== t.key);
       if (ok) mem.approvedToday++;
       else mem.rejected.unshift(t);
-      log('Вы', ok ? 'task.approve' : 'task.reject', t.id, ok ? '' : `причина: ${reason?.label}`);
+      log(L.api.vy, ok ? 'task.approve' : 'task.reject', t.id, ok ? '' : L.api.prichina(reason?.label));
       return wait(null, 200);
     }
     if (ok) return http(`/admin/tasks/${t.key}/approve`, { method: 'POST' });
@@ -306,32 +307,32 @@ export const adminApi = {
       queueMasters.set(x.id, x);
       const again = x.flags.includes('repeat');
       return {
-        key: String(x.id), id: `M-${x.id}`, userId: x.id, name: x.name ?? `#${x.id}`, cats: x.professions.map((p) => p.category.name_ru).join(', ') || '—', city: x.city?.name_ru ?? (x.works_online ? 'Онлайн' : '—'),
+        key: String(x.id), id: `M-${x.id}`, userId: x.id, name: x.name ?? `#${x.id}`, cats: x.professions.map((p) => p.category.name_ru).join(', ') || '—', city: x.city?.name_ru ?? (x.works_online ? L.api.onlayn : '—'),
         agoMin: minutesSince(x.submitted_at), slaLeft: x.sla_deadline ? (+new Date(x.sla_deadline) - Date.now()) / 60000 : 24 * 60,
-        type: x.type === 'verify_request' ? '«Проверен»' : x.type === 'changes' ? 'Изменения' : again ? 'Повторно' : 'Новый', tone: x.type === 'verify_request' ? 'ok' : x.type === 'changes' ? 'grey' : again ? 'warn' : 'info', kind: 'master', lock: lockOf(x.lock), flags: x.flags.map((f) => flagOf(f)[0]),
+        type: x.type === 'verify_request' ? L.api.proveren : x.type === 'changes' ? L.api.izmeneniya : again ? L.api.povtorno : L.api.novyy, tone: x.type === 'verify_request' ? 'ok' : x.type === 'changes' ? 'grey' : again ? 'warn' : 'info', kind: 'master', lock: lockOf(x.lock), flags: x.flags.map((f) => flagOf(f)[0]),
       } satisfies MasterQ;
     });
   },
   async masterCard(q: MasterQ): Promise<MasterCard> {
     if (!USE_API) return wait(demo.demoMasterCard(q), 120);
     const x = queueMasters.get(q.userId);
-    if (!x) throw new Error('Профиль уже проверен — обновите очередь');
+    if (!x) throw new Error(L.api.profilUzheProverenObnovite);
     const about = x.about ?? '';
     const contacts = x.flags.some((f) => f === 'contacts' || f === 'link' || f === 'payment');
     const prices = [
-      ...x.professions.map((p) => `${p.category.name_ru}${p.status === 'review' ? ' (новая)' : ''} — ${p.negotiable || !p.price_from ? 'договорная' : `от ${p.price_from} смн`}`),
-      ...x.services.slice(0, 3).map((sv) => `${sv.title ?? 'Услуга'} — ${sv.price ? `${sv.price} смн` : 'договорная'}`),
+      ...x.professions.map((p) => `${p.category.name_ru}${p.status === 'review' ? L.api.novaya : ''} — ${p.negotiable || !p.price_from ? L.api.dogovornaya : L.api.otSmn(p.price_from)}`),
+      ...x.services.slice(0, 3).map((sv) => `${sv.title ?? L.api.usluga} — ${sv.price ? L.api.smn(sv.price) : L.api.dogovornaya}`),
     ].join(' · ');
     return {
-      name: q.name, sub: [x.professions.map((p) => p.category.name_ru).join(', '), x.experience ? EXP[x.experience] : ''].filter(Boolean).join(' · '), meta: `${q.id} · ${phoneFmt(x.phone)} · подано ${agoText(q.agoMin)}`,
-      avatar: x.avatar_url ?? undefined, city: [x.city?.name_ru, x.works_online ? 'онлайн' : ''].filter(Boolean).join(' · ') || '—', prices: prices || '—', about: about || '—', phone: x.phone,
+      name: q.name, sub: [x.professions.map((p) => p.category.name_ru).join(', '), x.experience ? EXP[x.experience] : ''].filter(Boolean).join(' · '), meta: L.api.podano(q.id, phoneFmt(x.phone), agoText(q.agoMin)),
+      avatar: x.avatar_url ?? undefined, city: [x.city?.name_ru, x.works_online ? L.api.onlayn2 : ''].filter(Boolean).join(' · ') || '—', prices: prices || '—', about: about || '—', phone: x.phone,
       photos: x.portfolio.map((p) => p.url), verified: x.verified, marks: x.matches.filter((m) => m.field === 'about').map((m): [number, number] => [m.start, m.end]),
       changes: (x.changes ?? []).map((c) => ({ label: c.label, before: changeText(c.before), after: changeText(c.after) })),
-      verifyReq: x.verify_request && { comment: x.verify_request.comment, photos: x.verify_request.photos.map((p) => p.url), meta: `запрос ${agoText(minutesSince(x.verify_request.created_at))}` },
+      verifyReq: x.verify_request && { comment: x.verify_request.comment, photos: x.verify_request.photos.map((p) => p.url), meta: L.api.zapros(agoText(minutesSince(x.verify_request.created_at))) },
       checklist: [
-        ['Фото — лицо видно, без логотипов и текста', x.avatar_url ? 2 : 0, x.avatar_url ? 'проверьте фото' : 'фото нет'], ['Имя похоже на настоящее', /\S+\s+\S+/.test(q.name) ? 1 : 2, ''],
-        ['Категории соответствуют опыту и портфолио', x.portfolio.length ? 2 : 0, x.portfolio.length ? '' : 'портфолио пусто'], ['Описание без контактов и ссылок', contacts ? 0 : 1, contacts ? 'автодетектор: контакты в «О себе»' : ''],
-        ['Цены в разумных пределах по городу', 2, ''], ['Портфолио — свои работы', x.portfolio.length ? 2 : 0, x.portfolio.length ? `проверить ${x.portfolio.length} фото` : 'нет фото'],
+        [L.api.fotoLitsoVidnoBez, x.avatar_url ? 2 : 0, x.avatar_url ? L.api.proverteFoto : L.api.fotoNet], [L.api.imyaPohozheNaNastoyaschee, /\S+\s+\S+/.test(q.name) ? 1 : 2, ''],
+        [L.api.kategoriiSootvetstvuyutOpytuI, x.portfolio.length ? 2 : 0, x.portfolio.length ? '' : L.api.portfolioPusto], [L.api.opisanieBezKontaktovI, contacts ? 0 : 1, contacts ? L.api.avtodetektorKontaktyVO : ''],
+        [L.api.tsenyVRazumnyhPredelah, 2, ''], [L.api.portfolioSvoiRaboty, x.portfolio.length ? 2 : 0, x.portfolio.length ? L.api.proveritFoto(x.portfolio.length) : L.api.netFoto],
       ],
     };
   },
@@ -343,7 +344,7 @@ export const adminApi = {
   async moderateMaster(q: MasterQ, ok: boolean, reason?: Reason, comment?: string) {
     if (!USE_API) {
       mem.masters = mem.masters.filter((x) => x.key !== q.key);
-      log('Вы', ok ? 'master.approve' : 'master.reject', q.id, ok ? '' : `причина: ${reason?.label}`);
+      log(L.api.vy, ok ? 'master.approve' : 'master.reject', q.id, ok ? '' : L.api.prichina(reason?.label));
       return wait(null, 200);
     }
     if (ok) return http(`/admin/masters/${q.userId}/approve`, { method: 'POST' });
@@ -351,14 +352,14 @@ export const adminApi = {
   },
   /** «Вернуть на правки»: профиль уходит мастеру с комментарием, без отказа */
   async returnMaster(q: MasterQ, comment: string) {
-    if (!USE_API) return adminApi.moderateMaster(q, false, { id: 0, code: 'return', label: 'на правки' }, comment);
+    if (!USE_API) return adminApi.moderateMaster(q, false, { id: 0, code: 'return', label: L.api.naPravki }, comment);
     return http(`/admin/masters/${q.userId}/return`, { method: 'POST', body: { comment } });
   },
   /** Отказ на запрос «Проверен»: основание уходит мастеру */
   declineVerify: (q: MasterQ, basis: string) =>
-    USE_API ? http(`/admin/masters/${q.userId}/verify-decline`, { method: 'POST', body: { basis } }) : wait(log('Вы', 'master.verify_decline', q.id, basis), 150),
+    USE_API ? http(`/admin/masters/${q.userId}/verify-decline`, { method: 'POST', body: { basis } }) : wait(log(L.api.vy, 'master.verify_decline', q.id, basis), 150),
   verifyMaster: (q: MasterQ, verified: boolean, comment: string) =>
-    USE_API ? http(`/admin/masters/${q.userId}/${verified ? 'verify' : 'unverify'}`, { method: 'POST', body: { basis: comment } }) : wait(log('Вы', 'master.verify', q.id, comment), 150),
+    USE_API ? http(`/admin/masters/${q.userId}/${verified ? 'verify' : 'unverify'}`, { method: 'POST', body: { basis: comment } }) : wait(log(L.api.vy, 'master.verify', q.id, comment), 150),
 
   /* ---------- 04 Споры ---------- */
   async disputes(): Promise<DisputeV[]> {
@@ -376,9 +377,9 @@ export const adminApi = {
     const v = toDispute(c);
     return {
       d: {
-        ...v, photos: c.photos, chatId: c.chat_id, price: c.price != null ? `${num(c.price)} смн` : undefined, comment: c.moderator_comment, termsDeadline: c.terms_deadline,
+        ...v, photos: c.photos, chatId: c.chat_id, price: c.price != null ? L.api.smn(num(c.price)) : undefined, comment: c.moderator_comment, termsDeadline: c.terms_deadline,
         requests: c.requests.map((q) => ({
-          id: q.id, to: q.to_side, text: q.text, meta: `${q.staff_name ?? 'Модератор'} · ${dayMonTime(q.created_at)}`, answer: q.answer, answerMeta: q.answered_at ? dayMonTime(q.answered_at) : '', photos: q.answer_photos,
+          id: q.id, to: q.to_side, text: q.text, meta: `${q.staff_name ?? L.api.moderator} · ${dayMonTime(q.created_at)}`, answer: q.answer, answerMeta: q.answered_at ? dayMonTime(q.answered_at) : '', photos: q.answer_photos,
         })),
       },
       timeline: c.timeline.map((e): TimelineItem => { const [t, col] = DISPUTE_EV[e.event] ?? [e.event, '#D9822B']; return [e.note ? `${t} · ${e.note}` : t, dayMonTime(e.at), col]; }),
@@ -390,14 +391,14 @@ export const adminApi = {
   },
   /** Запрос стороне: ответ придёт в карточку спора; пока не ответили — спор во вкладке «Ждут ответа» */
   async requestDispute(d: DisputeV, side: 'client' | 'master', text: string) {
-    if (!USE_API) return wait((Object.assign(mem.disputes.find((x) => x.key === d.key)!, { waiting: true }), log('Вы', 'dispute.request', d.id, `${side === 'client' ? 'клиенту' : 'мастеру'}: ${text}`)));
+    if (!USE_API) return wait((Object.assign(mem.disputes.find((x) => x.key === d.key)!, { waiting: true }), log(L.api.vy, 'dispute.request', d.id, `${side === 'client' ? L.api.klientu : L.api.masteru}: ${text}`)));
     return http(`/admin/disputes/${d.key}/request`, { method: 'POST', body: { to_side: side, text } });
   },
   async resolveDispute(d: DisputeV, res: 'done' | 'not_done' | 'partial', comment: string, termsDeadline: string | null = null) {
     if (!USE_API) {
       const x = mem.disputes.find((y) => y.key === d.key)!;
-      Object.assign(x, { open: false, tone: 'grey', slaH: null, resolution: res, status: `Решён: ${{ done: 'выполнено', not_done: 'не выполнено', partial: 'частично' }[res]}` });
-      log('Вы', 'dispute.resolve', d.id, `решение: ${x.status.slice(7)}`);
+      Object.assign(x, { open: false, tone: 'grey', slaH: null, resolution: res, status: L.api.reshen({ done: L.api.vypolneno, not_done: L.api.neVypolneno, partial: L.api.chastichno }[res]) });
+      log(L.api.vy, 'dispute.resolve', d.id, L.api.reshenie(x.status.slice(7)));
       return wait(null);
     }
     return http(`/admin/disputes/${d.key}/resolve`, { method: 'POST', body: { resolution: res, comment, terms_deadline: termsDeadline, acknowledged: true } });
@@ -408,20 +409,20 @@ export const adminApi = {
     if (!USE_API) return wait(mem.reviews.filter((r) => (tab === 'all' ? r.status !== 'hidden' : r.status === tab)));
     const l = await http<ReviewRow[]>('/admin/reviews', { query: { status: tab === 'all' ? 'published' : tab, limit: 100 } });
     return l.map((r) => ({
-      key: r.id, id: `R-${r.id}`, rating: r.rating, text: r.text, master: short(r.master.name ?? `Мастер #${r.master.id}`),
-      reason: r.hide_reason ?? (r.flags.length ? REVIEW_FLAG[r.flags[0]] ?? r.flags[0] : r.complaints_count ? 'Жалобы' : '—'),
+      key: r.id, id: `R-${r.id}`, rating: r.rating, text: r.text, master: short(r.master.name ?? L.api.master(r.master.id)),
+      reason: r.hide_reason ?? (r.flags.length ? REVIEW_FLAG[r.flags[0]] ?? r.flags[0] : r.complaints_count ? L.api.zhaloby : '—'),
       tone: (r.flags.length || r.complaints_count >= 2 ? 'bad' : r.complaints_count ? 'warn' : 'grey') as Tone, complaints: r.complaints_count, order: `O-${r.order_id} · ${r.task_title}`, date: dayMon(r.created_at),
-      author: r.author.name ?? `Клиент #${r.author.id}`, reply: r.reply_text, complaintList: r.complaints.map((c): [string, string] => [c.comment ? `${c.reason_ru}: «${c.comment}»` : c.reason_ru, dayMon(c.created_at)]),
+      author: r.author.name ?? L.api.klient(r.author.id), reply: r.reply_text, complaintList: r.complaints.map((c): [string, string] => [c.comment ? `${c.reason_ru}: «${c.comment}»` : c.reason_ru, dayMon(c.created_at)]),
       status: r.status, hideReason: r.hide_reason,
     }));
   },
-  hideReasons: () => (USE_API ? adminApi.reasons('review_hide') : Promise.resolve(['Оскорбления', 'Не относится к заказу', 'Контакты / реклама', 'Персональные данные'].map((label, i) => ({ id: i + 1, code: `r${i}`, label })))),
+  hideReasons: () => (USE_API ? adminApi.reasons('review_hide') : Promise.resolve([L.api.oskorbleniya, L.api.neOtnositsyaKZakazu, L.api.kontaktyReklama, L.api.personalnyeDannye].map((label, i) => ({ id: i + 1, code: `r${i}`, label })))),
   async hideReview(r: ReviewV, reason: Reason, comment = '') {
-    if (!USE_API) return wait((Object.assign(mem.reviews.find((x) => x.key === r.key)!, { status: 'hidden', hideReason: reason.label }), log('Вы', 'review.hide', r.id, `причина: ${reason.label.toLowerCase()}`)));
+    if (!USE_API) return wait((Object.assign(mem.reviews.find((x) => x.key === r.key)!, { status: 'hidden', hideReason: reason.label }), log(L.api.vy, 'review.hide', r.id, L.api.prichina(reason.label.toLowerCase()))));
     return http(`/admin/reviews/${r.key}/hide`, { method: 'POST', body: { reason_id: reason.id, comment: comment || null } });
   },
   async keepReview(r: ReviewV) {
-    if (!USE_API) return wait((Object.assign(mem.reviews.find((x) => x.key === r.key)!, { status: 'published', complaints: 0, tone: 'grey', reason: '—' }), log('Вы', 'review.restore', r.id, 'жалобы отклонены')));
+    if (!USE_API) return wait((Object.assign(mem.reviews.find((x) => x.key === r.key)!, { status: 'published', complaints: 0, tone: 'grey', reason: '—' }), log(L.api.vy, 'review.restore', r.id, L.api.zhalobyOtkloneny)));
     return http(`/admin/reviews/${r.key}/keep`, { method: 'POST' });
   },
 
@@ -431,17 +432,17 @@ export const adminApi = {
       const ql = f.q.trim().toLowerCase().replace(/\s/g, '');
       const items = mem.users.filter(
         (u) =>
-          (!ql || `${u.id}${u.name}${u.phone}`.toLowerCase().replace(/\s/g, '').includes(ql)) && (f.role === 'all' || u.role === f.role || u.role === 'Оба') &&
+          (!ql || `${u.id}${u.name}${u.phone}`.toLowerCase().replace(/\s/g, '').includes(ql)) && (f.role === 'all' || u.role === f.role || u.role === L.api.oba) &&
           (f.status === 'all' || (f.status === 'blocked' ? u.blocked : !u.blocked)) && (!f.complaints || u.complaints > 0) && (f.city === 'all' || u.city === f.city),
       );
       return wait({ items, total: 48210, masters: 3904 });
     }
     const cityId = f.city === 'all' ? null : (ref.get()?.cities.find((c) => c.name.ru === f.city)?.id ?? null);
     const p = await http<RegPage<UserRow>>('/admin/users', {
-      query: { q: f.q.trim().replace(/^U-/i, '') || null, role: f.role === 'Клиент' ? 'client' : f.role === 'Мастер' ? 'master' : null, status: f.status === 'all' ? null : f.status, city_id: cityId, with_complaints: f.complaints, limit: 100 },
+      query: { q: f.q.trim().replace(/^U-/i, '') || null, role: f.role === L.api.klient2 ? 'client' : f.role === L.api.master2 ? 'master' : null, status: f.status === 'all' ? null : f.status, city_id: cityId, with_complaints: f.complaints, limit: 100 },
     });
     const items = p.items.map(toUser);
-    return { items, total: p.total, masters: items.filter((u) => u.role !== 'Клиент').length };
+    return { items, total: p.total, masters: items.filter((u) => u.role !== L.api.klient2).length };
   },
   async user(u: UserV): Promise<UserCard> {
     if (!USE_API) return wait(demo.demoUserCard(u), 100);
@@ -450,35 +451,35 @@ export const adminApi = {
     const sg = d.signals;
     return {
       ...u, ...toUser(d), blockReason: d.block_reason, activeTasks: d.tasks_count, phoneFull: phoneFmt(d.phone),
-      stats: [[String(d.tasks_count), 'задания', false], [String(d.orders_as_client + d.orders_as_master), 'заказы', false], [String(d.complaints_count), 'жалобы', d.complaints_count >= 3], [`с ${['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'][since.getMonth()]}`, 'на eKor', false]],
+      stats: [[String(d.tasks_count), L.api.zadaniya, false], [String(d.orders_as_client + d.orders_as_master), L.api.zakazy, false], [String(d.complaints_count), L.api.zhaloby2, d.complaints_count >= 3], [L.api.s2([L.api.yanvarya, L.api.fevralya, L.api.marta, L.api.aprelya, L.api.maya, L.api.iyunya, L.api.iyulya, L.api.avgusta, L.api.sentyabrya, L.api.oktyabrya, L.api.noyabrya, L.api.dekabrya][since.getMonth()]), L.api.naEkor, false]],
       signals:
-        [sg.tasks_rejected && `отклонено заданий: ${sg.tasks_rejected}`, sg.complaints_against && `жалоб на пользователя: ${sg.complaints_against}`, sg.payment_talk_messages && `сообщений о предоплате: ${sg.payment_talk_messages}`, sg.card_numbers_in_chats && `номеров карт в чатах: ${sg.card_numbers_in_chats}`]
+        [sg.tasks_rejected && L.api.otklonenoZadaniy(sg.tasks_rejected), sg.complaints_against && L.api.zhalobNaPolzovatelya(sg.complaints_against), sg.payment_talk_messages && L.api.soobscheniyOPredoplate(sg.payment_talk_messages), sg.card_numbers_in_chats && L.api.nomerovKartVChatah(sg.card_numbers_in_chats)]
           .filter(Boolean)
-          .join(' · ') || 'Сигналов нет',
+          .join(' · ') || L.api.signalovNet,
       sanctions: d.sanctions.map((x) => ({
         warn: x.type === 'warn', active: x.active,
-        text: `${x.type === 'warn' ? 'Предупреждение' : `Блокировка ${DURATION[x.duration ?? ''] ?? ''}`.trim()}${x.reason_ru ? ` · ${x.reason_ru}` : ''}${x.comment ? ` — ${x.comment}` : ''}`,
-        meta: [dayMonTime(x.created_at), x.staff_name, x.lifted_at ? `снята ${dayMon(x.lifted_at)}${x.lifted_by ? ` · ${x.lifted_by}` : ''}` : ''].filter(Boolean).join(' · '),
+        text: `${x.type === 'warn' ? L.api.preduprezhdenie : L.api.blokirovka(DURATION[x.duration ?? ''] ?? '').trim()}${x.reason_ru ? ` · ${x.reason_ru}` : ''}${x.comment ? ` — ${x.comment}` : ''}`,
+        meta: [dayMonTime(x.created_at), x.staff_name, x.lifted_at ? L.api.snyata(dayMon(x.lifted_at), x.lifted_by ? ` · ${x.lifted_by}` : '') : ''].filter(Boolean).join(' · '),
       })),
     };
   },
-  blockReasons: () => (USE_API ? adminApi.reasons('user_block') : Promise.resolve(['Мошенничество: предоплата', 'Оскорбления и угрозы', 'Спам и реклама', 'Фейковый профиль', 'Обход правил платформы'].map((label, i) => ({ id: i + 47, code: `b${i}`, label })))),
+  blockReasons: () => (USE_API ? adminApi.reasons('user_block') : Promise.resolve([L.api.moshennichestvoPredoplata, L.api.oskorbleniyaIUgrozy, L.api.spamIReklama, L.api.feykovyyProfil, L.api.obhodPravilPlatformy].map((label, i) => ({ id: i + 47, code: `b${i}`, label })))),
   async block(u: UserV, reason: Reason, days: number | null, comment: string, last4: string | null = null) {
     if (!USE_API) {
-      Object.assign(mem.users.find((x) => x.key === u.key)!, { blocked: true, status: days ? `Блок ${days} дн` : 'Навсегда', tone: days ? 'bad' : 'dark' });
-      log('Вы', 'user.block', u.id, `${days ? `${days} дн` : 'навсегда'} · ${reason.label.toLowerCase()}`);
+      Object.assign(mem.users.find((x) => x.key === u.key)!, { blocked: true, status: days ? L.api.blokDn(days) : L.api.navsegda, tone: days ? 'bad' : 'dark' });
+      log(L.api.vy, 'user.block', u.id, `${days ? L.api.dn(days) : L.api.navsegda2} · ${reason.label.toLowerCase()}`);
       return wait(null);
     }
     const duration = days === 1 ? '24h' : days === 7 ? '7d' : days === 30 ? '30d' : 'forever';
     return http(`/admin/users/${u.key}/block`, { method: 'POST', body: { reason_id: reason.id, duration, comment: comment || null, confirm_last4: last4 } });
   },
   async unblock(u: UserV, comment: string) {
-    if (!USE_API) return wait((Object.assign(mem.users.find((x) => x.key === u.key)!, { blocked: false, status: 'Активен', tone: 'ok' }), log('Вы', 'user.unblock', u.id, comment)));
+    if (!USE_API) return wait((Object.assign(mem.users.find((x) => x.key === u.key)!, { blocked: false, status: L.api.aktiven, tone: 'ok' }), log(L.api.vy, 'user.unblock', u.id, comment)));
     return http(`/admin/users/${u.key}/unblock`, { method: 'POST', body: { comment } });
   },
   /** Предупреждение: пользователь получит уведомление, запись — в истории санкций */
   async warn(userId: number, reason: Reason | null, comment: string) {
-    if (!USE_API) return wait(log('Вы', 'user.warn', `U-${userId}`, comment));
+    if (!USE_API) return wait(log(L.api.vy, 'user.warn', `U-${userId}`, comment));
     return http(`/admin/users/${userId}/warn`, { method: 'POST', body: { reason_id: reason?.id ?? null, comment } });
   },
 
@@ -493,9 +494,9 @@ export const adminApi = {
       const open = c.status === 'new';
       const [what, side] = TARGET[c.target_type] ?? [c.target_type, ''];
       return {
-        key: c.id, id: `C-${c.id}`, title: c.reason?.text_ru ?? 'Жалоба', order: c.order_id ? `${what} · заказ O-${c.order_id}` : `${what} #${c.target_id}`,
-        status: open ? 'Новая' : `Решена${c.resolved_by ? ` · ${short(c.resolved_by)}` : ''}`, tone: open ? 'info' : 'grey', open, chatId: c.has_chat ? c.id : null,
-        text: c.text ? `«${c.text}»` : '', from: `От: ${c.reporter.name ?? `#${c.reporter.id}`}`, date: dayMonTime(c.created_at), who: '', detector: [],
+        key: c.id, id: `C-${c.id}`, title: c.reason?.text_ru ?? L.api.zhaloba, order: c.order_id ? L.api.zakazO(what, c.order_id) : `${what} #${c.target_id}`,
+        status: open ? L.api.novaya2 : L.api.reshena(c.resolved_by ? ` · ${short(c.resolved_by)}` : ''), tone: open ? 'info' : 'grey', open, chatId: c.has_chat ? c.id : null,
+        text: c.text ? `«${c.text}»` : '', from: L.api.ot(c.reporter.name ?? `#${c.reporter.id}`), date: dayMonTime(c.created_at), who: '', detector: [],
         subject: side, subjectUserId: c.target_type === 'user' || c.target_type === 'master_profile' ? c.target_id : undefined, targetType: c.target_type, hasChat: c.has_chat, preview: c.target_preview,
       } satisfies ComplaintV;
     });
@@ -508,19 +509,19 @@ export const adminApi = {
     rows.forEach((m) => m.flags.forEach((f) => flags.set(f, (flags.get(f) ?? 0) + 1)));
     return {
       msgs: rows.map((m) => ({
-        id: m.id, hidden: m.hidden, photo: m.photo_url, sys: m.sender_side === 'system', who: m.sender_side === 'client' ? 'Клиент' : m.sender_side === 'master' ? 'Мастер' : '',
-        text: m.body ?? (m.photo_url ? 'Фото' : (SYS_MSG[m.system_code ?? ''] ?? m.system_code ?? '')), time: m.sender_side === 'system' ? dayMon(m.created_at) : hhmm(m.created_at), flag: m.flags.length > 0,
+        id: m.id, hidden: m.hidden, photo: m.photo_url, sys: m.sender_side === 'system', who: m.sender_side === 'client' ? L.api.klient2 : m.sender_side === 'master' ? L.api.master2 : '',
+        text: m.body ?? (m.photo_url ? L.api.foto : (SYS_MSG[m.system_code ?? ''] ?? m.system_code ?? '')), time: m.sender_side === 'system' ? dayMon(m.created_at) : hhmm(m.created_at), flag: m.flags.length > 0,
       })),
       detector: [...flags].map(([f, n]) => { const l = CHAT_FLAG[f] ?? f; return n > 1 ? `${l} × ${n}` : l; }),
     };
   },
   async resolveComplaint(c: ComplaintV, resolution: string) {
-    if (!USE_API) return wait((Object.assign(mem.complaints.find((x) => x.key === c.key)!, { open: false, status: 'Решена', tone: 'grey' }), log('Вы', 'complaint.resolve', c.id, resolution)));
+    if (!USE_API) return wait((Object.assign(mem.complaints.find((x) => x.key === c.key)!, { open: false, status: L.api.reshena2, tone: 'grey' }), log(L.api.vy, 'complaint.resolve', c.id, resolution)));
     return http(`/admin/complaints/${c.key}/resolve`, { method: 'POST', body: { resolution } });
   },
   /** Скрыть сообщения в чате (номер карты, оскорбления) — стороны видят «Сообщение скрыто модератором» */
   async hideMessages(ids: number[], basis: string) {
-    if (!USE_API) return wait(log('Вы', 'message.hide', `${ids.length} сообщ.`, basis));
+    if (!USE_API) return wait(log(L.api.vy, 'message.hide', L.api.soobsch(ids.length), basis));
     return http('/admin/messages/hide', { method: 'POST', body: { ids, basis } });
   },
 
@@ -539,7 +540,7 @@ export const adminApi = {
     if (!USE_API) {
       if (isNew) mem.cats.push({ ...c, id: Date.now() });
       else Object.assign(mem.cats.find((x) => x.id === c.id)!, c);
-      log('Вы', 'dict.update', `category:${c.id}`, isNew ? 'новая категория' : 'изменена категория');
+      log(L.api.vy, 'dict.update', `category:${c.id}`, isNew ? L.api.novayaKategoriya : L.api.izmenenaKategoriya);
       return wait(null);
     }
     const body = {
@@ -567,11 +568,11 @@ export const adminApi = {
       }));
   },
   async saveCity(id: number, ru: string, tj: string) {
-    if (!USE_API) return wait(log('Вы', 'dict.update', `city:${id}`, `${ru} / ${tj}`));
+    if (!USE_API) return wait(log(L.api.vy, 'dict.update', `city:${id}`, `${ru} / ${tj}`));
     return http(`/admin/dictionaries/cities/${id}`, { method: 'PATCH', body: { name_ru: ru, name_tj: tj } });
   },
   async saveDistrict(id: number, p: { ru?: string; tj?: string; near?: boolean; neighbors?: number[]; hidden?: boolean }) {
-    if (!USE_API) return wait(log('Вы', 'dict.update', `district:${id}`, Object.keys(p).join(', ')));
+    if (!USE_API) return wait(log(L.api.vy, 'dict.update', `district:${id}`, Object.keys(p).join(', ')));
     return http(`/admin/dictionaries/districts/${id}`, { method: 'PATCH', body: { name_ru: p.ru ?? null, name_tj: p.tj ?? null, near: p.near ?? null, neighbor_ids: p.neighbors ?? null, hidden: p.hidden ?? null } });
   },
   async rejectReasons(kind: string): Promise<Reason[]> {
@@ -580,11 +581,11 @@ export const adminApi = {
     return l.sort((a, b) => a.sort - b.sort).map((r) => ({ id: r.id, code: r.code, label: r.text_ru, text: r.user_message_ru ?? undefined, needComment: r.requires_comment, hidden: r.hidden, system: r.system, kind: r.kind }));
   },
   async saveReason(id: number, ru: string, p: { hidden?: boolean; text?: string } = {}) {
-    if (!USE_API) return wait(log('Вы', 'dict.update', `reason:${id}`, ru));
+    if (!USE_API) return wait(log(L.api.vy, 'dict.update', `reason:${id}`, ru));
     return http(`/admin/dictionaries/reasons/${id}`, { method: 'PATCH', body: { text_ru: ru, ...(p.hidden !== undefined && { hidden: p.hidden }), ...(p.text !== undefined && { user_message_ru: p.text }) } });
   },
   async createReason(kind: string, ru: string, text: string) {
-    if (!USE_API) return wait(log('Вы', 'dict.create', `reason:${kind}`, ru));
+    if (!USE_API) return wait(log(L.api.vy, 'dict.create', `reason:${kind}`, ru));
     return http('/admin/dictionaries/reasons', { method: 'POST', body: { kind, code: `custom_${Date.now().toString(36)}`, text_ru: ru, text_tj: null, user_message_ru: text || null, user_message_tj: null, requires_comment: false, sort: 99, hidden: false } });
   },
 
@@ -604,10 +605,10 @@ export const adminApi = {
    */
   async saveLimits(rows: { key: string; value: number; version?: number; label: string; prev: number }[], comment: string, dryRun = false): Promise<LimitEffect[]> {
     if (!USE_API) {
-      if (dryRun) return wait(rows.map((r) => ({ label: r.label, old: r.prev, next: r.value, effect: 'Применится к новым действиям', affected: null })), 150);
+      if (dryRun) return wait(rows.map((r) => ({ label: r.label, old: r.prev, next: r.value, effect: L.api.primenitsyaKNovymDeystviyam, affected: null })), 150);
       mem.limits.forEach((l) => { const r = rows.find((x) => x.key === l.key); if (r) l.value = r.value; });
-      rows.forEach((r) => mem.history.unshift([`${r.label}: ${r.prev} → ${r.value}`, `сейчас · вы`, false]));
-      log('Вы', 'limits.update', rows.map((r) => r.key).join(', '), comment);
+      rows.forEach((r) => mem.history.unshift([`${r.label}: ${r.prev} → ${r.value}`, L.api.seychasVy, false]));
+      log(L.api.vy, 'limits.update', rows.map((r) => r.key).join(', '), comment);
       return wait([]);
     }
     const r = await http<LimitsResult>('/admin/limits', { method: 'PUT', query: { dry_run: dryRun }, body: { changes: rows.map((x) => ({ key: x.key, value: x.value, version: x.version ?? null })), reason: comment } });
@@ -624,7 +625,7 @@ export const adminApi = {
     if (!USE_API) {
       const t = demo.demoTemplates.find((x) => x.code === code)!;
       const ch = t.ch.map((c): TplText['ch'] => (c === 'SMS' ? 'sms' : 'push'));
-      const SAMPLE: Record<string, string> = { code: '482917', minutes: '5', app: 'eKor', name: 'Фаррух Н.', task: 'Заменить 3 розетки', reason: 'нет фото работ', price: '120', result: 'выполнено', text: 'Выезжаю в 14:30' };
+      const SAMPLE: Record<string, string> = { code: '482917', minutes: '5', app: 'eKor', name: L.api.farruhN, task: L.api.zamenit3Rozetki, reason: L.api.netFotoRabot, price: '120', result: L.api.vypolneno, text: L.api.vyezzhayuV1430 };
       return wait({
         code, title: t.title, ch, vars: t.vars.map((v) => v.slice(1, -1)).map((name) => ({ name, max: SAMPLE[name]?.length ?? 10, sample: SAMPLE[name] ?? name })),
         texts: ch.flatMap((c) => (['ru', 'tj'] as const).map((lang) => ({ ch: c, lang, title: null, body: t[lang], custom: false, defBody: t[lang], preview: '', version: 0, sms: null }))),
@@ -634,7 +635,7 @@ export const adminApi = {
     return { code: t.code, title: t.name, ch: t.channels, vars: t.vars.map((v) => ({ name: v.name, max: v.max_len, sample: v.sample })), texts: t.texts.map(toTplText) };
   },
   async saveTemplate(code: string, x: TplText): Promise<TplCard> {
-    if (!USE_API) return (log('Вы', 'template.update', code, `${x.ch}/${x.lang}`), adminApi.template(code));
+    if (!USE_API) return (log(L.api.vy, 'template.update', code, `${x.ch}/${x.lang}`), adminApi.template(code));
     const t = await http<{ code: string; name: string; channels: TplRow['ch']; vars: { name: string; max_len: number; sample: string }[]; texts: TplTextOut[] }>(`/admin/templates/${code}`, {
       method: 'PUT', body: { channel: x.ch, lang: x.lang, title: x.title, body: x.body, version: x.version },
     });
@@ -657,9 +658,9 @@ export const adminApi = {
   },
   async createStaff(f: { name: string; email: string; password: string; phone: string; role: string; regionIds: number[] }) {
     if (!USE_API) {
-      mem.staff.push({ id: Date.now() % 100000, name: f.name, email: f.email, phone: f.phone, role: f.role, regionIds: f.regionIds, regions: cityNames(f.regionIds), status: 'Активен', tone: 'ok', seen: '—', active: true, created: 'сегодня' });
+      mem.staff.push({ id: Date.now() % 100000, name: f.name, email: f.email, phone: f.phone, role: f.role, regionIds: f.regionIds, regions: cityNames(f.regionIds), status: L.api.aktiven, tone: 'ok', seen: '—', active: true, created: L.api.segodnya });
       demo.demoNoDecisions.add(mem.staff[mem.staff.length - 1].id);
-      log('Вы', 'staff.create', f.email, `роль ${f.role}`);
+      log(L.api.vy, 'staff.create', f.email, L.api.rol(f.role));
       return wait(null);
     }
     return http('/admin/staff', { method: 'POST', body: { name: f.name.trim(), email: f.email.trim(), password: f.password, contact_phone: f.phone.trim() || null, role: f.role, region_city_ids: f.regionIds } });
@@ -668,9 +669,9 @@ export const adminApi = {
     if (!USE_API) {
       Object.assign(mem.staff.find((x) => x.id === s.id)!, {
         ...(p.name && { name: p.name }), ...(p.role && { role: p.role }), ...(p.regionIds && { regionIds: p.regionIds, regions: cityNames(p.regionIds) }),
-        ...(p.active !== undefined && { active: p.active, status: p.active ? 'Активен' : 'Отключён', tone: p.active ? 'ok' : 'grey' }),
+        ...(p.active !== undefined && { active: p.active, status: p.active ? L.api.aktiven : L.api.otklyuchen, tone: p.active ? 'ok' : 'grey' }),
       });
-      log('Вы', 'staff.update', s.email, Object.keys(p).join(', '));
+      log(L.api.vy, 'staff.update', s.email, Object.keys(p).join(', '));
       return wait(null);
     }
     return http(`/admin/staff/${s.id}`, {
@@ -679,17 +680,17 @@ export const adminApi = {
     });
   },
   async setPassword(s: StaffV, password: string) {
-    if (!USE_API) return wait(log('Вы', 'staff.password', s.email, 'задан новый пароль'));
+    if (!USE_API) return wait(log(L.api.vy, 'staff.password', s.email, L.api.zadanNovyyParol));
     return http(`/admin/staff/${s.id}/password`, { method: 'POST', body: { password } });
   },
   async sessions(s: StaffV): Promise<SessionV[]> {
     if (!USE_API) return wait(s.active ? demo.demoSessions : [], 150);
     return (await http<SessionOut[]>(`/admin/staff/${s.id}/sessions`)).map((x) => ({
-      id: x.id, device: uaShort(x.user_agent), where: [x.city, x.ip].filter(Boolean).join(' · '), when: x.current ? 'сейчас' : seenText(x.created_at), current: x.current, revoked: !!x.revoked_at,
+      id: x.id, device: uaShort(x.user_agent), where: [x.city, x.ip].filter(Boolean).join(' · '), when: x.current ? L.api.seychas : seenText(x.created_at), current: x.current, revoked: !!x.revoked_at,
     }));
   },
   async revokeSessions(s: StaffV) {
-    if (!USE_API) return wait(log('Вы', 'staff.sessions', s.email, 'все сеансы завершены'));
+    if (!USE_API) return wait(log(L.api.vy, 'staff.sessions', s.email, L.api.vseSeansyZaversheny));
     return http(`/admin/staff/${s.id}/sessions`, { method: 'DELETE' });
   },
   /** 409 has_decisions — удалить нельзя, только отключить */
@@ -697,7 +698,7 @@ export const adminApi = {
     if (!USE_API) {
       if (!demo.demoNoDecisions.has(s.id)) throw Object.assign(new Error('has_decisions'), { status: 409, code: 'has_decisions' });
       mem.staff = mem.staff.filter((x) => x.id !== s.id);
-      log('Вы', 'staff.delete', s.email, '');
+      log(L.api.vy, 'staff.delete', s.email, '');
       return wait(null);
     }
     return http(`/admin/staff/${s.id}`, { method: 'DELETE' });
@@ -717,7 +718,7 @@ export const adminApi = {
       items: p.items.map((x) => {
         const [status, tone] = TASK_ST[x.status] ?? [x.status, 'grey'];
         return {
-          key: x.id, id: `T-${x.id}`, title: x.title, sub: [x.category.name_ru, [x.city?.name_ru, x.district?.name_ru].filter(Boolean).join(', ') || 'Онлайн'].join(' · '), client: x.client.name ?? `#${x.client.id}`, clientId: x.client.id,
+          key: x.id, id: `T-${x.id}`, title: x.title, sub: [x.category.name_ru, [x.city?.name_ru, x.district?.name_ru].filter(Boolean).join(', ') || L.api.onlayn].join(' · '), client: x.client.name ?? `#${x.client.id}`, clientId: x.client.id,
           budget: budgetText(x.budget_mode, x.budget_min, x.budget_max), responses: x.responses_count, status, tone, created: whenShort(x.published_at ?? x.created_at), flags: x.flags.map((g) => flagOf(g)[0]),
         };
       }),
@@ -732,21 +733,21 @@ export const adminApi = {
     const chosen = d.responses.find((x) => x.status === 'chosen');
     return {
       id: r.id, key: r.key, status: r.status, tone: r.tone, title: k.title, sub: [r.sub, budgetText(k.budget_mode, k.budget_min, k.budget_max), whenText(k.when, k.date)].join(' · '),
-      client: `${d.client.name ?? 'Клиент'} · U-${d.client.id} · с ${dayMon(d.client_registered_at)} ${new Date(d.client_registered_at).getFullYear()}`, clientId: d.client.id,
+      client: L.api.uS(d.client.name ?? L.api.klient2, d.client.id, dayMon(d.client_registered_at), new Date(d.client_registered_at).getFullYear()), clientId: d.client.id,
       phone: phoneFmt(d.client.phone), address: k.address ?? '—', master: chosen ? `${chosen.master.name ?? ''} · M-${chosen.master.id}` : order ? `${order.master.name ?? ''} · M-${order.master.id}` : '—',
       masterId: chosen?.master.id ?? order?.master.id ?? null,
-      order: order ? `O-${order.id} · ${ORDER_ST[order.status] ?? order.status}${order.price ? ` · ${num(order.price)} смн` : ''} · ${dayMon(order.created_at)}` : '—',
-      flags: d.complaints_count ? `жалоб: ${d.complaints_count}` : 'нет',
+      order: order ? `O-${order.id} · ${ORDER_ST[order.status] ?? order.status}${order.price ? L.api.smn2(num(order.price)) : ''} · ${dayMon(order.created_at)}` : '—',
+      flags: d.complaints_count ? L.api.zhalob(d.complaints_count) : L.api.net,
       responses: d.responses.map((x) => ({
-        name: x.master.name ?? `M-${x.master.id}`, price: x.inspect ? 'после осмотра' : x.price ? `${num(x.price)} смн` : '—',
-        state: x.status === 'chosen' ? 'выбран' : x.status === 'withdrawn' ? 'отозван' : x.status === 'rejected' || x.status === 'closed' ? 'закрыт' : 'ждёт', chosen: x.status === 'chosen',
+        name: x.master.name ?? `M-${x.master.id}`, price: x.inspect ? L.api.posleOsmotra : x.price ? L.api.smn(num(x.price)) : '—',
+        state: x.status === 'chosen' ? L.api.vybran : x.status === 'withdrawn' ? L.api.otozvan : x.status === 'rejected' || x.status === 'closed' ? L.api.zakryt : L.api.zhdet, chosen: x.status === 'chosen',
       })),
       history: d.events.map((h): [string, string] => [dayMonTime(h.at).replace(',', ''), [eventText(h.action), h.actor, h.comment].filter(Boolean).join(' · ')]),
       canUnpublish: k.status === 'open',
     };
   },
   async unpublishTask(key: number, reason: Reason, comment: string) {
-    if (!USE_API) return wait(log('Вы', 'task.unpublish', `T-${key}`, `причина: ${reason.label}`));
+    if (!USE_API) return wait(log(L.api.vy, 'task.unpublish', `T-${key}`, L.api.prichina(reason.label)));
     return http(`/admin/tasks/${key}/unpublish`, { method: 'POST', body: { reason_id: reason.id, comment: comment || null } });
   },
 
@@ -763,7 +764,7 @@ export const adminApi = {
       items: p.items.map((u): MasterRegRow => {
         const [status, tone] = MASTER_ST[u.status] ?? [u.status, 'grey'];
         return {
-          key: u.id, id: `M-${u.id}`, name: u.name ?? `#${u.id}`, profs: u.headline?.name_ru ?? '', city: u.city?.name_ru ?? 'Онлайн', rating: u.rating_avg != null ? `${u.rating_avg.toFixed(1).replace('.', ',')} · ${u.reviews_count}` : '—',
+          key: u.id, id: `M-${u.id}`, name: u.name ?? `#${u.id}`, profs: u.headline?.name_ru ?? '', city: u.city?.name_ru ?? L.api.onlayn, rating: u.rating_avg != null ? `${u.rating_avg.toFixed(1).replace('.', ',')} · ${u.reviews_count}` : '—',
           orders: String(u.completed_orders_count), status, tone, verified: u.verified, seen: u.last_seen_at ? seenText(u.last_seen_at) : '—',
         };
       }),
@@ -775,30 +776,30 @@ export const adminApi = {
     const d = await http<MasterCardOut>(`/admin/masters/${m.key}`);
     const p = d.profile;
     const x = d.metrics;
-    const prices = p.professions.map((y) => `${y.name_ru} — ${y.negotiable || !y.price_from ? 'договорная' : `от ${y.price_from} смн`}`).join(' · ');
+    const prices = p.professions.map((y) => `${y.name_ru} — ${y.negotiable || !y.price_from ? L.api.dogovornaya : L.api.otSmn(y.price_from)}`).join(' · ');
     const MST = MASTER_ST[p.status] ?? [m.status, m.tone];
     return {
       key: m.key, id: m.id, name: m.name, status: MST[0], tone: MST[1], verified: p.verified, suspended: p.status === 'suspended',
       sub: [m.id, p.professions.map((y) => y.name_ru).join(', ')].filter(Boolean).join(' · '),
       stats: [
-        [x.rating_avg != null ? x.rating_avg.toFixed(1).replace('.', ',') : '—', `рейтинг · ${x.reviews_count}`], [String(x.orders_total), 'заказов'],
-        [x.completion_rate != null ? `${Math.round(x.completion_rate * 100)}%` : '—', 'завершено'], [x.median_response_minutes != null ? `${Math.round(x.median_response_minutes)} мин` : '—', 'до отклика'],
+        [x.rating_avg != null ? x.rating_avg.toFixed(1).replace('.', ',') : '—', L.api.reyting(x.reviews_count)], [String(x.orders_total), L.api.zakazov2],
+        [x.completion_rate != null ? `${Math.round(x.completion_rate * 100)}%` : '—', L.api.zaversheno2], [x.median_response_minutes != null ? L.api.min(Math.round(x.median_response_minutes)) : '—', L.api.doOtklika],
       ],
       rows: [
-        ['Телефон', phoneFmt(d.phone)], ['Город', [p.city?.name_ru, p.districts.map((y) => y.name_ru).join(', ')].filter(Boolean).join(' · ') || (p.works_online ? 'Онлайн' : '—')], ['Цены', prices || '—'],
-        ['Проверен', p.verified ? 'да' : '—'], ['Приём заказов', p.accepting_orders ? 'включён' : 'выключен'], ['Отклики сегодня', `${x.responses_today} из ${x.responses_limit}`],
-        ['Отказы после выбора', String(x.declines_after_choice)], ['На eKor', `с ${dayMon(d.registered_at)} ${new Date(d.registered_at).getFullYear()}`],
+        [L.api.telefon, phoneFmt(d.phone)], [L.api.gorod, [p.city?.name_ru, p.districts.map((y) => y.name_ru).join(', ')].filter(Boolean).join(' · ') || (p.works_online ? L.api.onlayn : '—')], [L.api.tseny, prices || '—'],
+        [L.api.proveren2, p.verified ? L.api.da : '—'], [L.api.priemZakazov, p.accepting_orders ? L.api.vklyuchen : L.api.vyklyuchen], [L.api.otklikiSegodnya, L.api.iz(x.responses_today, x.responses_limit)],
+        [L.api.otkazyPosleVybora, String(x.declines_after_choice)], [L.api.naEkor2, L.api.s(dayMon(d.registered_at), new Date(d.registered_at).getFullYear())],
       ],
-      orders: d.recent_orders.map((o): [string, string, string] => [`O-${o.id} · ${o.task_title} · ${o.client.name ?? 'клиент'}`, `${ORDER_ST[o.status] ?? o.status}${o.price ? ` · ${num(o.price)} смн` : ''}`, dayMon(o.created_at)]),
-      warn: d.complaints_30d.length ? `Жалоб за 30 дней: ${d.complaints_30d.length} — ${d.complaints_30d.map((c) => c.reason_ru).join(', ')}` : null,
+      orders: d.recent_orders.map((o): [string, string, string] => [`O-${o.id} · ${o.task_title} · ${o.client.name ?? L.api.klient3}`, `${ORDER_ST[o.status] ?? o.status}${o.price ? L.api.smn2(num(o.price)) : ''}`, dayMon(o.created_at)]),
+      warn: d.complaints_30d.length ? L.api.zhalobZa30Dney(d.complaints_30d.length, d.complaints_30d.map((c) => c.reason_ru).join(', ')) : null,
     };
   },
   async suspendMaster(key: number, on: boolean, comment: string) {
-    if (!USE_API) return wait(log('Вы', on ? 'master.suspend' : 'master.unsuspend', `M-${key}`, comment));
+    if (!USE_API) return wait(log(L.api.vy, on ? 'master.suspend' : 'master.unsuspend', `M-${key}`, comment));
     return http(`/admin/masters/${key}/${on ? 'suspend' : 'unsuspend'}`, { method: 'POST', body: { comment } });
   },
   async unverifyMaster(key: number, comment: string) {
-    if (!USE_API) return wait(log('Вы', 'master.verify', `M-${key}`, `снят «Проверен» · ${comment}`));
+    if (!USE_API) return wait(log(L.api.vy, 'master.verify', `M-${key}`, L.api.snyatProveren(comment)));
     return http(`/admin/masters/${key}/unverify`, { method: 'POST', body: { basis: comment } });
   },
 
@@ -812,7 +813,7 @@ export const adminApi = {
     return p.items
       .filter((a) => !f.action.endsWith('*') || a.action.startsWith(f.action.slice(0, -1)))
       .map((a) => ({
-        key: a.id, time: hhmmss(a.at), date: dayMon(a.at), who: a.staff_name ? short(a.staff_name) : 'Система', action: a.action, obj: objId(a.object_type, a.object_id),
+        key: a.id, time: hhmmss(a.at), date: dayMon(a.at), who: a.staff_name ? short(a.staff_name) : L.api.sistema, action: a.action, obj: objId(a.object_type, a.object_id),
         details: a.basis ?? (a.after ? Object.entries(a.after).map(([k, v]) => `${a.before?.[k] !== undefined ? `${String(a.before[k])} → ` : ''}${String(v)}${Object.keys(a.after!).length > 1 ? ` (${k})` : ''}`).join(', ') : ''),
         tone: ACT_TONE(a.action), evt: `evt_${a.id.toString(16)}`, comment: a.basis, old: a.before, next: a.after, ip: a.ip, device: uaShort(a.user_agent),
       }));
@@ -840,63 +841,63 @@ async function reasonList(kind: string): Promise<ReasonAdmin[]> {
 const queueMasters = new Map<number, QueueMaster>();
 const changeText = (v: string | string[] | null) => (v == null || (Array.isArray(v) && !v.length) ? '—' : Array.isArray(v) ? v.join(', ') : v || '—');
 const plural = (n: number, one: string, few: string, many: string) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
-const lockOf = (l: LockOut | null | undefined): Lock | null => (l ? { name: short(l.staff_name ?? 'другой модератор'), mine: l.mine } : null);
+const lockOf = (l: LockOut | null | undefined): Lock | null => (l ? { name: short(l.staff_name ?? L.api.drugoyModerator), mine: l.mine } : null);
 const hoursLeft = (iso: string | null) => (iso ? Math.floor((+new Date(iso) - Date.now()) / 36e5) : null);
-const placeText = (mode: string, city: Ref | null, district: Ref | null) => (mode === 'online' ? 'Онлайн' : [city?.name_ru, district?.name_ru].filter(Boolean).join(', ') || '—');
+const placeText = (mode: string, city: Ref | null, district: Ref | null) => (mode === 'online' ? L.api.onlayn : [city?.name_ru, district?.name_ru].filter(Boolean).join(', ') || '—');
 function budgetText(mode: string, min: number | null, max: number | null) {
-  if (mode !== 'sum' || (!min && !max)) return 'Договорная';
-  if (min && max && min !== max) return `${num(min)}–${num(max)} смн`;
-  return max && !min ? `до ${num(max)} смн` : `${num((min ?? max)!)} смн`;
+  if (mode !== 'sum' || (!min && !max)) return L.api.dogovornaya2;
+  if (min && max && min !== max) return L.api.smn3(num(min), num(max));
+  return max && !min ? L.api.doSmn(num(max)) : L.api.smn(num((min ?? max)!));
 }
-const WHEN: Record<string, string> = { today: 'Сегодня', tomorrow: 'Завтра', week: 'На этой неделе', flexible: 'Не срочно' };
+const WHEN: Record<string, string> = { today: L.api.segodnya2, tomorrow: L.api.zavtra, week: L.api.naEtoyNedele, flexible: L.api.neSrochno };
 const whenText = (w: string, date: string | null) => (w === 'date' && date ? dayMon(date) : (WHEN[w] ?? w));
-const ORDER_ST: Record<string, string> = { active: 'в работе', work: 'в работе', wait: 'ждёт подтверждения', done: 'завершён', dispute: 'спор', cancelled: 'отменён', declined: 'отказ мастера' };
-const DURATION: Record<string, string> = { '24h': 'на 24 ч', '7d': 'на 7 дней', '30d': 'на 30 дней', forever: 'навсегда' };
+const ORDER_ST: Record<string, string> = { active: L.api.vRabote, work: L.api.vRabote, wait: L.api.zhdetPodtverzhdeniya, done: L.api.zavershen, dispute: L.api.spor, cancelled: L.api.otmenen, declined: L.api.otkazMastera };
+const DURATION: Record<string, string> = { '24h': L.api.na24Ch, '7d': L.api.na7Dney, '30d': L.api.na30Dney, forever: L.api.navsegda2 };
 const TARGET: Record<string, [string, string]> = {
-  user: ['Пользователь', 'Пользователь'], task: ['Задание', 'Клиент · автор задания'], master_profile: ['Профиль мастера', 'Мастер'], chat: ['Чат', ''], message: ['Сообщение', ''], review: ['Отзыв', 'Клиент · автор отзыва'],
+  user: [L.api.polzovatel, L.api.polzovatel], task: [L.api.zadanie2, L.api.klientAvtorZadaniya], master_profile: [L.api.profilMastera, L.api.master2], chat: [L.api.chat, ''], message: [L.api.soobschenie, ''], review: [L.api.otzyv, L.api.klientAvtorOtzyva],
 };
-const REVIEW_FLAG: Record<string, string> = { insult: 'Оскорбления', contacts: 'Контакты', fake: 'Накрутка' };
-const CHAT_FLAG: Record<string, string> = { card: 'Номер карты', card_number: 'Номер карты', payment: 'Предоплата', payment_talk: 'Предоплата', contacts: 'Контакты', phone: 'Телефон', link: 'Ссылка', insult: 'Оскорбления' };
+const REVIEW_FLAG: Record<string, string> = { insult: L.api.oskorbleniya, contacts: L.api.kontakty, fake: L.api.nakrutka };
+const CHAT_FLAG: Record<string, string> = { card: L.api.nomerKarty, card_number: L.api.nomerKarty, payment: L.api.predoplata, payment_talk: L.api.predoplata, contacts: L.api.kontakty, phone: L.api.telefon, link: L.api.ssylka, insult: L.api.oskorbleniya };
 const SYS_MSG: Record<string, string> = {
-  chosen: 'Клиент выбрал мастера', started: 'Мастер начал работу', marked_done: 'Мастер: «Работа выполнена»', confirmed: 'Клиент подтвердил выполнение', dispute_opened: 'Открыт спор',
-  cancelled_by_client: 'Клиент отменил выбор', declined_by_master: 'Мастер отказался', dispute_resolved: 'Спор решён',
+  chosen: L.api.klientVybralMastera, started: L.api.masterNachalRabotu, marked_done: L.api.masterRabotaVypolnena, confirmed: L.api.klientPodtverdilVypolnenie, dispute_opened: L.api.otkrytSpor,
+  cancelled_by_client: L.api.klientOtmenilVybor, declined_by_master: L.api.masterOtkazalsya, dispute_resolved: L.api.sporReshen,
 };
 const DISPUTE_EV: Record<string, [string, string]> = {
-  chosen: ['Клиент выбрал мастера', '#2647D9'], started: ['Мастер начал работу', '#2647D9'], marked_done: ['Мастер: «Работа выполнена»', '#2647D9'], confirmed: ['Клиент подтвердил выполнение', '#0B6E5E'],
-  opened: ['Открыт спор', '#B03A2E'], dispute_opened: ['Клиент: «Есть проблема» — открыт спор', '#B03A2E'], request: ['Запрос стороне', '#D9822B'], answer: ['Ответ стороны', '#2647D9'],
-  resolved: ['Спор решён', '#0B6E5E'], cancelled_by_client: ['Клиент отменил выбор', '#9AA5B4'], declined_by_master: ['Мастер отказался', '#9AA5B4'],
+  chosen: [L.api.klientVybralMastera, '#2647D9'], started: [L.api.masterNachalRabotu, '#2647D9'], marked_done: [L.api.masterRabotaVypolnena, '#2647D9'], confirmed: [L.api.klientPodtverdilVypolnenie, '#0B6E5E'],
+  opened: [L.api.otkrytSpor, '#B03A2E'], dispute_opened: [L.api.klientEstProblemaOtkryt, '#B03A2E'], request: [L.api.zaprosStorone, '#D9822B'], answer: [L.api.otvetStorony, '#2647D9'],
+  resolved: [L.api.sporReshen, '#0B6E5E'], cancelled_by_client: [L.api.klientOtmenilVybor, '#9AA5B4'], declined_by_master: [L.api.masterOtkazalsya, '#9AA5B4'],
 };
 /** «—→review», «approve» → понятный текст истории задания */
 function eventText(a: string) {
   const m = a.match(/^(.*)→(.*)$/);
   if (m) return `${TASK_ST[m[2]]?.[0] ?? m[2]}`;
-  return ({ approve: 'Одобрено модератором', reject: 'Отклонено модератором', edit: 'Исправлено модератором', unpublish: 'Снято с публикации' } as Record<string, string>)[a.replace(/^task\./, '')] ?? a;
+  return ({ approve: L.api.odobrenoModeratorom, reject: L.api.otklonenoModeratorom, edit: L.api.ispravlenoModeratorom, unpublish: L.api.snyatoSPublikatsii } as Record<string, string>)[a.replace(/^task\./, '')] ?? a;
 }
 function toDispute(d: DisputeRow): DisputeV {
   const open = d.status === 'open';
-  const RES: Record<string, string> = { done: 'выполнено', not_done: 'не выполнено', partial: 'частично' };
-  const cn = d.client.name ?? `Клиент #${d.client.id}`;
-  const mn = d.master.name ?? `Мастер #${d.master.id}`;
+  const RES: Record<string, string> = { done: L.api.vypolneno, not_done: L.api.neVypolneno, partial: L.api.chastichno };
+  const cn = d.client.name ?? L.api.klient(d.client.id);
+  const mn = d.master.name ?? L.api.master(d.master.id);
   const left = hoursLeft(d.deadline);
   return {
-    key: d.id, id: `D-${d.id}`, title: d.task_title, who: `${short(cn)} ↔ ${short(mn)}`, status: open ? (d.unanswered_requests ? 'Ждёт ответа' : 'Открыт') : `Решён: ${RES[d.resolution ?? ''] ?? d.resolution}`,
+    key: d.id, id: `D-${d.id}`, title: d.task_title, who: `${short(cn)} ↔ ${short(mn)}`, status: open ? (d.unanswered_requests ? L.api.zhdetOtveta : L.api.otkryt) : L.api.reshen(RES[d.resolution ?? ''] ?? d.resolution),
     tone: open ? (d.overdue ? 'bad' : d.unanswered_requests ? 'warn' : 'bad') : 'grey', slaH: open ? Math.max(0, left ?? 24) : null, order: `O-${d.order_id}`, open, waiting: d.unanswered_requests > 0,
     chatId: null, clientName: cn, masterName: mn, clientId: d.client.id, masterId: d.master.id, resolution: d.resolution ?? undefined, lock: lockOf(d.lock), unanswered: d.unanswered_requests,
-    client: { title: `Клиент · ${cn}`, text: [d.reason?.text_ru, d.text].filter(Boolean).join('. '), meta: `${phoneFmt(d.client.phone)} · ${dayMonTime(d.created_at)}` },
-    master: { title: `Мастер · ${mn}`, text: 'Позиция мастера — в переписке и ответах на запросы.', meta: phoneFmt(d.master.phone) }, photos: [],
+    client: { title: L.api.klient4(cn), text: [d.reason?.text_ru, d.text].filter(Boolean).join('. '), meta: `${phoneFmt(d.client.phone)} · ${dayMonTime(d.created_at)}` },
+    master: { title: L.api.master3(mn), text: L.api.pozitsiyaMasteraVPerepiske, meta: phoneFmt(d.master.phone) }, photos: [],
   };
 }
 function toUser(u: UserRow): UserV {
   const blocked = u.status === 'blocked';
   const days = u.blocked_until ? Math.ceil((+new Date(u.blocked_until) - Date.now()) / 864e5) : null;
   return {
-    key: u.id, id: `U-${u.id}`, name: u.name ?? `Без имени · ${u.id}`, phone: phoneFmt(u.phone), role: u.is_client && u.is_master ? 'Оба' : u.is_master ? 'Мастер' : 'Клиент', city: u.city?.name_ru ?? '—',
-    status: blocked ? (days == null ? 'Навсегда' : `Блок ${days} дн`) : u.master_status === 'review' ? 'Проверка' : 'Активен', tone: blocked ? (days == null ? 'dark' : 'bad') : u.master_status === 'review' ? 'warn' : 'ok',
+    key: u.id, id: `U-${u.id}`, name: u.name ?? L.api.bezImeni(u.id), phone: phoneFmt(u.phone), role: u.is_client && u.is_master ? L.api.oba : u.is_master ? L.api.master2 : L.api.klient2, city: u.city?.name_ru ?? '—',
+    status: blocked ? (days == null ? L.api.navsegda : L.api.blokDn(days)) : u.master_status === 'review' ? L.api.proverka : L.api.aktiven, tone: blocked ? (days == null ? 'dark' : 'bad') : u.master_status === 'review' ? 'warn' : 'ok',
     complaints: u.complaints_count, seen: seenText(u.last_seen_at), blocked,
   };
 }
-const LIMIT_GROUP: Record<string, string> = { tasks: 'Задания', responses: 'Отклики и приглашения', reviews: 'Отзывы', otp: 'Вход по SMS', moderation: 'Модерация (SLA)' };
-const LIMIT_UNIT: Record<string, string> = { count: 'шт', seconds: 'сек', minutes: 'мин', hours: 'ч', days: 'дней' };
+const LIMIT_GROUP: Record<string, string> = { tasks: L.api.zadaniya2, responses: L.api.otklikiIPriglasheniya, reviews: L.api.otzyvy, otp: L.api.vhodPoSms, moderation: L.api.moderatsiyaSla };
+const LIMIT_UNIT: Record<string, string> = { count: L.api.sht, seconds: L.api.sek, minutes: L.api.min2, hours: L.api.ch, days: L.api.dney };
 const toLimit = (x: LimitOut): LimitV => ({ key: x.key, group: LIMIT_GROUP[x.group] ?? x.group, label: x.title, value: x.value, unit: LIMIT_UNIT[x.unit] ?? x.unit, version: x.version, min: x.min, max: x.max, def: x.default });
 type TplTextOut = { channel: TplText['ch']; lang: 'ru' | 'tj'; title: string | null; body: string; custom: boolean; default_body: string; preview: string; sms: { max_length: number; encoding: string; segments: number } | null; version: number };
 const toTplText = (t: TplTextOut): TplText => ({
@@ -937,13 +938,13 @@ function demoLock(v?: { fails: number; until: number }): { fails: number; until:
 }
 const toStaff = (x: StaffOut): StaffV => ({
   id: x.id, name: x.name, email: x.email, phone: x.contact_phone ?? '', role: x.role, regionIds: x.region_cities.map((c) => c.id),
-  regions: x.region_cities.length ? x.region_cities.map((c) => c.name_ru).join(', ') : 'Все', status: x.status === 'active' ? 'Активен' : 'Отключён', tone: x.status === 'active' ? 'ok' : 'grey',
+  regions: x.region_cities.length ? x.region_cities.map((c) => c.name_ru).join(', ') : L.api.vse, status: x.status === 'active' ? L.api.aktiven : L.api.otklyuchen, tone: x.status === 'active' ? 'ok' : 'grey',
   seen: seenText(x.last_login_at), active: x.status === 'active', created: dayMon(x.created_at),
 });
-const cityNames = (ids: number[]) => (ids.length ? ids.map((id) => ref.cityById(id)?.name.ru ?? demo.demoCities.find((c) => c.id === id)?.ru ?? `#${id}`).join(', ') : 'Все');
+const cityNames = (ids: number[]) => (ids.length ? ids.map((id) => ref.cityById(id)?.name.ru ?? demo.demoCities.find((c) => c.id === id)?.ru ?? `#${id}`).join(', ') : L.api.vse);
 function uaShort(ua: string | null | undefined) {
-  if (!ua) return 'Устройство';
-  const b = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Браузер';
+  if (!ua) return L.api.ustroystvo;
+  const b = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : L.api.brauzer;
   const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
   return [b, os].filter(Boolean).join(' · ');
 }
@@ -953,7 +954,7 @@ function whenShort(iso: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (+d >= +today) return hhmmss(iso).slice(0, 5);
-  if (+d >= +today - 864e5) return 'вчера';
+  if (+d >= +today - 864e5) return L.api.vchera;
   return dayMon(iso);
 }
 function auditQuery(f: { action: string; objectId: string; days: number; staffId?: number | null }, limit?: number) {
@@ -965,10 +966,10 @@ function auditQuery(f: { action: string; objectId: string; days: number; staffId
 }
 /** Статусы заданий бэкенда → подпись и тон реестра */
 const TASK_ST: Record<string, [string, Tone]> = {
-  draft: ['Черновик', 'grey'], review: ['На проверке', 'warn'], open: ['Открыто', 'info'], chosen: ['Мастер выбран', 'info'], work: ['В работе', 'info'], wait: ['Ждёт подтверждения', 'warn'],
-  dispute: ['Спор', 'bad'], done: ['Завершено', 'ok'], closed: ['Закрыто', 'grey'], rejected: ['Отклонено', 'bad'], expired: ['Срок истёк', 'grey'], cancelled: ['Отменено', 'grey'], declined: ['Отказ мастера', 'grey'],
+  draft: [L.api.chernovik, 'grey'], review: [L.api.naProverke, 'warn'], open: [L.api.otkryto, 'info'], chosen: [L.api.masterVybran, 'info'], work: [L.api.vRabote2, 'info'], wait: [L.api.zhdetPodtverzhdeniya2, 'warn'],
+  dispute: [L.api.spor2, 'bad'], done: [L.api.zaversheno, 'ok'], closed: [L.api.zakryto, 'grey'], rejected: [L.api.otkloneno, 'bad'], expired: [L.api.srokIstek, 'grey'], cancelled: [L.api.otmeneno, 'grey'], declined: [L.api.otkazMastera2, 'grey'],
 };
 /** Вкладки реестра заданий (демо) */
-const TASK_TAB: Record<string, string[]> = { review: ['На проверке'], open: ['Открыто'], chosen: ['Мастер выбран', 'В работе', 'Ждёт подтверждения'], dispute: ['Спор'], done: ['Завершено'], closed: ['Срок истёк', 'Отменено', 'Отклонено', 'Закрыто'] };
-const MASTER_ST: Record<string, [string, Tone]> = { approved: ['Одобрен', 'ok'], review: ['На проверке', 'warn'], rejected: ['Отклонён', 'bad'], suspended: ['Приостановлен', 'grey'], draft: ['Черновик', 'grey'], blocked: ['Заблокирован', 'dark'] };
-const MASTER_TAB: Record<string, string> = { approved: 'Одобрен', review: 'На проверке', rejected: 'Отклонён', suspended: 'Приостановлен' };
+const TASK_TAB: Record<string, string[]> = { review: [L.api.naProverke], open: [L.api.otkryto], chosen: [L.api.masterVybran, L.api.vRabote2, L.api.zhdetPodtverzhdeniya2], dispute: [L.api.spor2], done: [L.api.zaversheno], closed: [L.api.srokIstek, L.api.otmeneno, L.api.otkloneno, L.api.zakryto] };
+const MASTER_ST: Record<string, [string, Tone]> = { approved: [L.api.odobren, 'ok'], review: [L.api.naProverke, 'warn'], rejected: [L.api.otklonen, 'bad'], suspended: [L.api.priostanovlen, 'grey'], draft: [L.api.chernovik, 'grey'], blocked: [L.api.zablokirovan, 'dark'] };
+const MASTER_TAB: Record<string, string> = { approved: L.api.odobren, review: L.api.naProverke, rejected: L.api.otklonen, suspended: L.api.priostanovlen };

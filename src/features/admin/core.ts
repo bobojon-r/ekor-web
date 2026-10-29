@@ -3,6 +3,7 @@ import {
   BadgeCheck, ClipboardCheck, HardHat, History, ListChecks, LayoutDashboard, MapPin, MessageSquareText, MessageSquareWarning, MessagesSquare, Scale, ShieldCheck, SlidersHorizontal, Users,
   type LucideIcon,
 } from 'lucide-react';
+import { L } from './i18n';
 
 export type Role = 'moderator' | 'senior' | 'admin';
 export type SectionKey = 'dashboard' | 'tasks' | 'masters' | 'disputes' | 'reviews' | 'allTasks' | 'allMasters' | 'users' | 'chats' | 'dicts' | 'limits' | 'templates' | 'staff' | 'audit';
@@ -14,34 +15,34 @@ const ADMIN: Role[] = ['admin'];
 
 /** Меню строится по роли (AdminNav.dc.html): moderator — очереди и реестры своих регионов, пользователи и аудит */
 export const NAV: [string, Section[]][] = [
-  ['Обзор', [{ key: 'dashboard', href: '/admin', icon: LayoutDashboard, label: 'Дашборд', title: 'Дашборд', roles: ALL }]],
+  [L.core.obzor, [{ key: 'dashboard', href: '/admin', icon: LayoutDashboard, label: L.core.dashbord, title: L.core.dashbord, roles: ALL }]],
   [
-    'Модерация',
+    L.core.moderatsiya,
     [
-      { key: 'tasks', href: '/admin/moderation/tasks', icon: ClipboardCheck, label: 'Задания', title: 'Модерация · Задания', roles: ALL },
-      { key: 'masters', href: '/admin/moderation/masters', icon: BadgeCheck, label: 'Профили', title: 'Модерация · Профили мастеров', roles: ALL },
-      { key: 'disputes', href: '/admin/disputes', icon: Scale, label: 'Споры', title: 'Споры', roles: SENIOR, danger: true },
-      { key: 'reviews', href: '/admin/reviews', icon: MessageSquareWarning, label: 'Отзывы и жалобы', title: 'Отзывы и жалобы', roles: SENIOR },
+      { key: 'tasks', href: '/admin/moderation/tasks', icon: ClipboardCheck, label: L.core.zadaniya, title: L.core.moderatsiyaZadaniya, roles: ALL },
+      { key: 'masters', href: '/admin/moderation/masters', icon: BadgeCheck, label: L.core.profili, title: L.core.moderatsiyaProfiliMasterov, roles: ALL },
+      { key: 'disputes', href: '/admin/disputes', icon: Scale, label: L.core.spory, title: L.core.spory, roles: SENIOR, danger: true },
+      { key: 'reviews', href: '/admin/reviews', icon: MessageSquareWarning, label: L.core.otzyvyIZhaloby, title: L.core.otzyvyIZhaloby, roles: SENIOR },
     ],
   ],
   [
-    'Каталог',
+    L.core.katalog,
     [
-      { key: 'allTasks', href: '/admin/tasks', icon: ListChecks, label: 'Все задания', title: 'Все задания', roles: ALL },
-      { key: 'allMasters', href: '/admin/masters', icon: HardHat, label: 'Все мастера', title: 'Все мастера', roles: ALL },
-      { key: 'users', href: '/admin/users', icon: Users, label: 'Пользователи', title: 'Пользователи', roles: ALL },
-      { key: 'chats', href: '/admin/complaints', icon: MessagesSquare, label: 'Чаты по жалобам', title: 'Чаты по жалобам', roles: SENIOR },
+      { key: 'allTasks', href: '/admin/tasks', icon: ListChecks, label: L.core.vseZadaniya, title: L.core.vseZadaniya, roles: ALL },
+      { key: 'allMasters', href: '/admin/masters', icon: HardHat, label: L.core.vseMastera, title: L.core.vseMastera, roles: ALL },
+      { key: 'users', href: '/admin/users', icon: Users, label: L.core.polzovateli, title: L.core.polzovateli, roles: ALL },
+      { key: 'chats', href: '/admin/complaints', icon: MessagesSquare, label: L.core.chatyPoZhalobam, title: L.core.chatyPoZhalobam, roles: SENIOR },
     ],
   ],
   [
-    'Настройки',
+    L.core.nastroyki,
     [
-      { key: 'dicts', href: '/admin/dictionaries', icon: MapPin, label: 'Справочники', title: 'Справочники', roles: ADMIN },
-      { key: 'limits', href: '/admin/limits', icon: SlidersHorizontal, label: 'Лимиты и настройки', title: 'Лимиты и настройки', roles: ADMIN },
-      { key: 'templates', href: '/admin/templates', icon: MessageSquareText, label: 'Шаблоны SMS', title: 'Шаблоны уведомлений', roles: ADMIN },
-      { key: 'staff', href: '/admin/staff', icon: ShieldCheck, label: 'Сотрудники и роли', title: 'Сотрудники и роли', roles: ADMIN },
+      { key: 'dicts', href: '/admin/dictionaries', icon: MapPin, label: L.core.spravochniki, title: L.core.spravochniki, roles: ADMIN },
+      { key: 'limits', href: '/admin/limits', icon: SlidersHorizontal, label: L.core.limityINastroyki, title: L.core.limityINastroyki, roles: ADMIN },
+      { key: 'templates', href: '/admin/templates', icon: MessageSquareText, label: L.core.shablonySms, title: L.core.shablonyUvedomleniy, roles: ADMIN },
+      { key: 'staff', href: '/admin/staff', icon: ShieldCheck, label: L.core.sotrudnikiIRoli, title: L.core.sotrudnikiIRoli, roles: ADMIN },
       // ТЗ §6 и бэкенд: аудит — senior и admin (в макете меню модератора пункт был, сервер отвечает 403)
-      { key: 'audit', href: '/admin/audit', icon: History, label: 'Аудит-лог', title: 'Аудит-лог', roles: SENIOR },
+      { key: 'audit', href: '/admin/audit', icon: History, label: L.core.auditLog, title: L.core.auditLog, roles: SENIOR },
     ],
   ],
 ];
@@ -59,13 +60,13 @@ export type Tone = keyof typeof ST;
 
 /** Автофлаги заданий: ключ API → подпись и тон */
 export const FLAGS: Record<string, [string, Tone]> = {
-  contacts: ['Контакты', 'bad'], phone: ['Контакты', 'bad'], payment: ['Предоплата', 'bad'], prepayment: ['Предоплата', 'bad'], payment_talk: ['Предоплата', 'bad'],
-  link: ['Ссылка', 'bad'], links: ['Ссылка', 'bad'], new: ['Новый', 'info'], new_author: ['Новый', 'info'], repeat: ['Повтор', 'warn'], duplicate: ['Повтор', 'warn'],
+  contacts: [L.core.kontakty, 'bad'], phone: [L.core.kontakty, 'bad'], payment: [L.core.predoplata, 'bad'], prepayment: [L.core.predoplata, 'bad'], payment_talk: [L.core.predoplata, 'bad'],
+  link: [L.core.ssylka, 'bad'], links: [L.core.ssylka, 'bad'], new: [L.core.novyy, 'info'], new_author: [L.core.novyy, 'info'], repeat: [L.core.povtor, 'warn'], duplicate: [L.core.povtor, 'warn'],
 };
 export const FLAG_TEXT: Record<string, string> = {
-  Контакты: 'Телефон в тексте. Удалите номер через «Править» или отклоните с причиной «Контакты в тексте».',
-  Предоплата: 'Просьба о предоплате — частая схема мошенничества. Рекомендуем отклонить и проверить автора.',
-  Ссылка: 'Ссылка или мессенджер в тексте. Контакты открываются только после выбора исполнителя.',
+  [L.core.kontakty]: L.core.telefonVTeksteUdalite,
+  [L.core.predoplata]: L.core.prosbaOPredoplateChastaya,
+  [L.core.ssylka]: L.core.ssylkaIliMessendzherV,
 };
 export const flagOf = (k: string): [string, Tone] => FLAGS[k] ?? [k, 'grey'];
 
@@ -77,7 +78,7 @@ export function splitContact(text: string) {
   return m && m.index !== undefined ? { pre: text.slice(0, m.index), hl: m[0], post: text.slice(m.index + m[0].length) } : { pre: text, hl: '', post: '' };
 }
 
-const MON = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const MON = [L.core.yanv, L.core.fev, L.core.mar, L.core.apr, L.core.maya, L.core.iyun, L.core.iyul, L.core.avg, L.core.sen, L.core.okt, L.core.noya, L.core.dek];
 const pad = (n: number) => String(n).padStart(2, '0');
 export const hhmm = (iso: string) => {
   const d = new Date(iso);
@@ -96,19 +97,19 @@ export const num = (n: number) => n.toLocaleString('ru-RU');
 
 /** «9 мин назад», «2 ч назад», «1 д назад» */
 export function agoText(min: number) {
-  if (min < 60) return `${Math.max(1, Math.round(min))} мин назад`;
-  if (min < 1440) return `${Math.round(min / 60)} ч назад`;
-  return `${Math.round(min / 1440)} д назад`;
+  if (min < 60) return L.core.minNazad(Math.max(1, Math.round(min)));
+  if (min < 1440) return L.core.chNazad(Math.round(min / 60));
+  return L.core.dNazad(Math.round(min / 1440));
 }
 /** «2 ч», «5 мин», «вчера», «3 д» — последний вход */
 export function seenText(iso: string | null | undefined) {
   if (!iso) return '—';
   const min = (Date.now() - +new Date(iso)) / 60000;
-  if (min < 2) return 'сейчас';
-  if (min < 60) return `${Math.round(min)} мин`;
-  if (min < 1440) return `${Math.round(min / 60)} ч`;
-  if (min < 2880) return 'вчера';
-  return `${Math.round(min / 1440)} д`;
+  if (min < 2) return L.core.seychas;
+  if (min < 60) return L.core.min(Math.round(min));
+  if (min < 1440) return L.core.ch(Math.round(min / 60));
+  if (min < 2880) return L.core.vchera;
+  return L.core.d(Math.round(min / 1440));
 }
 
 /**
@@ -117,7 +118,7 @@ export function seenText(iso: string | null | undefined) {
  */
 export function sla(leftMin: number, unit: 'm' | 'h' = 'm') {
   const v = unit === 'h' ? Math.round(leftMin / 60) : Math.round(leftMin);
-  const u = unit === 'h' ? ' ч' : 'м';
+  const u = unit === 'h' ? L.core.ch2 : L.core.m;
   if (leftMin < 0) return { text: `+${Math.abs(v) || 1}${u}`, color: '#B03A2E' };
   const hot = unit === 'h' ? leftMin <= 4 * 60 : leftMin <= 5;
   return { text: `${v}${u}`, color: hot ? '#8A4B0D' : '#0F1B2A' };

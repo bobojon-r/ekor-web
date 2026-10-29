@@ -9,6 +9,7 @@ import type { Reason, ReviewV } from '../data/types';
 import { splitContact } from '../core';
 import { cx, Head, Highlighted, HotkeyHelp, Label, Loading, Pill, Tabs, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 const COLS = '64px 60px minmax(0,1fr) 140px 110px 60px';
 type TabK = 'review' | 'all' | 'hidden';
@@ -63,7 +64,7 @@ export function Reviews() {
     try {
       if (doHide) await adminApi.hideReview(cur, reason!, note.trim());
       else await adminApi.keepReview(cur);
-      toast(doHide ? 'Отзыв скрыт. Автор получил причину' : tab === 'hidden' ? 'Отзыв возвращён' : 'Отзыв оставлен, жалобы отклонены');
+      toast(doHide ? L.reviews.otzyvSkrytAvtorPoluchil : tab === 'hidden' ? L.reviews.otzyvVozvraschen : L.reviews.otzyvOstavlenZhalobyOtkloneny);
       await load();
       refreshCounts();
     } catch (e) {
@@ -84,11 +85,11 @@ export function Reviews() {
 
   return (
     <>
-      <Head title="Отзывы и жалобы">
-        <HotkeyHelp keys={[["J / K", "следующий / предыдущий отзыв"], ["1–5", "причина скрытия"], ["Esc", "закрыть окно"], ["?", "эта подсказка"]]} />
-        <Tabs value={tab} onChange={setTab} items={[['review', `На проверке ${all.length}`], ['all', 'Все отзывы'], ['hidden', 'Скрытые']]} />
+      <Head title={L.reviews.otzyvyIZhaloby}>
+        <HotkeyHelp keys={[["J / K", L.reviews.sleduyuschiyPredyduschiyOtzyv], ["1–5", L.reviews.prichinaSkrytiya], ["Esc", L.reviews.zakrytOkno], ["?", L.reviews.etaPodskazka]]} />
+        <Tabs value={tab} onChange={setTab} items={[['review', L.reviews.naProverke(all.length)], ['all', L.reviews.vseOtzyvy], ['hidden', L.reviews.skrytye]]} />
         <span className={s.grow} />
-        <span className={s.note}>в очередь попадает при 2+ жалобах или автофильтре</span>
+        <span className={s.note}>{L.reviews.vOcheredPopadaetPri}</span>
       </Head>
       {!rows ? (
         <Loading />
@@ -97,14 +98,14 @@ export function Reviews() {
           <div className={s.list}>
             <div className={s.thead} style={{ gridTemplateColumns: COLS }}>
               <span>ID</span>
-              <span>Оценка</span>
-              <span>Текст</span>
-              <span>Мастер</span>
-              <span>Причина</span>
-              <span className={s.right}>Жалоб</span>
+              <span>{L.reviews.otsenka}</span>
+              <span>{L.reviews.tekst}</span>
+              <span>{L.reviews.master}</span>
+              <span>{L.reviews.prichina}</span>
+              <span className={s.right}>{L.reviews.zhalob}</span>
             </div>
             <div className={s.scroll}>
-              {view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>{tab === 'review' ? 'Очередь пуста — спорных отзывов нет' : 'Отзывов нет'}</div>}
+              {view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>{tab === 'review' ? L.reviews.ocheredPustaSpornyhOtzyvov : L.reviews.otzyvovNet}</div>}
               {view.map((r, i) => (
                 <div key={r.key} role="button" tabIndex={0} onClick={() => setSel(i)} onKeyDown={(e) => e.key === 'Enter' && setSel(i)} className={cx(s.row, cur?.key === r.key && s.rowOn)} style={{ gridTemplateColumns: COLS }}>
                   <span className={s.id}>{r.id}</span>
@@ -127,7 +128,7 @@ export function Reviews() {
                 <div className={s.metaLine}>
                   <span>{cur.id}</span>
                   <span>·</span>
-                  <span>заказ {cur.order}</span>
+                  <span>{L.reviews.zakaz} {cur.order}</span>
                   <span className={s.grow} />
                   <span>{cur.date}</span>
                 </div>
@@ -151,13 +152,13 @@ export function Reviews() {
                       gap: 4,
                     }}
                   >
-                    <Label>Ответ мастера</Label>
+                    <Label>{L.reviews.otvetMastera}</Label>
                     <span style={{ lineHeight: 1.5 }}>{cur.reply}</span>
                   </div>
                 )}
                 <div className={s.col6}>
-                  <Label>Жалобы · {cur.complaints}</Label>
-                  {cur.complaintList.length === 0 && <span className={s.muted}>{cur.complaints ? 'Подробности жалоб — в разделе «Чаты по жалобам»' : 'Жалоб нет'}</span>}
+                  <Label>{L.reviews.zhaloby} {cur.complaints}</Label>
+                  {cur.complaintList.length === 0 && <span className={s.muted}>{cur.complaints ? L.reviews.podrobnostiZhalobVRazdele : L.reviews.zhalobNet}</span>}
                   {cur.complaintList.map(([t, d]) => (
                     <div
                       key={t}
@@ -175,11 +176,11 @@ export function Reviews() {
                 </div>
                 {cur.status === 'hidden' ? (
                   <div className={s.alertWarn}>
-                    <span>Скрыт: {cur.hideReason ?? 'причина не указана'}. Оценка не входит в рейтинг.</span>
+                    <span>{L.reviews.skryt} {cur.hideReason ?? L.reviews.prichinaNeUkazana}{L.reviews.otsenkaNeVhoditV}</span>
                   </div>
                 ) : (
                   <div className={s.col6}>
-                    <Label>Причина скрытия</Label>
+                    <Label>{L.reviews.prichinaSkrytiya2}</Label>
                     <div className={s.wrap4}>
                       {hide.map((h) => (
                         <button key={h.id} type="button" aria-pressed={reason?.id === h.id} className={cx(s.reason, reason?.id === h.id && s.reasonOn)} style={{ height: 28, padding: '0 10px' }} onClick={() => setReason(reason?.id === h.id ? null : h)}>
@@ -187,9 +188,9 @@ export function Reviews() {
                         </button>
                       ))}
                     </div>
-                    {reason?.needComment && <input className={s.input} value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Комментарий к причине (обязательно)" />}
+                    {reason?.needComment && <input className={s.input} value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder={L.reviews.kommentariyKPrichineObyazatelno} />}
                     <span className={s.muted} style={{ lineHeight: 1.45 }}>
-                      Автор получит причину и сможет написать отзыв заново один раз. Оценка скрытого отзыва не входит в рейтинг.
+                      {L.reviews.avtorPoluchitPrichinuI}
                     </span>
                   </div>
                 )}
@@ -197,23 +198,23 @@ export function Reviews() {
               <div className={s.panelFoot} style={{ padding: '12px 20px' }}>
                 {cur.status === 'hidden' ? (
                   <button type="button" className={s.btn} disabled={busy} onClick={() => act(false)}>
-                    Вернуть отзыв
+                    {L.reviews.vernutOtzyv}
                   </button>
                 ) : (
                   <>
                     <button type="button" className={s.btn} disabled={busy || cur.status !== 'review'} onClick={() => act(false)}>
-                      Оставить, жалобы отклонить
+                      {L.reviews.ostavitZhalobyOtklonit}
                     </button>
                     <span className={s.grow} />
                     <button type="button" className={cx(s.btn, s.btnRed)} disabled={busy || !reason || (reason.needComment && note.trim().length < 5)} onClick={() => act(true)}>
-                      Скрыть отзыв
+                      {L.reviews.skrytOtzyv}
                     </button>
                   </>
                 )}
               </div>
             </div>
           ) : (
-            <div className={s.loading}>Выберите отзыв</div>
+            <div className={s.loading}>{L.reviews.vyberiteOtzyv}</div>
           )}
         </div>
       )}

@@ -8,6 +8,7 @@ import { adminApi } from '../data/api';
 import type { TplCard, TplRow, TplText } from '../data/types';
 import { cx, Head, Label, Loading } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 type Ch = TplText['ch'];
 const CH: Record<Ch, [string, string, string]> = { sms: ['SMS', '#FBEBDA', '#8A4B0D'], push: ['Push', '#EAEEFC', '#1F3BB8'], inapp: ['In-app', '#EEF1F4', '#3B4756'] };
@@ -69,9 +70,9 @@ export function Templates() {
       for (const l of changed) c = await adminApi.saveTemplate(cur.code, { ...text(l)!, title: withTitle ? draft[l].title || null : null, body: draft[l].body.trim() });
       if (c) setCard(c);
       setList((x) => x?.map((t) => (t.code === cur.code ? { ...t, custom: [...new Set([...t.custom, ...changed.map((l) => `${ch}:${l}`)])] } : t)) ?? x);
-      toast('Шаблон сохранён');
+      toast(L.templates.shablonSohranen);
     } catch (e) {
-      toast((e as { status?: number }).status === 409 ? 'Шаблон успели изменить — откройте его заново' : apiErrorText(e, 'ru'));
+      toast((e as { status?: number }).status === 409 ? L.templates.shablonUspeliIzmenitOtkroyte : apiErrorText(e, 'ru'));
     }
     setBusy(false);
   };
@@ -81,7 +82,7 @@ export function Templates() {
     setBusy(true);
     try {
       const r = await adminApi.testTemplate(cur.code, phone.trim(), { ...text(lang)!, title: withTitle ? draft[lang].title || null : null, body: draft[lang].body });
-      toast(`Тест отправлен на ${r.sent_to}${sms ? ` · ${r.sms.segments} SMS` : ''}`);
+      toast(L.templates.testOtpravlenNa(r.sent_to, sms ? ` · ${r.sms.segments} SMS` : ''));
     } catch (e) {
       toast(apiErrorText(e, 'ru'));
     }
@@ -99,19 +100,19 @@ export function Templates() {
       <div className={s.col6}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
           <span className={s.fieldT}>
-            {lang === 'ru' ? 'Русский' : 'Тоҷикӣ'}
-            {o?.custom && <span className={s.muted}> · изменён</span>}
+            {lang === 'ru' ? L.templates.russkiy : L.templates.toIk}
+            {o?.custom && <span className={s.muted}> {L.templates.izmenen}</span>}
           </span>
           <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             {o && v !== o.defBody && (
               <button type="button" className={s.linkBtn} onClick={() => set(lang, 'body', o.defBody)}>
-                Вернуть стандартный
+                {L.templates.vernutStandartnyy}
               </button>
             )}
-            <span style={{ font: "600 12px 'JetBrains Mono', monospace", color: over ? '#8A4B0D' : '#0B6E5E' }}>{sms ? `${c.n} / ${c.one} · ${c.p} SMS` : `${c.n} симв.`}</span>
+            <span style={{ font: "600 12px 'JetBrains Mono', monospace", color: over ? '#8A4B0D' : '#0B6E5E' }}>{sms ? `${c.n} / ${c.one} · ${c.p} SMS` : L.templates.simv(c.n)}</span>
           </span>
         </div>
-        {withTitle && <input className={s.input} value={draft[lang].title} onFocus={() => (last.current = lang)} onChange={(e) => set(lang, 'title', e.target.value.slice(0, 60))} placeholder="Заголовок" aria-label={`Заголовок ${lang}`} />}
+        {withTitle && <input className={s.input} value={draft[lang].title} onFocus={() => (last.current = lang)} onChange={(e) => set(lang, 'title', e.target.value.slice(0, 60))} placeholder={L.templates.zagolovok} aria-label={L.templates.zagolovok2(lang)} />}
         <textarea
           value={v}
           onFocus={() => (last.current = lang)}
@@ -119,15 +120,15 @@ export function Templates() {
           rows={2}
           style={{ padding: '10px 12px', borderRadius: 7, border: `1.5px solid ${over ? '#D9822B' : '#2647D9'}`, lineHeight: 1.5, fontSize: 14, minHeight: 44, resize: 'vertical', outline: 'none' }}
         />
-        {over && <span style={{ color: '#8A4B0D' }}>Превышает {c.one} символов — отправится {c.p === 2 ? 'двумя' : `${c.p}`} SMS и стоит {c.p === 2 ? 'вдвое' : `в ${c.p} раза`} дороже. Сократите текст.</span>}
+        {over && <span style={{ color: '#8A4B0D' }}>{L.templates.prevyshaet} {c.one} {L.templates.simvolovOtpravitsya} {c.p === 2 ? L.templates.dvumya : `${c.p}`} {L.templates.smsIStoit} {c.p === 2 ? L.templates.vdvoe : L.templates.vRaza(c.p)} {L.templates.dorozheSokratiteTekst}</span>}
       </div>
     );
   };
 
   return (
     <>
-      <Head title="Шаблоны уведомлений">
-        <span className={s.muted}>{list ? `${list.length} событий · SMS — только критичные` : ''}</span>
+      <Head title={L.templates.shablonyUvedomleniy}>
+        <span className={s.muted}>{list ? L.templates.sobytiySmsTolkoKritichnye(list.length) : ''}</span>
       </Head>
       {!list ? (
         <Loading />
@@ -143,7 +144,7 @@ export function Templates() {
                     </span>
                     <span style={{ font: "500 11px 'JetBrains Mono', monospace", color: '#5B6878' }}>
                       {t.code}
-                      {t.custom.length ? ' · изменён' : ''}
+                      {t.custom.length ? L.templates.izmenen2 : ''}
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
@@ -179,33 +180,33 @@ export function Templates() {
                   {area('ru')}
                   {area('tj')}
                   <div className={s.col6}>
-                    <span className={s.fieldT}>Переменные</span>
+                    <span className={s.fieldT}>{L.templates.peremennye}</span>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {card.vars.map((v) => (
-                        <button key={v.name} type="button" title={`до ${v.max} симв. · пример: ${v.sample}`} onClick={() => insert(v.name)} style={{ height: 26, padding: '0 8px', borderRadius: 6, border: '1px solid #DCE3EA', background: '#fff', font: "500 12px 'JetBrains Mono', monospace" }}>
+                        <button key={v.name} type="button" title={L.templates.doSimvPrimer(v.max, v.sample)} onClick={() => insert(v.name)} style={{ height: 26, padding: '0 8px', borderRadius: 6, border: '1px solid #DCE3EA', background: '#fff', font: "500 12px 'JetBrains Mono', monospace" }}>
                           {`{${v.name}}`}
                         </button>
                       ))}
                     </div>
                     {bad.length > 0 ? (
-                      <span style={{ color: '#A5281B' }}>Неизвестная переменная: {[...new Set(bad)].map((v) => `{${v}}`).join(', ')}</span>
+                      <span style={{ color: '#A5281B' }}>{L.templates.neizvestnayaPeremennaya} {[...new Set(bad)].map((v) => `{${v}}`).join(', ')}</span>
                     ) : (
-                      <span className={s.muted}>Кириллица: 70 символов на SMS, при склейке — 67. Переменная считается по максимальной длине значения.</span>
+                      <span className={s.muted}>{L.templates.kirillitsa70SimvolovNa}</span>
                     )}
                   </div>
                   <div className={s.alertWarn}>
                     <TriangleAlert size={15} aria-hidden />
-                    <span>Тексты TJ — черновик, нужна вычитка носителем перед запуском</span>
+                    <span>{L.templates.tekstyTjChernovikNuzhna}</span>
                   </div>
                 </div>
                 <div className={s.panelFoot} style={{ padding: '12px 22px' }}>
-                  <input className={s.input} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+992 …" style={{ width: 150, height: 34, font: "500 12px 'JetBrains Mono', monospace" }} aria-label="Номер для теста" />
+                  <input className={s.input} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+992 …" style={{ width: 150, height: 34, font: "500 12px 'JetBrains Mono', monospace" }} aria-label={L.templates.nomerDlyaTesta} />
                   <button type="button" className={s.btn} style={{ height: 34 }} disabled={busy || phone.replace(/\D/g, '').length < 9 || bad.length > 0} onClick={test}>
-                    Отправить тест
+                    {L.templates.otpravitTest}
                   </button>
                   <span className={s.grow} />
                   <button type="button" className={cx(s.btn, s.btnBlue)} disabled={busy || !changed.length || bad.length > 0 || changed.some((l) => !draft[l].body.trim())} onClick={save}>
-                    Сохранить
+                    {L.templates.sohranit}
                   </button>
                 </div>
               </>
@@ -213,11 +214,11 @@ export function Templates() {
           </div>
           <div className={s.panelBody} style={{ borderLeft: '1px solid #E1E6EC', background: '#F7F9FB', alignItems: 'center' }}>
             <span style={{ alignSelf: 'flex-start' }}>
-              <Label>Предпросмотр</Label>
+              <Label>{L.templates.predprosmotr}</Label>
             </span>
             <div style={{ width: 260, borderRadius: 28, background: '#0F1B2A', padding: 10 }}>
               <div style={{ borderRadius: 20, background: '#E9EDF1', padding: '18px 12px 60px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <span style={{ alignSelf: 'center', fontSize: 11, color: '#5B6878' }}>eKor · сейчас</span>
+                <span style={{ alignSelf: 'center', fontSize: 11, color: '#5B6878' }}>{L.templates.ekorSeychas}</span>
                 {(['ru', 'tj'] as const).map((l) => (
                   <div key={l} style={{ padding: '10px 12px', borderRadius: '14px 14px 14px 4px', background: '#fff', fontSize: 14, lineHeight: 1.45 }}>
                     {withTitle && draft[l].title && <b style={{ display: 'block' }}>{fill(draft[l].title)}</b>}
@@ -227,7 +228,7 @@ export function Templates() {
               </div>
             </div>
             <span className={s.muted} style={{ textAlign: 'center', lineHeight: 1.45 }}>
-              Язык выбирается по профилю пользователя, при входе — по языку приложения
+              {L.templates.yazykVybiraetsyaPoProfilyu}
             </span>
           </div>
         </div>

@@ -6,12 +6,13 @@
  */
 import { ApiError } from '@/lib/api';
 import { uuid } from '@/lib/browser';
+import { L } from '../i18n';
 
 const CSRF_KEY = 'ekor_admin_csrf';
 /** Названия полей для сообщений 422 */
 const FIELD: Record<string, string> = {
-  comment: 'комментарий', basis: 'основание', reason: 'основание', reason_id: 'причина', text: 'текст', note: 'заметка', title: 'заголовок', description: 'описание', body: 'текст',
-  name: 'ФИО', email: 'почта', password: 'пароль', contact_phone: 'телефон', phone: 'телефон', value: 'значение', resolution: 'решение', terms_deadline: 'срок доработки', confirm_last4: '4 цифры номера',
+  comment: L.http.kommentariy, basis: L.http.osnovanie, reason: L.http.osnovanie, reason_id: L.http.prichina, text: L.http.tekst, note: L.http.zametka, title: L.http.zagolovok, description: L.http.opisanie, body: L.http.tekst,
+  name: L.http.fio, email: L.http.pochta, password: L.http.parol, contact_phone: L.http.telefon, phone: L.http.telefon, value: L.http.znachenie, resolution: L.http.reshenie, terms_deadline: L.http.srokDorabotki, confirm_last4: L.http._4TsifryNomera,
 };
 type Opts = { method?: string; body?: unknown; query?: Record<string, string | number | boolean | null | undefined>; noRedirect?: boolean };
 
@@ -79,7 +80,7 @@ export async function adminHttp<T>(path: string, o: Opts = {}): Promise<T> {
     if (r.status === 401 && !o.noRedirect && path.startsWith('/admin') && !path.startsWith('/admin/auth')) toLogin();
     // 422 в модалках с одним полем: показываем, что именно не так (поле и текст ошибки)
     const first = r.status === 422 && Array.isArray(d?.details) ? d.details[0] : null;
-    const text = first?.field ? `${d?.message_ru ?? d?.message ?? 'Проверьте поля'}: ${FIELD[String(first.field).split('.').pop()!] ?? first.field} — ${first.message_ru ?? first.error ?? ''}` : null;
+    const text = first?.field ? `${d?.message_ru ?? d?.message ?? L.http.provertePolya}: ${FIELD[String(first.field).split('.').pop()!] ?? first.field} — ${first.message_ru ?? first.error ?? ''}` : null;
     const e = new ApiError(r.status, d?.code ?? `http_${r.status}`, text ?? d?.message_ru ?? d?.message ?? r.statusText);
     (e as ApiError & { details?: unknown }).details = d?.details;
     throw e;
@@ -92,6 +93,6 @@ export function fieldErrors(e: unknown): Record<string, string> {
   const x = e as { status?: number; details?: unknown };
   if (x?.status !== 422 || !Array.isArray(x.details)) return {};
   return Object.fromEntries(
-    (x.details as { field?: string; error?: string; message_ru?: string }[]).filter((d) => d.field).map((d) => [String(d.field).split('.').pop()!, d.message_ru ?? d.error ?? 'Проверьте значение']),
+    (x.details as { field?: string; error?: string; message_ru?: string }[]).filter((d) => d.field).map((d) => [String(d.field).split('.').pop()!, d.message_ru ?? d.error ?? L.http.proverteZnachenie]),
   );
 }

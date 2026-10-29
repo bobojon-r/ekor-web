@@ -11,6 +11,7 @@ import type { Lock, Reason, TaskQ } from '../data/types';
 import { agoText, FLAG_TEXT, FLAGS, sla } from '../core';
 import { Checkbox, cx, EmptyQueue, Head, HotkeyHelp, Label, Loading, Marked, Modal, Photo, Pill, RefreshBtn, SearchBox, SelectChip, Tabs, ToggleChip, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 const COLS = '28px 64px minmax(0,1fr) 112px 150px 44px';
 const toneOf = (label: string) => Object.values(FLAGS).find((f) => f[0] === label)?.[1] ?? 'grey';
@@ -89,7 +90,7 @@ export function TasksQueue() {
           (e as { code?: string }).code === 'locked_by_other' &&
           setLocks((m) => ({
             ...m,
-            [cur.key]: { name: 'другой модератор', mine: false },
+            [cur.key]: { name: L.tasksQueue.drugoyModerator, mine: false },
           })),
       );
     take();
@@ -116,7 +117,7 @@ export function TasksQueue() {
     const code = (e as { code?: string }).code;
     if (code === 'already_resolved' || code === 'locked_by_other') {
       setRows((r) => r?.filter((x) => x.key !== t.key) ?? r);
-      toast(code === 'already_resolved' ? `Уже обработано: ${t.id}` : `${t.id} смотрит другой модератор`);
+      toast(code === 'already_resolved' ? L.tasksQueue.uzheObrabotano(t.id) : L.tasksQueue.smotritDrugoyModerator(t.id));
       refreshCounts();
       return true;
     }
@@ -127,8 +128,8 @@ export function TasksQueue() {
 
   const act = async (list: TaskQ[], ok: boolean) => {
     if (busy || !list.length) return;
-    if (!ok && !reason) return toast('Выберите причину отказа — клавиши 1–5', 'info');
-    if (list.length === 1 && busyBy(list[0])) return toast(`Смотрит ${busyBy(list[0])} — дождитесь решения`, 'info');
+    if (!ok && !reason) return toast(L.tasksQueue.vyberitePrichinuOtkazaKlavishi, 'info');
+    if (list.length === 1 && busyBy(list[0])) return toast(L.tasksQueue.smotritDozhditesResheniya(busyBy(list[0])), 'info');
     if (ok) return approveLater(list);
     setBusy(true);
     try {
@@ -144,12 +145,12 @@ export function TasksQueue() {
       if (ok) setApproved((n) => n + done.length);
       toast(
         failed
-          ? `${ok ? 'Одобрено' : 'Отклонено'}: ${done.length}, не обработано: ${failed} — уже решены или их смотрит другой модератор`
+          ? L.tasksQueue.neObrabotanoUzheResheny(ok ? L.tasksQueue.odobreno : L.tasksQueue.otkloneno, done.length, failed)
           : ok
             ? list.length > 1
-              ? `Одобрено: ${list.length}`
-              : `Одобрено: «${list[0].title}»`
-            : 'Отклонено. Автор получил уведомление с причиной',
+              ? L.tasksQueue.odobreno2(list.length)
+              : L.tasksQueue.odobreno3(list[0].title)
+            : L.tasksQueue.otklonenoAvtorPoluchilUvedomleni,
       );
       refreshCounts();
     } catch (e) {
@@ -170,12 +171,12 @@ export function TasksQueue() {
     setReason(null);
     setApproved((n) => n + list.length);
     undo(
-      list.length > 1 ? `Одобрено: ${list.length}` : `Одобрено: «${list[0].title}»`,
+      list.length > 1 ? L.tasksQueue.odobreno2(list.length) : L.tasksQueue.odobreno3(list[0].title),
       async () => {
         try {
           if (list.length > 1) {
             const r = await adminApi.bulkTasks(list, true);
-            if (r.failed) toast(`Не обработано: ${r.failed} — уже решены или их смотрит другой модератор`, 'info');
+            if (r.failed) toast(L.tasksQueue.neObrabotanoUzheResheny2(r.failed), 'info');
           } else await adminApi.moderateTask(list[0], true);
           refreshCounts();
         } catch (e) {
@@ -207,19 +208,19 @@ export function TasksQueue() {
   const flagText = cur?.flags.map((f) => FLAG_TEXT[f]).find(Boolean);
 
   const header = (
-    <Head title="Модерация · Задания">
-        <HotkeyHelp keys={[["J / K", "следующая / предыдущая строка"], ["A", "одобрить"], ["R", "отклонить (сначала причина)"], ["E", "править текст"], ["X", "выбрать строку"], ["1–5", "причина отклонения"], ["/", "поиск"], ["Esc", "закрыть окно или снять выбор"], ["?", "эта подсказка"]]} />
-      <Tabs value={tab} onChange={setTab} items={[['queue', `Очередь ${rows && isQueue ? rows.length : counts.tasks}`], ['rejected', 'Отклонённые'], ['approved', `Одобренные сегодня ${approved}`]]} />
+    <Head title={L.tasksQueue.moderatsiyaZadaniya}>
+        <HotkeyHelp keys={[["J / K", L.tasksQueue.sleduyuschayaPredyduschayaStroka], ["A", L.tasksQueue.odobrit], ["R", L.tasksQueue.otklonitSnachalaPrichina], ["E", L.tasksQueue.pravitTekst], ["X", L.tasksQueue.vybratStroku], ["1–5", L.tasksQueue.prichinaOtkloneniya], ["/", L.tasksQueue.poisk], ["Esc", L.tasksQueue.zakrytOknoIliSnyat], ["?", L.tasksQueue.etaPodskazka]]} />
+      <Tabs value={tab} onChange={setTab} items={[['queue', L.tasksQueue.ochered(rows && isQueue ? rows.length : counts.tasks)], ['rejected', L.tasksQueue.otklonennye], ['approved', L.tasksQueue.odobrennyeSegodnya(approved)]]} />
       <span className={s.grow} />
       {isQueue && rows?.length === 0 ? (
         <span className={s.live}>
           <span className={s.liveDot} />
-          Обновляется автоматически
+          {L.tasksQueue.obnovlyaetsyaAvtomaticheski}
         </span>
       ) : (
         <>
-          <SearchBox value={q} onChange={setQ} placeholder="ID, текст, телефон" slash />
-          <span className={s.note}>SLA 30 мин</span>
+          <SearchBox value={q} onChange={setQ} placeholder={L.tasksQueue.idTekstTelefon} slash />
+          <span className={s.note}>{L.tasksQueue.sla30Min}</span>
         </>
       )}
     </Head>
@@ -239,12 +240,12 @@ export function TasksQueue() {
       <>
         {header}
         <div className={s.filters}>
-          <SelectChip label="Город" value={city} onChange={setCity} options={[['all', me.role === 'moderator' ? me.meta.split('·')[1]?.trim() || 'мои регионы' : 'все']]} />
-          {me.role === 'moderator' && <span className={s.muted}>Вы видите только задания своих регионов</span>}
+          <SelectChip label={L.tasksQueue.gorod} value={city} onChange={setCity} options={[['all', me.role === 'moderator' ? me.meta.split('·')[1]?.trim() || L.tasksQueue.moiRegiony : L.tasksQueue.vse]]} />
+          {me.role === 'moderator' && <span className={s.muted}>{L.tasksQueue.vyViditeTolkoZadaniya}</span>}
         </div>
-        <EmptyQueue text="Все задания проверены. Новые появятся здесь сами — список обновляется автоматически." stats={[[String(approved), 'проверено сегодня'], ['—', 'ваша медиана'], ['0', 'просрочено']]}>
+        <EmptyQueue text={L.tasksQueue.vseZadaniyaProverenyNovye} stats={[[String(approved), L.tasksQueue.proverenoSegodnya], ['—', L.tasksQueue.vashaMediana], ['0', L.tasksQueue.prosrocheno]]}>
           <Link href="/admin/moderation/masters" className={s.btn} style={{ textDecoration: 'none', color: '#0F1B2A' }}>
-            Профили мастеров · {counts.masters}
+            {L.tasksQueue.profiliMasterov} {counts.masters}
           </Link>
           <RefreshBtn onClick={() => (setRows(null), load(), refreshCounts())} />
         </EmptyQueue>
@@ -255,21 +256,21 @@ export function TasksQueue() {
     <>
       {header}
       <div className={s.filters}>
-        <SelectChip label="Город" value={city} onChange={setCity} options={[['all', 'все'], ...cities.map((c): [string, string] => [c, c])]} />
-        <SelectChip label="Категория" value={cat} onChange={setCat} options={[['all', 'все'], ...cats.map((c): [string, string] => [c, c])]} />
+        <SelectChip label={L.tasksQueue.gorod} value={city} onChange={setCity} options={[['all', L.tasksQueue.vse], ...cities.map((c): [string, string] => [c, c])]} />
+        <SelectChip label={L.tasksQueue.kategoriya} value={cat} onChange={setCat} options={[['all', L.tasksQueue.vse], ...cats.map((c): [string, string] => [c, c])]} />
         <ToggleChip on={onlyFlags} onClick={() => setOnlyFlags(!onlyFlags)}>
-          Только с флагами
+          {L.tasksQueue.tolkoSFlagami}
         </ToggleChip>
-        {me.role === 'moderator' && <span className={s.muted}>Вы видите только задания своих регионов</span>}
+        {me.role === 'moderator' && <span className={s.muted}>{L.tasksQueue.vyViditeTolkoZadaniya}</span>}
         <span className={s.grow} />
         {isQueue && chosen.length > 0 && (
           <>
-            <span className={s.bulkN}>Выбрано {chosen.length}</span>
+            <span className={s.bulkN}>{L.tasksQueue.vybrano} {chosen.length}</span>
             <button type="button" className={s.bulkOk} disabled={busy} onClick={() => act(chosen, true)}>
-              Одобрить {chosen.length}
+              {L.tasksQueue.odobrit2} {chosen.length}
             </button>
             <button type="button" className={s.bulkNo} disabled={busy} onClick={() => act(chosen, false)}>
-              Отклонить…
+              {L.tasksQueue.otklonit}
             </button>
           </>
         )}
@@ -279,19 +280,19 @@ export function TasksQueue() {
           <div className={s.thead} style={{ gridTemplateColumns: COLS }}>
             <span />
             <span>ID</span>
-            <span>Задание · категория</span>
-            <span>Город</span>
-            <span>Флаги</span>
+            <span>{L.tasksQueue.zadanieKategoriya}</span>
+            <span>{L.tasksQueue.gorod}</span>
+            <span>{L.tasksQueue.flagi}</span>
             <span className={s.right}>SLA</span>
           </div>
           <div className={s.scroll}>
-            {view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>Ничего не найдено</div>}
+            {view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>{L.tasksQueue.nichegoNeNaydeno}</div>}
             {view.map((r, i) => {
               const left = r.slaLeft === null ? null : r.slaLeft - elapsed;
               const sl =
                 left === null
                   ? {
-                      text: `${Math.round(r.ageMin + elapsed)}м`,
+                      text: L.tasksQueue.m(Math.round(r.ageMin + elapsed)),
                       color: '#6B7787',
                     }
                   : sla(left);
@@ -306,11 +307,11 @@ export function TasksQueue() {
                   className={cx(s.row, picked.has(r.key) && s.rowChk, cur?.key === r.key && s.rowOn)}
                   style={{ gridTemplateColumns: COLS }}
                 >
-                  {isQueue ? <Checkbox on={picked.has(r.key)} onClick={() => toggle(r.key)} label={`Выбрать ${r.id}`} /> : <span />}
+                  {isQueue ? <Checkbox on={picked.has(r.key)} onClick={() => toggle(r.key)} label={L.tasksQueue.vybrat(r.id)} /> : <span />}
                   <span className={s.id}>{r.id}</span>
                   <span className={s.cell}>
                     <span className={s.rowTitle}>{r.title}</span> <span className={s.muted}>· {r.cat}</span>
-                    {busyBy(r) && <span className={s.lockTag}> · Смотрит {busyBy(r)}</span>}
+                    {busyBy(r) && <span className={s.lockTag}> {L.tasksQueue.smotrit} {busyBy(r)}</span>}
                   </span>
                   <span className={s.cell} style={{ color: '#3B4756' }}>
                     {r.city}
@@ -339,20 +340,20 @@ export function TasksQueue() {
                 <span>{agoText(cur.ageMin + elapsed)}</span>
                 <span className={s.grow} />
                 <span>
-                  {view.indexOf(cur) + 1} из {view.length}
+                  {view.indexOf(cur) + 1} {L.tasksQueue.iz} {view.length}
                 </span>
               </div>
               <span className={s.h17}>{cur.title}</span>
               <div className={s.kv}>
-                <span>Категория</span>
+                <span>{L.tasksQueue.kategoriya}</span>
                 <span>{cur.cat}</span>
-                <span>Район</span>
+                <span>{L.tasksQueue.rayon}</span>
                 <span>{cur.city}</span>
-                <span>Бюджет</span>
+                <span>{L.tasksQueue.byudzhet}</span>
                 <span>{cur.budget}</span>
-                <span>Когда</span>
+                <span>{L.tasksQueue.kogda}</span>
                 <span>{cur.when}</span>
-                <span>Автор</span>
+                <span>{L.tasksQueue.avtor}</span>
                 <span>
                   {cur.author} {cur.authorMeta && <span className={s.muted} style={{ fontWeight: 400 }}>· {cur.authorMeta}</span>}
                 </span>
@@ -372,7 +373,7 @@ export function TasksQueue() {
               {curBy && (
                 <div className={s.alertWarn}>
                   <TriangleAlert size={15} aria-hidden />
-                  <span>Это задание сейчас смотрит {curBy}. Решение доступно, когда он закончит или через 10 минут.</span>
+                  <span>{L.tasksQueue.etoZadanieSeychasSmotrit} {curBy}{L.tasksQueue.reshenieDostupnoKogdaOn}</span>
                 </div>
               )}
               {flagText && (
@@ -383,7 +384,7 @@ export function TasksQueue() {
               )}
               {isQueue && (
                 <div className={s.col4}>
-                  <Label>Быстрая причина отказа</Label>
+                  <Label>{L.tasksQueue.bystrayaPrichinaOtkaza}</Label>
                   <div className={s.wrap4}>
                     {reasons.slice(0, 5).map((x, i) => (
                       <button key={x.id} type="button" aria-pressed={reason?.id === x.id} className={cx(s.reason, reason?.id === x.id && s.reasonOn)} onClick={() => setReason(reason?.id === x.id ? null : x)}>
@@ -398,11 +399,11 @@ export function TasksQueue() {
             {isQueue && (
               <>
                 <div className={s.panelFoot}>
-                  <button type="button" className={cx(s.btn, s.btnOutRed)} disabled={busy || !reason || !!curBy} title={reason ? '' : 'Сначала выберите причину'} onClick={() => act([cur], false)}>
-                    Отклонить <span className={s.key}>R</span>
+                  <button type="button" className={cx(s.btn, s.btnOutRed)} disabled={busy || !reason || !!curBy} title={reason ? '' : L.tasksQueue.snachalaVyberitePrichinu} onClick={() => act([cur], false)}>
+                    {L.tasksQueue.otklonit2} <span className={s.key}>R</span>
                   </button>
                   <button type="button" className={s.btn} disabled={!!curBy} onClick={() => openEdit(cur)}>
-                    Править <span className={s.key}>E</span>
+                    {L.tasksQueue.pravit} <span className={s.key}>E</span>
                   </button>
                   <span className={s.grow} />
                   <button
@@ -417,24 +418,24 @@ export function TasksQueue() {
                     disabled={busy || !!curBy}
                     onClick={() => act([cur], true)}
                   >
-                    Одобрить и далее <span className={s.key}>A</span>
+                    {L.tasksQueue.odobritIDalee} <span className={s.key}>A</span>
                   </button>
                 </div>
-                <div className={s.hint}>J / K — следующее / предыдущее · X — выбрать · 1–5 — причина</div>
+                <div className={s.hint}>{L.tasksQueue.jKSleduyuscheePredyduschee}</div>
               </>
             )}
           </div>
         ) : (
-          <div className={s.loading}>Выберите задание</div>
+          <div className={s.loading}>{L.tasksQueue.vyberiteZadanie}</div>
         )}
       </div>
       {edit && cur && (
         <Modal
           icon={PencilLine}
           tone="blue"
-          title={`Править ${cur.id}`}
-          sub="Удалите контакты и лишнее — автор увидит, что текст изменён модератором, и вашу заметку."
-          okText="Сохранить и одобрить"
+          title={L.tasksQueue.pravit2(cur.id)}
+          sub={L.tasksQueue.udaliteKontaktyILishnee}
+          okText={L.tasksQueue.sohranitIOdobrit}
           okDisabled={edit.title.trim().length < 5 || edit.text.trim().length < 10 || edit.note.trim().length < 5}
           busy={busy}
           onClose={() => setEdit(null)}
@@ -453,7 +454,7 @@ export function TasksQueue() {
               setRows((r) => r?.filter((x) => x.key !== cur.key) ?? r);
               setApproved((n) => n + 1);
               setEdit(null);
-              toast(`Исправлено и одобрено: «${edit.title.trim()}»`);
+              toast(L.tasksQueue.ispravlenoIOdobreno(edit.title.trim()));
               refreshCounts();
             } catch (e) {
               if (!gone(e, cur)) toast(apiErrorText(e, 'ru'));
@@ -462,25 +463,25 @@ export function TasksQueue() {
           }}
         >
           <label className={s.col4}>
-            <span className={s.fieldT}>Заголовок</span>
+            <span className={s.fieldT}>{L.tasksQueue.zagolovok}</span>
             <input className={s.input} value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value.slice(0, 80) })} />
           </label>
           <label className={s.col4}>
-            <span className={s.fieldT}>Описание</span>
+            <span className={s.fieldT}>{L.tasksQueue.opisanie}</span>
             <textarea className={s.textarea} rows={6} value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value.slice(0, 2000) })} autoFocus />
           </label>
           {cur.address != null && (
             <label className={s.col4}>
-              <span className={s.fieldT}>Адрес (виден только выбранному мастеру)</span>
+              <span className={s.fieldT}>{L.tasksQueue.adresVidenTolkoVybrannomu}</span>
               <input className={s.input} value={edit.address} onChange={(e) => setEdit({ ...edit, address: e.target.value.slice(0, 200) })} />
             </label>
           )}
           <label className={s.col4}>
             <span className={s.fieldT}>
-              Заметка для автора <span style={{ color: '#B03A2E' }}>*</span>
+              {L.tasksQueue.zametkaDlyaAvtora} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
-            <input className={s.input} value={edit.note} onChange={(e) => setEdit({ ...edit, note: e.target.value.slice(0, 300) })} placeholder="Например: удалили номер телефона из описания" />
-            <span className={s.muted}>Изменение запишется в аудит-лог (task.edit).</span>
+            <input className={s.input} value={edit.note} onChange={(e) => setEdit({ ...edit, note: e.target.value.slice(0, 300) })} placeholder={L.tasksQueue.naprimerUdaliliNomerTelefona} />
+            <span className={s.muted}>{L.tasksQueue.izmenenieZapishetsyaVAudit}</span>
           </label>
         </Modal>
       )}

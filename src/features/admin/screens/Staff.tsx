@@ -14,21 +14,22 @@ import { cx, Head, Loading, Modal, Pill, Switch, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 import st from './Staff.module.css';
 import { copyText } from '@/lib/browser';
+import { L } from '../i18n';
 
 const COLS = 'minmax(0,1fr) minmax(0,1fr) 136px 110px 92px 32px';
-const ROLES: [string, string, string][] = [['moderator', 'moderator', 'Очереди своих регионов'], ['senior_moderator', 'senior', 'Споры, отзывы, чаты'], ['admin', 'admin', 'Всё, включая сотрудников']];
+const ROLES: [string, string, string][] = [['moderator', 'moderator', L.staff.ocherediSvoihRegionov], ['senior_moderator', 'senior', L.staff.sporyOtzyvyChaty], ['admin', 'admin', L.staff.vseVklyuchayaSotrudnikov]];
 const PERMS: [string, number, number, number][] = [
-  ['Модерация заданий и профилей', 1, 1, 1], ['Только своих регионов', 1, 0, 0], ['Споры', 0, 1, 1], ['Отзывы и жалобы', 0, 1, 1], ['Просмотр чатов по жалобе', 0, 1, 1], ['Блокировка до 30 дней', 1, 1, 1],
-  ['Блокировка навсегда', 0, 1, 1], ['Отметка «Проверен»', 0, 1, 1], ['Справочники', 0, 0, 1], ['Лимиты и шаблоны', 0, 0, 1], ['Сотрудники и роли', 0, 0, 1], ['Выгрузка CSV', 0, 1, 1],
+  [L.staff.moderatsiyaZadaniyIProfiley, 1, 1, 1], [L.staff.tolkoSvoihRegionov, 1, 0, 0], [L.staff.spory, 0, 1, 1], [L.staff.otzyvyIZhaloby, 0, 1, 1], [L.staff.prosmotrChatovPoZhalobe, 0, 1, 1], [L.staff.blokirovkaDo30Dney, 1, 1, 1],
+  [L.staff.blokirovkaNavsegda, 0, 1, 1], [L.staff.otmetkaProveren, 0, 1, 1], [L.staff.spravochniki, 0, 0, 1], [L.staff.limityIShablony, 0, 0, 1], [L.staff.sotrudnikiIRoli, 0, 0, 1], [L.staff.vygruzkaCsv, 0, 1, 1],
 ];
 const roleTone = (r: string): [string, string] => (r === 'admin' ? ['#0F1B2A', '#fff'] : r.startsWith('senior') ? ['#EAEEFC', '#1F3BB8'] : ['#F5F7F9', '#3B4756']);
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** Правила пароля из API: ≥ 10 символов, буквы и цифры, не совпадает с почтой */
 function pwError(pw: string, email: string) {
-  if (pw.length < 10) return 'Не короче 10 символов';
-  if (!/\p{L}/u.test(pw) || !/\d/.test(pw)) return 'Нужны буквы и цифры';
-  if (email && pw.toLowerCase() === email.trim().toLowerCase()) return 'Не должен совпадать с почтой';
+  if (pw.length < 10) return L.staff.neKoroche10Simvolov;
+  if (!/\p{L}/u.test(pw) || !/\d/.test(pw)) return L.staff.nuzhnyBukvyITsifry;
+  if (email && pw.toLowerCase() === email.trim().toLowerCase()) return L.staff.neDolzhenSovpadatS;
   return null;
 }
 function genPassword() {
@@ -63,19 +64,19 @@ export function Staff({ open }: { open?: 'new' | number }) {
     if (typeof open !== 'number' || !rows || panel) return;
     const x = rows.find((r) => r.id === open);
     if (x) setPanelState({ mode: 'edit', staff: x });
-    else (toast('Сотрудник не найден'), setPanel(null));
+    else (toast(L.staff.sotrudnikNeNayden), setPanel(null));
   }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const active = rows?.filter((r) => r.active).length ?? 0;
   const selId = panel?.mode === 'edit' ? panel.staff.id : null;
 
   return (
     <>
-      <Head title="Сотрудники и роли">
-        <span className={s.muted}>{rows ? `${rows.length} сотрудников · ${active} активных` : ''}</span>
+      <Head title={L.staff.sotrudnikiIRoli}>
+        <span className={s.muted}>{rows ? L.staff.sotrudnikovAktivnyh(rows.length, active) : ''}</span>
         <span className={s.grow} />
         <button type="button" className={s.hprimary} style={{ gap: 6 }} onClick={() => setPanel({ mode: 'new' })}>
           <Plus size={15} aria-hidden />
-          Добавить сотрудника
+          {L.staff.dobavitSotrudnika}
         </button>
       </Head>
       {!rows ? (
@@ -84,11 +85,11 @@ export function Staff({ open }: { open?: 'new' | number }) {
         <div className={s.split} style={{ gridTemplateColumns: 'minmax(0,1fr) 480px', position: 'relative' }}>
           <div className={s.list}>
             <div className={s.thead} style={{ gridTemplateColumns: COLS, padding: '0 16px' }}>
-              <span>Сотрудник</span>
-              <span>Почта</span>
-              <span>Роль</span>
-              <span>Регионы</span>
-              <span>Статус</span>
+              <span>{L.staff.sotrudnik}</span>
+              <span>{L.staff.pochta}</span>
+              <span>{L.staff.rol}</span>
+              <span>{L.staff.regiony}</span>
+              <span>{L.staff.status}</span>
               <span />
             </div>
             <div className={s.scroll}>
@@ -111,14 +112,14 @@ export function Staff({ open }: { open?: 'new' | number }) {
                   <span>
                     <Pill tone={p.tone}>{p.status}</Pill>
                   </span>
-                  <span className={st.pen} aria-label={`Изменить ${p.name}`}>
+                  <span className={st.pen} aria-label={L.staff.izmenit(p.name)}>
                     <Pencil size={15} aria-hidden />
                   </span>
                 </div>
               ))}
               <div className={st.info}>
-                <span className={st.infoT}>Как добавить сотрудника</span>
-                <span>Admin создаёт учётную запись: ФИО, почта, роль, регионы. Admin задаёт пароль и передаёт его сотруднику лично. Отключённый теряет доступ сразу; удалить можно только того, кто ещё не принимал решений.</span>
+                <span className={st.infoT}>{L.staff.kakDobavitSotrudnika}</span>
+                <span>{L.staff.adminSozdaetUchetnuyuZapis}</span>
               </div>
             </div>
           </div>
@@ -150,11 +151,11 @@ function Matrix() {
   return (
     <div className={s.panel}>
       <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #E1E6EC' }}>
-        <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>Матрица прав</span>
-        <span className={s.muted}>изменяется только в коде</span>
+        <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{L.staff.matritsaPrav}</span>
+        <span className={s.muted}>{L.staff.izmenyaetsyaTolkoVKode}</span>
       </div>
       <div style={{ height: 34, flex: 'none', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 72px 72px 72px', gap: 6, alignItems: 'center', padding: '0 18px', font: "600 10px 'JetBrains Mono', monospace", color: '#5B6878', borderBottom: '1px solid #E1E6EC', background: '#F7F9FB' }}>
-        <span className={s.label}>Действие</span>
+        <span className={s.label}>{L.staff.deystvie}</span>
         <span style={{ textAlign: 'center' }}>moderator</span>
         <span style={{ textAlign: 'center' }}>senior</span>
         <span style={{ textAlign: 'center' }}>admin</span>
@@ -164,7 +165,7 @@ function Matrix() {
           <div key={l} style={{ height: 36, display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 72px 72px 72px', gap: 6, alignItems: 'center', padding: '0 18px', borderBottom: '1px solid #EEF1F4' }}>
             <span>{l}</span>
             {cells.map((v, i) => (
-              <span key={i} style={{ display: 'flex', justifyContent: 'center' }} aria-label={v ? 'есть' : 'нет'}>
+              <span key={i} style={{ display: 'flex', justifyContent: 'center' }} aria-label={v ? L.staff.est : L.staff.net}>
                 {v ? <Check size={15} color="#0B6E5E" aria-hidden /> : <Minus size={15} color="#C9D1DB" aria-hidden />}
               </span>
             ))}
@@ -222,10 +223,10 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
     try {
       if (edit) {
         await adminApi.patchStaff(edit, { name: f.name.trim(), phone: f.phone.trim(), role: f.role, regionIds: f.regions, active: f.active });
-        onSaved(f.active === edit.active ? 'Сохранено' : f.active ? 'Доступ включён' : 'Сотрудник отключён — все сессии завершены');
+        onSaved(f.active === edit.active ? L.staff.sohraneno : f.active ? L.staff.dostupVklyuchen : L.staff.sotrudnikOtklyuchenVseSessii);
       } else {
         await adminApi.createStaff({ name: f.name, email: f.email, password: f.password, phone: f.phone, role: f.role, regionIds: f.regions });
-        onSaved('Сотрудник создан. Передайте пароль лично — больше он не покажется');
+        onSaved(L.staff.sotrudnikSozdanPeredayteParol);
       }
     } catch (e) {
       const x = e as { code?: string };
@@ -234,7 +235,7 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
       setFe(byField);
       if (Object.keys(byField).length) return setBusy(false);
       setErr(
-        x.code === 'last_admin' ? 'Это последний активный admin — его нельзя понизить или отключить' : x.code === 'email_taken' ? 'Почта уже занята' : edit && edit.id === meId && !f.active ? 'Себя отключить нельзя' : apiErrorText(e, 'ru'),
+        x.code === 'last_admin' ? L.staff.etoPosledniyAktivnyyAdmin : x.code === 'email_taken' ? L.staff.pochtaUzheZanyata : edit && edit.id === meId && !f.active ? L.staff.sebyaOtklyuchitNelzya : apiErrorText(e, 'ru'),
       );
     }
     setBusy(false);
@@ -251,13 +252,13 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
   );
 
   return (
-    <aside className={st.panel} role="dialog" aria-label={edit ? edit.name : 'Новый сотрудник'}>
+    <aside className={st.panel} role="dialog" aria-label={edit ? edit.name : L.staff.novyySotrudnik}>
       <div className={st.pHead}>
         <div className={s.col4} style={{ gap: 2 }}>
-          <span className={st.pTitle}>{edit ? edit.name : 'Новый сотрудник'}</span>
-          <span className={s.muted}>{edit ? `${edit.email} · создан ${edit.created}` : 'учётная запись для входа в админку'}</span>
+          <span className={st.pTitle}>{edit ? edit.name : L.staff.novyySotrudnik}</span>
+          <span className={s.muted}>{edit ? L.staff.sozdan(edit.email, edit.created) : L.staff.uchetnayaZapisDlyaVhoda}</span>
         </div>
-        <button type="button" className={st.x} aria-label="Закрыть" onClick={onClose}>
+        <button type="button" className={st.x} aria-label={L.staff.zakryt} onClick={onClose}>
           <X size={18} aria-hidden />
         </button>
       </div>
@@ -265,28 +266,28 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
         {edit && (
           <div className={st.access}>
             <div className={s.col4} style={{ gap: 2 }}>
-              <span className={s.fieldT}>{f.active ? 'Доступ включён' : 'Доступ отключён'}</span>
-              <span className={s.muted}>Выключение сразу завершает все сессии</span>
+              <span className={s.fieldT}>{f.active ? L.staff.dostupVklyuchen : L.staff.dostupOtklyuchen}</span>
+              <span className={s.muted}>{L.staff.vyklyuchenieSrazuZavershaetVse}</span>
             </div>
             <span className={s.grow} />
-            <Switch on={f.active} onClick={() => set({ active: !f.active })} label="Доступ" />
+            <Switch on={f.active} onClick={() => set({ active: !f.active })} label={L.staff.dostup} />
           </div>
         )}
-        {field('ФИО', true, <input className={cx(s.input, ((tried && nameErr) || fe.name) && s.invalid)} value={f.name} onChange={(e) => set({ name: e.target.value.slice(0, 80) })} autoFocus={!edit} />, null, (tried && nameErr && 'Укажите ФИО') || fe.name)}
+        {field(L.staff.fio, true, <input className={cx(s.input, ((tried && nameErr) || fe.name) && s.invalid)} value={f.name} onChange={(e) => set({ name: e.target.value.slice(0, 80) })} autoFocus={!edit} />, null, (tried && nameErr && L.staff.ukazhiteFio) || fe.name)}
         {field(
-          'Эл. почта',
+          L.staff.elPochta,
           !edit,
           <span className={cx(st.mailBox, edit && st.ro, !edit && (mail === 'taken' || (tried && mail === 'bad')) && s.invalid)}>
             <input type="email" value={f.email} readOnly={!!edit} onChange={(e) => set({ email: e.target.value.slice(0, 120) })} autoComplete="off" />
-            {!edit && mail !== 'idle' && <span className={mail === 'free' ? st.free : mail === 'taken' || mail === 'bad' ? st.taken : st.checking}>{mail === 'free' ? 'свободна' : mail === 'taken' ? 'занята' : mail === 'bad' ? 'неверный формат' : 'проверяем…'}</span>}
+            {!edit && mail !== 'idle' && <span className={mail === 'free' ? st.free : mail === 'taken' || mail === 'bad' ? st.taken : st.checking}>{mail === 'free' ? L.staff.svobodna : mail === 'taken' ? L.staff.zanyata : mail === 'bad' ? L.staff.nevernyyFormat : L.staff.proveryaem}</span>}
           </span>,
-          edit ? 'Почта не меняется — на неё ссылается аудит' : 'Рабочая почта — используется для входа. Изменить потом нельзя',
+          edit ? L.staff.pochtaNeMenyaetsyaNa : L.staff.rabochayaPochtaIspolzuetsyaDlya,
           fe.email,
         )}
-        {!edit && field('Телефон для связи', false, <input className={s.input} inputMode="tel" value={f.phone} placeholder="+992 92 118 40 56" onChange={(e) => set({ phone: e.target.value.slice(0, 20) })} />, 'Не используется для входа', fe.contact_phone)}
+        {!edit && field(L.staff.telefonDlyaSvyazi, false, <input className={s.input} inputMode="tel" value={f.phone} placeholder="+992 92 118 40 56" onChange={(e) => set({ phone: e.target.value.slice(0, 20) })} />, L.staff.neIspolzuetsyaDlyaVhoda, fe.contact_phone)}
         <div className={st.field}>
           <span className={s.fieldT}>
-            Роль <span style={{ color: '#B03A2E' }}>*</span>
+            {L.staff.rol} <span style={{ color: '#B03A2E' }}>*</span>
           </span>
           <div className={st.roles}>
             {ROLES.map(([k, name, d]) => (
@@ -298,7 +299,7 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
           </div>
         </div>
         <div className={st.field}>
-          <span className={s.fieldT}>Регионы {f.role === 'moderator' && <span style={{ color: '#B03A2E' }}>*</span>}</span>
+          <span className={s.fieldT}>{L.staff.regiony} {f.role === 'moderator' && <span style={{ color: '#B03A2E' }}>*</span>}</span>
           <div className={s.wrap4} style={{ gap: 6 }}>
             {cities.map((c) => {
               const on = f.regions.includes(c.id);
@@ -309,25 +310,25 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
               );
             })}
           </div>
-          {tried && regionsErr ? <span className={s.err}>Для moderator выберите хотя бы один регион</span> : <span className={st.hint}>Для moderator — обязательно. Видит задания и профили только этих городов</span>}
+          {tried && regionsErr ? <span className={s.err}>{L.staff.dlyaModeratorVyberiteHotya}</span> : <span className={st.hint}>{L.staff.dlyaModeratorObyazatelnoVidit}</span>}
         </div>
         {!edit && (
           <div className={st.field}>
             <span className={s.fieldT}>
-              Пароль <span style={{ color: '#B03A2E' }}>*</span>
+              {L.staff.parol} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
             <PasswordInput value={f.password} show={showPw} setShow={setShowPw} onChange={(v) => set({ password: v })} invalid={tried && !!pwErr} />
-            {(tried && pwErr) || fe.password ? <span className={s.err}>{(tried && pwErr) || fe.password}</span> : <span className={st.hint}>Не короче 10 символов, буквы и цифры. Не совпадает с почтой. Передайте сотруднику лично — в системе пароль больше не показывается.</span>}
+            {(tried && pwErr) || fe.password ? <span className={s.err}>{(tried && pwErr) || fe.password}</span> : <span className={st.hint}>{L.staff.neKoroche10Simvolov2}</span>}
           </div>
         )}
         {edit && (
           <div className={st.field}>
-            <span className={s.fieldT}>Безопасность</span>
+            <span className={s.fieldT}>{L.staff.bezopasnost}</span>
             {newPw === null ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" className={s.btn} onClick={() => setNewPw(genPassword())}>
                   <KeyRound size={15} aria-hidden />
-                  Задать новый пароль
+                  {L.staff.zadatNovyyParol}
                 </button>
                 <button
                   type="button"
@@ -335,22 +336,22 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
                   disabled={!sessions?.filter((x) => !x.revoked).length}
                   onClick={() =>
                     adminApi.revokeSessions(edit).then(
-                      () => (toast('Все сеансы завершены'), setSessions((l) => l?.map((x) => ({ ...x, revoked: true })) ?? l)),
+                      () => (toast(L.staff.vseSeansyZaversheny), setSessions((l) => l?.map((x) => ({ ...x, revoked: true })) ?? l)),
                       (e) => toast(apiErrorText(e, 'ru')),
                     )
                   }
                 >
                   <LogOut size={15} aria-hidden />
-                  Завершить сессии · {sessions?.filter((x) => !x.revoked).length ?? 0}
+                  {L.staff.zavershitSessii} {sessions?.filter((x) => !x.revoked).length ?? 0}
                 </button>
               </div>
             ) : (
               <div className={s.col6}>
                 <PasswordInput value={newPw} show onChange={setNewPw} invalid={!!pwError(newPw, f.email)} />
-                <span className={pwError(newPw, f.email) ? s.err : st.hint}>{pwError(newPw, f.email) ?? 'Все сессии сотрудника завершатся. Передайте пароль лично.'}</span>
+                <span className={pwError(newPw, f.email) ? s.err : st.hint}>{pwError(newPw, f.email) ?? L.staff.vseSessiiSotrudnikaZavershatsya}</span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className={s.btn} onClick={() => setNewPw(null)}>
-                    Отмена
+                    {L.staff.otmena}
                   </button>
                   <button
                     type="button"
@@ -358,12 +359,12 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
                     disabled={!!pwError(newPw, f.email)}
                     onClick={() =>
                       adminApi.setPassword(edit, newPw).then(
-                        () => (toast('Пароль задан, сессии завершены'), setNewPw(null), setSessions((l) => l?.map((x) => ({ ...x, revoked: true })) ?? l)),
+                        () => (toast(L.staff.parolZadanSessiiZaversheny), setNewPw(null), setSessions((l) => l?.map((x) => ({ ...x, revoked: true })) ?? l)),
                         (e) => toast(apiErrorText(e, 'ru')),
                       )
                     }
                   >
-                    Задать пароль
+                    {L.staff.zadatParol}
                   </button>
                 </div>
               </div>
@@ -377,7 +378,7 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
                     {x.where || '—'}
                   </span>
                 </div>
-                <span className={s.muted}>{x.revoked ? 'завершён' : x.current ? 'сейчас' : x.when}</span>
+                <span className={s.muted}>{x.revoked ? L.staff.zavershen : x.current ? L.staff.seychas : x.when}</span>
               </div>
             ))}
           </div>
@@ -385,27 +386,27 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
       </div>
       <div className={st.pFoot}>
         {edit && (
-          <button type="button" className={cx(s.btn, s.btnGhost)} style={{ color: '#B03A2E' }} disabled={edit.id === meId} title={edit.id === meId ? 'Себя удалить нельзя' : ''} onClick={() => setDel('ask')}>
-            Удалить…
+          <button type="button" className={cx(s.btn, s.btnGhost)} style={{ color: '#B03A2E' }} disabled={edit.id === meId} title={edit.id === meId ? L.staff.sebyaUdalitNelzya : ''} onClick={() => setDel('ask')}>
+            {L.staff.udalit}
           </button>
         )}
         <span className={s.grow} style={{ color: '#B03A2E', fontSize: 12, lineHeight: 1.35 }}>
           {err}
         </span>
         <button type="button" className={s.btn} onClick={onClose}>
-          Отмена
+          {L.staff.otmena}
         </button>
         <button type="button" className={cx(s.btn, s.btnBlue)} disabled={busy || (tried && invalid)} onClick={save}>
-          {busy ? 'Сохраняем…' : edit ? 'Сохранить' : 'Создать сотрудника'}
+          {busy ? L.staff.sohranyaem : edit ? L.staff.sohranit : L.staff.sozdatSotrudnika}
         </button>
       </div>
       {del === 'ask' && edit && (
         <Modal
           icon={UserX}
           tone="red"
-          title={`Удалить ${edit.name}?`}
-          sub={`Учётная запись будет удалена, почта ${edit.email} освободится. Удалить можно только сотрудника без решений.`}
-          okText="Удалить"
+          title={L.staff.udalit2(edit.name)}
+          sub={L.staff.uchetnayaZapisBudetUdalena(edit.email)}
+          okText={L.staff.udalit3}
           okTone="red"
           busy={busy}
           onClose={() => setDel(null)}
@@ -414,7 +415,7 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
             try {
               await adminApi.deleteStaff(edit);
               setDel(null);
-              onSaved('Сотрудник удалён');
+              onSaved(L.staff.sotrudnikUdalen);
             } catch (e) {
               if ((e as { code?: string }).code === 'has_decisions') setDel('disable');
               else toast(apiErrorText(e, 'ru'));
@@ -422,16 +423,16 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
             setBusy(false);
           }}
         >
-          <span className={s.muted}>Действие необратимо и записывается в аудит-лог.</span>
+          <span className={s.muted}>{L.staff.deystvieNeobratimoIZapisyvaetsya}</span>
         </Modal>
       )}
       {del === 'disable' && edit && (
         <Modal
           icon={UserX}
           tone="red"
-          title="Удалить нельзя — только отключить"
-          sub={`У ${edit.name} есть решения в аудит-логе. Чтобы история осталась проверяемой, учётная запись сохраняется.`}
-          okText="Отключить сотрудника"
+          title={L.staff.udalitNelzyaTolkoOtklyuchit}
+          sub={L.staff.uEstResheniyaV(edit.name)}
+          okText={L.staff.otklyuchitSotrudnika}
           okTone="red"
           busy={busy}
           onClose={() => setDel(null)}
@@ -440,18 +441,18 @@ function StaffPanel({ panel, meId, cities, onClose, onSaved }: { panel: Panel; m
             try {
               await adminApi.patchStaff(edit, { active: false });
               setDel(null);
-              onSaved('Сотрудник отключён — все сессии завершены');
+              onSaved(L.staff.sotrudnikOtklyuchenVseSessii);
             } catch (e) {
-              toast((e as { code?: string }).code === 'last_admin' ? 'Это последний активный admin — отключить нельзя' : apiErrorText(e, 'ru'));
+              toast((e as { code?: string }).code === 'last_admin' ? L.staff.etoPosledniyAktivnyyAdmin2 : apiErrorText(e, 'ru'));
             }
             setBusy(false);
           }}
         >
           <div className={s.bullets}>
-            <b>При отключении</b>
-            <span>· Все сессии завершаются сразу, вход невозможен</span>
-            <span>· Задания, которые он сейчас открыл, вернутся в общую очередь</span>
-            <span>· Включить обратно можно в карточке — с новым паролем</span>
+            <b>{L.staff.priOtklyuchenii}</b>
+            <span>{L.staff.vseSessiiZavershayutsyaSrazu}</span>
+            <span>{L.staff.zadaniyaKotoryeOnSeychas}</span>
+            <span>{L.staff.vklyuchitObratnoMozhnoV}</span>
           </div>
         </Modal>
       )}
@@ -465,11 +466,11 @@ function PasswordInput({ value, onChange, show = true, setShow, invalid }: { val
     <div style={{ display: 'flex', gap: 8 }}>
       <span className={cx(st.mailBox, invalid && s.invalid)} style={{ flex: 1 }}>
         <input type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value.slice(0, 64))} autoComplete="new-password" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14 }} />
-        <button type="button" className={st.icon} aria-label="Сгенерировать" title="Сгенерировать" onClick={() => onChange(genPassword())}>
+        <button type="button" className={st.icon} aria-label={L.staff.sgenerirovat} title={L.staff.sgenerirovat} onClick={() => onChange(genPassword())}>
           <RefreshCw size={15} aria-hidden />
         </button>
         {setShow && (
-          <button type="button" className={st.icon} aria-label={show ? 'Скрыть' : 'Показать'} onClick={() => setShow(!show)}>
+          <button type="button" className={st.icon} aria-label={show ? L.staff.skryt : L.staff.pokazat} onClick={() => setShow(!show)}>
             {show ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
           </button>
         )}
@@ -479,13 +480,13 @@ function PasswordInput({ value, onChange, show = true, setShow, invalid }: { val
         className={st.copy}
         onClick={() =>
           copyText(value).then(
-            () => toast('Пароль скопирован'),
-            () => toast('Не удалось скопировать — выделите вручную', 'info'),
+            () => toast(L.staff.parolSkopirovan),
+            () => toast(L.staff.neUdalosSkopirovatVydelite, 'info'),
           )
         }
       >
         <Copy size={15} aria-hidden />
-        Копировать
+        {L.staff.kopirovat}
       </button>
     </div>
   );

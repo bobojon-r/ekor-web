@@ -12,9 +12,10 @@ import { downloadCsv, hhmm, num, ST, type Tone } from '../core';
 import { Head, Loading, Seg, SelectChip } from '../ui';
 import d from './Dashboard.module.css';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 type PeriodK = '7' | '30' | '90' | 'custom';
-const PERIODS: [PeriodK, string][] = [['7', '7 дней'], ['30', '30 дней'], ['90', '90 дней'], ['custom', 'Свой']];
+const PERIODS: [PeriodK, string][] = [['7', L.dashboard._7Dney], ['30', L.dashboard._30Dney], ['90', L.dashboard._90Dney], ['custom', L.dashboard.svoy]];
 /** Дата по Душанбе в формате YYYY-MM-DD */
 const day = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dushanbe' }).format(d);
 const daysAgo = (n: number) => day(new Date(Date.now() - n * 864e5));
@@ -36,7 +37,7 @@ export function Dashboard() {
     setData(null);
     adminApi.dashboard(range, city === 'all' ? null : +city, cat === 'all' ? null : +cat).then(
       (x) => (setData(x), setAt(hhmm(new Date().toISOString()))),
-      () => toast('Сервер не ответил'),
+      () => toast(L.dashboard.serverNeOtvetil),
     );
   }, [range.from, range.to, city, cat]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -45,35 +46,35 @@ export function Dashboard() {
   const max = Math.max(1, ...(data?.funnel.map((f) => f[1]) ?? [1]));
   const barMax = Math.max(1, ...(data?.bars.map((b) => b.v) ?? [1]));
   const queues: [string, number, string, Tone, string][] = [
-    ['Задания', counts.tasks, counts.tasksLate ? `${counts.tasksLate} просрочено` : 'в норме', counts.tasksLate ? 'bad' : 'ok', '/admin/moderation/tasks'],
-    ['Профили мастеров', counts.masters, 'в норме', 'ok', '/admin/moderation/masters'],
-    ['Споры', counts.disputes, counts.disputesHot || 'в норме', counts.disputesHot && counts.disputesHot !== 'в норме' ? 'warn' : 'ok', '/admin/disputes'],
-    ['Отзывы', counts.reviews, 'в норме', 'ok', '/admin/reviews'],
-    ['Чаты по жалобам', counts.chats, counts.chats ? 'новая' : 'нет', counts.chats ? 'info' : 'grey', '/admin/complaints'],
+    [L.dashboard.zadaniya, counts.tasks, counts.tasksLate ? L.dashboard.prosrocheno(counts.tasksLate) : L.dashboard.vNorme, counts.tasksLate ? 'bad' : 'ok', '/admin/moderation/tasks'],
+    [L.dashboard.profiliMasterov, counts.masters, L.dashboard.vNorme, 'ok', '/admin/moderation/masters'],
+    [L.dashboard.spory, counts.disputes, counts.disputesHot || L.dashboard.vNorme, counts.disputesHot && counts.disputesHot !== L.dashboard.vNorme ? 'warn' : 'ok', '/admin/disputes'],
+    [L.dashboard.otzyvy, counts.reviews, L.dashboard.vNorme, 'ok', '/admin/reviews'],
+    [L.dashboard.chatyPoZhalobam, counts.chats, counts.chats ? L.dashboard.novaya : L.dashboard.net, counts.chats ? 'info' : 'grey', '/admin/complaints'],
   ];
 
   const csv = () =>
     data &&
     downloadCsv(`ekor-dashboard-${range.from}_${range.to}.csv`, [
-      ['Показатель', 'Значение', 'Комментарий'], ...data.kpis.map(([l, v, c]) => [l, v, c]), [], ['Воронка', 'Число', 'Конверсия'], ...data.funnel.map(([l, n, p]) => [l, n, p]),
-      [], ['Город', 'Задания', 'Мастера', 'Отклик 24ч', 'Выбор', 'Заверш.', '1-й отклик'], ...data.cities,
+      [L.dashboard.pokazatel, L.dashboard.znachenie, L.dashboard.kommentariy], ...data.kpis.map(([l, v, c]) => [l, v, c]), [], [L.dashboard.voronka, L.dashboard.chislo, L.dashboard.konversiya], ...data.funnel.map(([l, n, p]) => [l, n, p]),
+      [], [L.dashboard.gorod, L.dashboard.zadaniya, L.dashboard.mastera, L.dashboard.otklik24ch, L.dashboard.vybor, L.dashboard.zaversh, L.dashboard._1YOtklik], ...data.cities,
     ]);
 
   return (
     <>
-      <Head title="Дашборд">
+      <Head title={L.dashboard.dashbord}>
         <Seg value={period} onChange={setPeriod} items={PERIODS} />
         {period === 'custom' && (
           <>
-            <input type="date" className={s.chip} aria-label="С" value={own.from} max={own.to || undefined} onChange={(e) => setOwn({ ...own, from: e.target.value })} />
+            <input type="date" className={s.chip} aria-label={L.dashboard.s} value={own.from} max={own.to || undefined} onChange={(e) => setOwn({ ...own, from: e.target.value })} />
             <span className={s.muted}>–</span>
-            <input type="date" className={s.chip} aria-label="По" value={own.to} min={own.from || undefined} max={day(new Date())} onChange={(e) => setOwn({ ...own, to: e.target.value })} />
+            <input type="date" className={s.chip} aria-label={L.dashboard.po} value={own.to} min={own.from || undefined} max={day(new Date())} onChange={(e) => setOwn({ ...own, to: e.target.value })} />
           </>
         )}
-        <SelectChip label="" value={city} onChange={setCity} options={[['all', 'Все города'], ...cities.map((c): [string, string] => [String(c.id), c.name.ru])]} />
-        <SelectChip label="" value={cat} onChange={setCat} options={[['all', 'Все категории'], ...cats.map((c): [string, string] => [String(c.id), c.name.ru])]} />
+        <SelectChip label="" value={city} onChange={setCity} options={[['all', L.dashboard.vseGoroda], ...cities.map((c): [string, string] => [String(c.id), c.name.ru])]} />
+        <SelectChip label="" value={cat} onChange={setCat} options={[['all', L.dashboard.vseKategorii], ...cats.map((c): [string, string] => [String(c.id), c.name.ru])]} />
         <span className={s.grow} />
-        <span className={s.muted}>{data ? `${data.period} · обновлено ${at}` : ''}</span>
+        <span className={s.muted}>{data ? L.dashboard.obnovleno(data.period, at) : ''}</span>
         <button type="button" className={s.hbtn} onClick={csv} disabled={!data}>
           <Download size={15} aria-hidden />
           CSV
@@ -97,8 +98,8 @@ export function Dashboard() {
           <div className={d.row2}>
             <div className={d.card} style={{ padding: '14px 16px', gap: 10 }}>
               <div className={d.cardHead}>
-                <span className={d.cardT}>Воронка задания</span>
-                <span className={s.muted}>конверсия от предыдущего шага</span>
+                <span className={d.cardT}>{L.dashboard.voronkaZadaniya}</span>
+                <span className={s.muted}>{L.dashboard.konversiyaOtPredyduschegoShaga}</span>
               </div>
               {data.funnel.map(([l, n, p], i) => (
                 <div key={l} className={d.fRow}>
@@ -115,8 +116,8 @@ export function Dashboard() {
             </div>
             <div className={d.card} style={{ padding: '14px 16px', gap: 10 }}>
               <div className={d.cardHead}>
-                <span className={d.cardT}>Новые задания по дням</span>
-                <span className={s.muted}>последние {data.bars.length} дн.</span>
+                <span className={d.cardT}>{L.dashboard.novyeZadaniyaPoDnyam}</span>
+                <span className={s.muted}>{L.dashboard.poslednie} {data.bars.length} {L.dashboard.dn}</span>
               </div>
               <div className={d.bars} style={{ gridTemplateColumns: `repeat(${Math.max(data.bars.length, 7)}, 1fr)` }}>
                 {data.bars.map((b, i) => (
@@ -129,7 +130,7 @@ export function Dashboard() {
             </div>
             <div className={d.card} style={{ padding: '14px 16px', gap: 6 }}>
               <span className={d.cardT} style={{ paddingBottom: 4 }}>
-                Очереди сейчас
+                {L.dashboard.ocherediSeychas}
               </span>
               {queues.map(([l, n, st, tone, href]) => (
                 <Link key={l} href={href} className={d.q}>
@@ -144,15 +145,15 @@ export function Dashboard() {
           </div>
           <div className={d.row3}>
             <div className={d.table}>
-              <div className={d.tableT}>По городам</div>
+              <div className={d.tableT}>{L.dashboard.poGorodam}</div>
               <div className={d.cHead}>
-                <span>Город</span>
-                <span className={s.right}>Задания</span>
-                <span className={s.right}>Мастера</span>
-                <span className={s.right}>Отклик 24ч</span>
-                <span className={s.right}>Выбор</span>
-                <span className={s.right}>Заверш.</span>
-                <span className={s.right}>1-й отклик</span>
+                <span>{L.dashboard.gorod}</span>
+                <span className={s.right}>{L.dashboard.zadaniya}</span>
+                <span className={s.right}>{L.dashboard.mastera}</span>
+                <span className={s.right}>{L.dashboard.otklik24ch}</span>
+                <span className={s.right}>{L.dashboard.vybor}</span>
+                <span className={s.right}>{L.dashboard.zaversh}</span>
+                <span className={s.right}>{L.dashboard._1YOtklik}</span>
               </div>
               <div className={s.scroll}>
                 {data.cities.map(([n, t, m, r, ch, dn, f]) => (
@@ -174,12 +175,12 @@ export function Dashboard() {
             </div>
             <div className={d.table}>
               <div className={d.tableT} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Дефицит мастеров</span>
+                <span>{L.dashboard.defitsitMasterov}</span>
                 <span className={s.muted} style={{ fontSize: 13, fontWeight: 400 }}>
-                  заданий без отклика за 24 ч
+                  {L.dashboard.zadaniyBezOtklikaZa}
                 </span>
               </div>
-              {data.deficit.length === 0 && <div className={d.none}>Все задания получили отклик за сутки</div>}
+              {data.deficit.length === 0 && <div className={d.none}>{L.dashboard.vseZadaniyaPoluchiliOtklik}</div>}
               {data.deficit.map(([c, city2, p]) => (
                 <div key={c + city2} className={d.def}>
                   <span className={s.cell}>

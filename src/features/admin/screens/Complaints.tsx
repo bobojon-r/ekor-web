@@ -12,6 +12,7 @@ import type { ChatMsg, ComplaintV } from '../data/types';
 import { hhmm } from '../core';
 import { Checkbox, cx, Head, Label, Loading, Modal, Pill, Tabs } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 /**
  * 07 — чаты по жалобам: только чтение, поиска по всем чатам нет — только по основанию.
@@ -41,9 +42,9 @@ export function Complaints({ openId }: { openId?: string }) {
           list.unshift({
             key: -d.key,
             id: d.id,
-            title: `Спор: ${d.title}`,
+            title: L.complaints.spor(d.title),
             order: `${d.order}`,
-            status: d.open ? 'Спор' : 'Решён',
+            status: d.open ? L.complaints.spor2 : L.complaints.reshen,
             tone: d.open ? 'bad' : 'grey',
             open: false,
             chatId: d.chatId,
@@ -53,7 +54,7 @@ export function Complaints({ openId }: { openId?: string }) {
             date: d.client.meta,
             who: d.who,
             detector: [],
-            subject: `Мастер · ${d.masterName}`,
+            subject: L.complaints.master(d.masterName),
           });
       }
       setRows(list);
@@ -85,7 +86,7 @@ export function Complaints({ openId }: { openId?: string }) {
     if (!cur || cur.key < 0) return;
     setBusy(true);
     try {
-      if (text === 'warned' && cur.subjectUserId) await adminApi.warn(cur.subjectUserId, null, `По жалобе ${cur.id}: ${cur.title}`);
+      if (text === 'warned' && cur.subjectUserId) await adminApi.warn(cur.subjectUserId, null, L.complaints.poZhalobe(cur.id, cur.title));
       await adminApi.resolveComplaint(cur, text);
       toast(msg);
       await load();
@@ -99,10 +100,10 @@ export function Complaints({ openId }: { openId?: string }) {
 
   return (
     <>
-      <Head title="Чаты по жалобам">
-        <Tabs value={tab} onChange={(k) => (setTab(k), router.replace('/admin/complaints'))} items={[['open', `Новые ${nOpen}`], ['done', 'Решённые']]} />
+      <Head title={L.complaints.chatyPoZhalobam}>
+        <Tabs value={tab} onChange={(k) => (setTab(k), router.replace('/admin/complaints'))} items={[['open', L.complaints.novye(nOpen)], ['done', L.complaints.reshennye]]} />
         <span className={s.grow} />
-        <span className={s.note}>Поиска по всем чатам нет — только по основанию</span>
+        <span className={s.note}>{L.complaints.poiskaPoVsemChatam}</span>
       </Head>
       {!rows ? (
         <Loading />
@@ -112,7 +113,7 @@ export function Complaints({ openId }: { openId?: string }) {
             <div className={s.scroll}>
               {list.length === 0 && (
                 <div className={s.hint} style={{ padding: 16 }}>
-                  {tab === 'open' ? 'Новых жалоб нет' : 'Решённых жалоб нет'}
+                  {tab === 'open' ? L.complaints.novyhZhalobNet : L.complaints.reshennyhZhalobNet}
                 </div>
               )}
               {list.map((c) => (
@@ -131,9 +132,9 @@ export function Complaints({ openId }: { openId?: string }) {
             <div className={s.panelBody} style={{ background: '#F5F7F9', gap: 12 }}>
               <Label>{cur.order}</Label>
               <div className={s.textBox} style={{ background: '#fff', lineHeight: 1.5 }}>
-                {cur.preview || 'Предпросмотр объекта жалобы недоступен'}
+                {cur.preview || L.complaints.predprosmotrObektaZhalobyNedostu}
               </div>
-              <span className={s.muted}>Переписки по этой жалобе нет — решение по объекту жалобы.</span>
+              <span className={s.muted}>{L.complaints.perepiskiPoEtoyZhalobe}</span>
             </div>
           ) : cur ? (
             <div
@@ -177,7 +178,7 @@ export function Complaints({ openId }: { openId?: string }) {
                   }}
                 >
                   <Eye size={15} color="#5B6878" aria-hidden />
-                  Только чтение
+                  {L.complaints.tolkoChtenie}
                 </span>
               </div>
               <div
@@ -194,7 +195,7 @@ export function Complaints({ openId }: { openId?: string }) {
               >
                 <Lock size={15} aria-hidden style={{ flex: 'none' }} />
                 <span>
-                  Вы открыли переписку по {cur.key < 0 ? 'спору' : 'жалобе'} {cur.id}. Запись в аудит-логе: {me.name.split(' ').map((w, i) => (i ? `${w[0]}.` : w)).join(' ')}, {openedAt}.
+                  {L.complaints.vyOtkryliPerepiskuPo} {cur.key < 0 ? L.complaints.sporu : L.complaints.zhalobe} {cur.id}{L.complaints.zapisVAuditLoge} {me.name.split(' ').map((w, i) => (i ? `${w[0]}.` : w)).join(' ')}, {openedAt}.
                 </span>
               </div>
               <div
@@ -208,7 +209,7 @@ export function Complaints({ openId }: { openId?: string }) {
                 }}
               >
                 {!msgs && <Loading />}
-                {msgs?.length === 0 && <span className={s.muted} style={{ alignSelf: 'center' }}>Сообщений нет</span>}
+                {msgs?.length === 0 && <span className={s.muted} style={{ alignSelf: 'center' }}>{L.complaints.soobscheniyNet}</span>}
                 {msgs?.map((m, i) =>
                   m.sys ? (
                     <div
@@ -228,7 +229,7 @@ export function Complaints({ openId }: { openId?: string }) {
                     <div
                       key={i}
                       style={{
-                        alignSelf: m.who === 'Клиент' ? 'flex-end' : 'flex-start',
+                        alignSelf: m.who === L.complaints.klient ? 'flex-end' : 'flex-start',
                         maxWidth: '66%',
                         display: 'flex',
                         flexDirection: 'column',
@@ -240,7 +241,7 @@ export function Complaints({ openId }: { openId?: string }) {
                         style={{
                           fontSize: 11,
                           color: '#5B6878',
-                          alignSelf: m.who === 'Клиент' ? 'flex-end' : 'flex-start',
+                          alignSelf: m.who === L.complaints.klient ? 'flex-end' : 'flex-start',
                           display: 'flex',
                           gap: 6,
                           alignItems: 'center',
@@ -257,13 +258,13 @@ export function Complaints({ openId }: { openId?: string }) {
                                 return n;
                               })
                             }
-                            label="Выбрать сообщение для скрытия"
+                            label={L.complaints.vybratSoobschenieDlyaSkrytiya}
                           />
                         )}
                         {m.who} · {m.time}
-                        {m.hidden && ' · скрыто модератором'}
+                        {m.hidden && L.complaints.skrytoModeratorom}
                       </span>
-                      <div style={{ padding: '9px 12px', borderRadius: 12, background: m.flag ? '#FBE3E0' : m.who === 'Клиент' ? '#2647D9' : '#fff', color: m.who === 'Клиент' && !m.flag ? '#fff' : '#0F1B2A', border: `1px solid ${m.flag ? '#E8C4BE' : m.who === 'Клиент' ? '#2647D9' : '#E1E6EC'}`, lineHeight: 1.45, fontSize: 14, overflowWrap: 'anywhere' }}>
+                      <div style={{ padding: '9px 12px', borderRadius: 12, background: m.flag ? '#FBE3E0' : m.who === L.complaints.klient ? '#2647D9' : '#fff', color: m.who === L.complaints.klient && !m.flag ? '#fff' : '#0F1B2A', border: `1px solid ${m.flag ? '#E8C4BE' : m.who === L.complaints.klient ? '#2647D9' : '#E1E6EC'}`, lineHeight: 1.45, fontSize: 14, overflowWrap: 'anywhere' }}>
                         {m.text}
                       </div>
                     </div>
@@ -272,12 +273,12 @@ export function Complaints({ openId }: { openId?: string }) {
               </div>
             </div>
           ) : (
-            <div className={s.loading}>Выберите жалобу</div>
+            <div className={s.loading}>{L.complaints.vyberiteZhalobu}</div>
           )}
           {cur && (
             <div className={s.panelBody} style={{ borderLeft: '1px solid #E1E6EC', gap: 14 }}>
               <Label>
-                {cur.key < 0 ? 'Спор' : 'Жалоба'} {cur.id}
+                {cur.key < 0 ? L.complaints.spor2 : L.complaints.zhaloba} {cur.id}
               </Label>
               <div className={s.col4}>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{cur.title}</span>
@@ -287,7 +288,7 @@ export function Complaints({ openId }: { openId?: string }) {
               </div>
               {detector.length > 0 && (
                 <div className={s.col6}>
-                  <Label>Автодетектор</Label>
+                  <Label>{L.complaints.avtodetektor}</Label>
                   <div className={s.wrap4} style={{ gap: 6 }}>
                     {detector.map((d) => (
                       <Pill key={d} big tone="bad">
@@ -302,27 +303,27 @@ export function Complaints({ openId }: { openId?: string }) {
                   <Label>{cur.subject}</Label>
                   {cur.subjectUserId && (
                     <Link href={`/admin/users?id=${cur.subjectUserId}`} style={{ fontWeight: 600 }}>
-                      Карточка пользователя →
+                      {L.complaints.kartochkaPolzovatelya}
                     </Link>
                   )}
                 </div>
               )}
               {cur.open && (
                 <div className={s.col6} style={{ marginTop: 'auto' }}>
-                  <button type="button" className={s.btn} disabled={busy} onClick={() => resolve('warned', 'Предупреждение отправлено, жалоба закрыта')}>
-                    Предупредить {cur.subject.startsWith('Клиент') ? 'клиента' : cur.subject.startsWith('Мастер') ? 'мастера' : 'пользователя'}
+                  <button type="button" className={s.btn} disabled={busy} onClick={() => resolve('warned', L.complaints.preduprezhdenieOtpravlenoZhaloba)}>
+                    {L.complaints.predupredit} {cur.subject.startsWith(L.complaints.klient) ? L.complaints.klienta : cur.subject.startsWith(L.complaints.master2) ? L.complaints.mastera : L.complaints.polzovatelya}
                   </button>
                   {cur.hasChat && (
-                    <button type="button" className={s.btn} disabled={!picked.size} title={picked.size ? '' : 'Отметьте сообщения в переписке'} onClick={() => setHideBasis(`Жалоба ${cur.id}: ${cur.title}`)}>
+                    <button type="button" className={s.btn} disabled={!picked.size} title={picked.size ? '' : L.complaints.otmetteSoobscheniyaVPerepiske} onClick={() => setHideBasis(L.complaints.zhaloba2(cur.id, cur.title))}>
                       <EyeOff size={14} aria-hidden style={{ verticalAlign: '-2px', marginRight: 4 }} />
-                      Скрыть сообщения{picked.size ? ` · ${picked.size}` : ''}
+                      {L.complaints.skrytSoobscheniya}{picked.size ? ` · ${picked.size}` : ''}
                     </button>
                   )}
                   <button type="button" className={cx(s.btn, s.btnRed)} onClick={() => router.push(cur.subjectUserId ? `/admin/users?id=${cur.subjectUserId}` : '/admin/users')}>
-                    Заблокировать {cur.subject.startsWith('Клиент') ? 'клиента' : cur.subject.startsWith('Мастер') ? 'мастера' : 'пользователя'}…
+                    {L.complaints.zablokirovat} {cur.subject.startsWith(L.complaints.klient) ? L.complaints.klienta : cur.subject.startsWith(L.complaints.master2) ? L.complaints.mastera : L.complaints.polzovatelya}…
                   </button>
-                  <button type="button" className={cx(s.btn, s.btnGhost)} disabled={busy} onClick={() => resolve('rejected', 'Жалоба закрыта: не подтвердилась')}>
-                    Жалоба не подтвердилась
+                  <button type="button" className={cx(s.btn, s.btnGhost)} disabled={busy} onClick={() => resolve('rejected', L.complaints.zhalobaZakrytaNePodtverdilas)}>
+                    {L.complaints.zhalobaNePodtverdilas}
                   </button>
                 </div>
               )}
@@ -334,9 +335,9 @@ export function Complaints({ openId }: { openId?: string }) {
         <Modal
           icon={EyeOff}
           tone="red"
-          title={`Скрыть ${picked.size} ${picked.size === 1 ? 'сообщение' : 'сообщения'}?`}
-          sub="Стороны увидят «Сообщение скрыто модератором». Текст сохранится для споров."
-          okText="Скрыть"
+          title={L.complaints.skryt(picked.size, picked.size === 1 ? L.complaints.soobschenie : L.complaints.soobscheniya)}
+          sub={L.complaints.storonyUvidyatSoobschenieSkryto}
+          okText={L.complaints.skryt2}
           okTone="red"
           okDisabled={hideBasis.trim().length < 5}
           busy={busy}
@@ -348,7 +349,7 @@ export function Complaints({ openId }: { openId?: string }) {
               setMsgs((l) => l?.map((m) => (m.id && picked.has(m.id) ? { ...m, hidden: true } : m)) ?? l);
               setPicked(new Set());
               setHideBasis(null);
-              toast('Сообщения скрыты');
+              toast(L.complaints.soobscheniyaSkryty);
             } catch (e) {
               toast(apiErrorText(e, 'ru'));
             }
@@ -357,10 +358,10 @@ export function Complaints({ openId }: { openId?: string }) {
         >
           <div className={s.col4}>
             <span className={s.fieldT}>
-              Основание <span style={{ color: '#B03A2E' }}>*</span>
+              {L.complaints.osnovanie} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
             <textarea className={s.textarea} rows={2} value={hideBasis} onChange={(e) => setHideBasis(e.target.value.slice(0, 300))} autoFocus />
-            <span className={s.muted}>Попадёт в аудит-лог (message.hide)</span>
+            <span className={s.muted}>{L.complaints.popadetVAuditLog}</span>
           </div>
         </Modal>
       )}

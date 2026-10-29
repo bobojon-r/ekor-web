@@ -8,8 +8,9 @@ import { adminApi } from '../data/api';
 import type { HistoryV, LimitEffect, LimitV } from '../data/types';
 import { cx, Head, Label, Loading, Modal, Pill } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
-const plural = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? 'несохранённое изменение' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'несохранённых изменения' : 'несохранённых изменений');
+const plural = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? L.limits.nesohranennoeIzmenenie : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? L.limits.nesohranennyhIzmeneniya : L.limits.nesohranennyhIzmeneniy);
 
 /** 09 — лимиты (admin); 15 — подтверждение с основанием */
 export function Limits() {
@@ -55,7 +56,7 @@ export function Limits() {
   const preview = async () => {
     setBusy(true);
     try {
-      setEffects(await adminApi.saveLimits(payload(), 'предпросмотр', true));
+      setEffects(await adminApi.saveLimits(payload(), L.limits.predprosmotr, true));
       setConfirm(true);
     } catch (e) {
       toast(apiErrorText(e, 'ru'));
@@ -74,12 +75,12 @@ export function Limits() {
       await adminApi.saveLimits(payload(), why.trim());
       setConfirm(false);
       setWhy('');
-      toast('Лимиты сохранены. Применятся в течение 5 минут');
+      toast(L.limits.limitySohranenyPrimenyatsyaV);
       await load();
     } catch (e) {
       // 409 — кто-то успел изменить лимит: перечитываем значения
       if ((e as { status?: number }).status === 409) {
-        toast('Лимиты успели изменить — значения обновлены, проверьте и сохраните снова');
+        toast(L.limits.limityUspeliIzmenitZnacheniya);
         setConfirm(false);
         await load();
       } else toast(apiErrorText(e, 'ru'));
@@ -89,12 +90,12 @@ export function Limits() {
 
   return (
     <>
-      <Head title="Лимиты и настройки">
+      <Head title={L.limits.limityINastroyki}>
         <Pill big tone="dark">
           admin
         </Pill>
         <span className={s.grow} />
-        <span className={s.muted}>Действует для всех городов. Переопределение по городу — в следующей версии.</span>
+        <span className={s.muted}>{L.limits.deystvuetDlyaVsehGorodov}</span>
       </Head>
       {!rows ? (
         <Loading />
@@ -162,12 +163,12 @@ export function Limits() {
                               fontWeight: 600,
                             }}
                           >
-                            было {i.value}
+                            {L.limits.bylo} {i.value}
                           </span>
                         )}
                         {outOf(i) && i.min != null && (
                           <span style={{ fontSize: 11, color: '#A5281B' }}>
-                            от {i.min} до {i.max}
+                            {L.limits.ot} {i.min} {L.limits.do} {i.max}
                           </span>
                         )}
                       </div>
@@ -181,7 +182,7 @@ export function Limits() {
                           })
                         }
                         className={cx(outOf(i) && s.invalid)}
-                        title={i.min != null ? `от ${i.min} до ${i.max} · по умолчанию ${i.def}` : undefined}
+                        title={i.min != null ? L.limits.otDoPoUmolchaniyu(i.min, i.max, i.def) : undefined}
                         style={{
                           height: 32,
                           borderRadius: 7,
@@ -211,8 +212,8 @@ export function Limits() {
             }}
           >
             <div className={s.panelBody} style={{ gap: 12 }}>
-              <Label>История изменений</Label>
-              {[...changes.map((r): HistoryV => [`${r.label}: ${r.value} → ${vals[r.key]}`, 'черновик · вы', true]), ...hist].map(([t, d, draft], i) => (
+              <Label>{L.limits.istoriyaIzmeneniy}</Label>
+              {[...changes.map((r): HistoryV => [`${r.label}: ${r.value} → ${vals[r.key]}`, L.limits.chernovikVy, true]), ...hist].map(([t, d, draft], i) => (
                 <div key={i} style={{ display: 'flex', gap: 10 }}>
                   <span
                     style={{
@@ -232,10 +233,10 @@ export function Limits() {
                   </div>
                 </div>
               ))}
-              {!changes.length && !hist.length && <span className={s.muted}>Изменений ещё не было</span>}
+              {!changes.length && !hist.length && <span className={s.muted}>{L.limits.izmeneniyEscheNeBylo}</span>}
               <div className={s.alertInfo} style={{ marginTop: 6 }}>
                 <Lock size={15} aria-hidden />
-                <span>Новые лимиты применяются к новым действиям. Уже отправленные отклики и открытые задания не меняются.</span>
+                <span>{L.limits.novyeLimityPrimenyayutsyaK}</span>
               </div>
             </div>
             <div
@@ -248,13 +249,13 @@ export function Limits() {
                 background: '#fff',
               }}
             >
-              <span className={s.fieldT}>{changes.length ? `${changes.length} ${plural(changes.length)}` : 'Изменений нет'}</span>
+              <span className={s.fieldT}>{changes.length ? `${changes.length} ${plural(changes.length)}` : L.limits.izmeneniyNet}</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className={s.btn} style={{ flex: 1 }} disabled={!changes.length} onClick={() => setVals(Object.fromEntries(rows.map((x) => [x.key, String(x.value)])))}>
-                  Сбросить
+                  {L.limits.sbrosit}
                 </button>
                 <button type="button" className={cx(s.btn, s.btnBlue)} style={{ flex: 1.4 }} disabled={!changes.length || invalid || busy} onClick={preview}>
-                  Сохранить…
+                  {L.limits.sohranit}
                 </button>
               </div>
             </div>
@@ -265,9 +266,9 @@ export function Limits() {
         <Modal
           icon={SlidersHorizontal}
           tone="blue"
-          title={`Сохранить ${changes.length} ${changes.length === 1 ? 'изменение' : changes.length < 5 ? 'изменения' : 'изменений'} лимитов?`}
-          sub="Применяется ко всем городам через 5 минут."
-          okText="Сохранить изменения"
+          title={L.limits.sohranitLimitov(changes.length, changes.length === 1 ? L.limits.izmenenie : changes.length < 5 ? L.limits.izmeneniya : L.limits.izmeneniy)}
+          sub={L.limits.primenyaetsyaKoVsemGorodam}
+          okText={L.limits.sohranitIzmeneniya}
           okDisabled={why.trim().length < 10}
           busy={busy}
           onClose={() => setConfirm(false)}
@@ -290,9 +291,9 @@ export function Limits() {
                 background: '#F7F9FB',
               }}
             >
-              <span>Параметр</span>
-              <span className={s.right}>Было</span>
-              <span className={s.right}>Станет</span>
+              <span>{L.limits.parametr}</span>
+              <span className={s.right}>{L.limits.bylo2}</span>
+              <span className={s.right}>{L.limits.stanet}</span>
             </div>
             {changes.map((r) => (
               <div
@@ -307,36 +308,36 @@ export function Limits() {
               >
                 <span>{r.label}</span>
                 <span className={cx(s.right, s.mono)} style={{ color: '#5B6878' }}>
-                  {r.value} {r.unit === 'мин' ? 'мин' : ''}
+                  {r.value} {r.unit === L.limits.min ? L.limits.min : ''}
                 </span>
                 <span className={cx(s.right, s.mono)} style={{ fontWeight: 600 }}>
-                  {vals[r.key]} {r.unit === 'мин' ? 'мин' : ''}
+                  {vals[r.key]} {r.unit === L.limits.min ? L.limits.min : ''}
                 </span>
               </div>
             ))}
           </div>
           <div className={s.bullets}>
-            <b>Что изменится</b>
+            <b>{L.limits.chtoIzmenitsya}</b>
             {effects?.length ? (
               effects.map((x) => (
                 <span key={x.label}>
                   · {x.label}: {x.effect}
-                  {x.affected != null ? ` (затронет: ${x.affected})` : ''}
+                  {x.affected != null ? L.limits.zatronet(x.affected) : ''}
                 </span>
               ))
             ) : (
               <>
-                <span>· Новые значения действуют для новых действий во всех городах</span>
-                <span>· Уже отправленные отклики, открытые задания и текущие блокировки остаются по прежним правилам</span>
+                <span>{L.limits.novyeZnacheniyaDeystvuyutDlya}</span>
+                <span>{L.limits.uzheOtpravlennyeOtklikiOtkrytye}</span>
               </>
             )}
           </div>
           <div className={s.col4}>
             <span className={s.fieldT}>
-              Основание <span style={{ color: '#B03A2E' }}>*</span>
+              {L.limits.osnovanie} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
-            <textarea className={s.textarea} rows={3} value={why} onChange={(e) => setWhy(e.target.value.slice(0, 500))} placeholder="Почему меняем лимиты — от 10 символов" autoFocus />
-            <span className={s.muted}>Попадёт в аудит-лог и историю изменений</span>
+            <textarea className={s.textarea} rows={3} value={why} onChange={(e) => setWhy(e.target.value.slice(0, 500))} placeholder={L.limits.pochemuMenyaemLimityOt} autoFocus />
+            <span className={s.muted}>{L.limits.popadetVAuditLog}</span>
           </div>
         </Modal>
       )}

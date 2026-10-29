@@ -10,13 +10,14 @@ import type { Reason, UserCard, UserV } from '../data/types';
 import { initials, num } from '../core';
 import { cx, Head, Label, Loading, Modal, Pill, SearchBox, SelectChip, ToggleChip, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 const COLS = '72px minmax(0,1fr) 140px 92px 92px 92px 50px 90px';
 const TERMS: [string, number | null][] = [
-  ['24 ч', 1],
-  ['7 дней', 7],
-  ['30 дней', 30],
-  ['Навсегда', null],
+  [L.users._24Ch, 1],
+  [L.users._7Dney, 7],
+  [L.users._30Dney, 30],
+  [L.users.navsegda, null],
 ];
 
 /** 06 — пользователи и блокировки; 16 — подтверждение вечной блокировки */
@@ -88,7 +89,7 @@ export function Users({ initialId }: { initialId?: number }) {
       await adminApi.block(cur, reason, term, comment.trim(), term === null ? digits : null);
       setForever(false);
       setDigits('');
-      toast(term ? `Заблокирован на ${TERMS.find((t) => t[1] === term)?.[0]}` : 'Заблокирован навсегда');
+      toast(term ? L.users.zablokirovanNa(TERMS.find((t) => t[1] === term)?.[0]) : L.users.zablokirovanNavsegda);
       await load();
       adminApi.user({ ...cur, blocked: true }).then(setCard, () => {});
     } catch (e) {
@@ -101,18 +102,18 @@ export function Users({ initialId }: { initialId?: number }) {
 
   return (
     <>
-      <Head title="Пользователи">
-        <span className={s.muted}>{data ? `${num(data.total)} · мастеров ${num(data.masters)}` : ''}</span>
+      <Head title={L.users.polzovateli}>
+        <span className={s.muted}>{data ? L.users.masterov(num(data.total), num(data.masters)) : ''}</span>
         <span className={s.grow} />
-        <SearchBox value={q} onChange={setQ} placeholder="Телефон, имя, ID" width={300} slash />
+        <SearchBox value={q} onChange={setQ} placeholder={L.users.telefonImyaId} width={300} slash />
       </Head>
       <div className={s.filters}>
-        <SelectChip label="Роль" value={role} onChange={setRole} options={[['all', 'все'], ['Клиент', 'клиент'], ['Мастер', 'мастер']]} />
-        <SelectChip label="Статус" value={status} onChange={setStatus} options={[['all', 'все'], ['active', 'активен'], ['blocked', 'заблокирован']]} />
+        <SelectChip label={L.users.rol} value={role} onChange={setRole} options={[['all', L.users.vse], [L.users.klient, L.users.klient2], [L.users.master, L.users.master2]]} />
+        <SelectChip label={L.users.status} value={status} onChange={setStatus} options={[['all', L.users.vse], ['active', L.users.aktiven], ['blocked', L.users.zablokirovan]]} />
         <ToggleChip on={withC} onClick={() => setWithC(!withC)}>
-          С жалобами
+          {L.users.sZhalobami}
         </ToggleChip>
-        <SelectChip label="Город" value={city} onChange={setCity} options={[['all', 'все'], ...cities.map((c): [string, string] => [c, c])]} />
+        <SelectChip label={L.users.gorod} value={city} onChange={setCity} options={[['all', L.users.vse], ...cities.map((c): [string, string] => [c, c])]} />
       </div>
       {!data ? (
         <Loading />
@@ -121,16 +122,16 @@ export function Users({ initialId }: { initialId?: number }) {
           <div className={s.list}>
             <div className={s.thead} style={{ gridTemplateColumns: COLS }}>
               <span>ID</span>
-              <span>Имя</span>
-              <span>Телефон</span>
-              <span>Роль</span>
-              <span>Город</span>
-              <span>Статус</span>
-              <span className={s.right}>Жал.</span>
-              <span className={s.right}>Вход</span>
+              <span>{L.users.imya}</span>
+              <span>{L.users.telefon}</span>
+              <span>{L.users.rol}</span>
+              <span>{L.users.gorod}</span>
+              <span>{L.users.status}</span>
+              <span className={s.right}>{L.users.zhal}</span>
+              <span className={s.right}>{L.users.vhod}</span>
             </div>
             <div className={s.scroll}>
-              {rows.length === 0 && <div className={s.hint} style={{ padding: 16 }}>Никого не нашли. Поиск — по телефону, имени или ID.</div>}
+              {rows.length === 0 && <div className={s.hint} style={{ padding: 16 }}>{L.users.nikogoNeNashliPoisk}</div>}
               {rows.map((u) => (
                 <div key={u.key} role="button" tabIndex={0} onClick={() => setSelKey(u.key)} onKeyDown={(e) => e.key === 'Enter' && setSelKey(u.key)} className={cx(s.row, cur?.key === u.key && s.rowOn)} style={{ gridTemplateColumns: COLS }}>
                   <span className={s.id}>{u.id}</span>
@@ -222,12 +223,12 @@ export function Users({ initialId }: { initialId?: number }) {
                   ))}
                 </div>
                 <div className={s.col6}>
-                  <Label>Сигналы</Label>
+                  <Label>{L.users.signaly}</Label>
                   <span style={{ lineHeight: 1.5 }}>{card.signals}</span>
                 </div>
                 {!!card.sanctions?.length && (
                   <div className={s.col6}>
-                    <Label>Блокировки и предупреждения</Label>
+                    <Label>{L.users.blokirovkiIPreduprezhdeniya}</Label>
                     {card.sanctions.map((x, i) => (
                       <div
                         key={i}
@@ -260,7 +261,7 @@ export function Users({ initialId }: { initialId?: number }) {
                 )}
                 {!cur.blocked && (
                   <button type="button" className={s.btn} style={{ alignSelf: 'flex-start' }} onClick={() => setWarn('')}>
-                    Предупредить…
+                    {L.users.predupredit}
                   </button>
                 )}
                 {cur.blocked ? (
@@ -275,16 +276,16 @@ export function Users({ initialId }: { initialId?: number }) {
                       background: '#F7F9FB',
                     }}
                   >
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>Пользователь заблокирован · {cur.status}</span>
-                    {card.blockReason && <span className={s.muted}>Причина: {card.blockReason}</span>}
-                    {cur.status === 'Навсегда' && me.role !== 'admin' ? (
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{L.users.polzovatelZablokirovan} {cur.status}</span>
+                    {card.blockReason && <span className={s.muted}>{L.users.prichina} {card.blockReason}</span>}
+                    {cur.status === L.users.navsegda && me.role !== 'admin' ? (
                       <div className={s.alertWarn}>
                         <TriangleAlert size={15} aria-hidden />
-                        <span>Снять вечную блокировку может только admin</span>
+                        <span>{L.users.snyatVechnuyuBlokirovkuMozhet}</span>
                       </div>
                     ) : (
                       <button type="button" className={s.btn} onClick={() => setUnblock('')}>
-                        Разблокировать…
+                        {L.users.razblokirovat}
                       </button>
                     )}
                   </div>
@@ -307,10 +308,10 @@ export function Users({ initialId }: { initialId?: number }) {
                         color: '#A5281B',
                       }}
                     >
-                      Заблокировать пользователя
+                      {L.users.zablokirovatPolzovatelya}
                     </span>
                     <label className={s.col4}>
-                      <span className={s.fieldT}>Причина</span>
+                      <span className={s.fieldT}>{L.users.prichina2}</span>
                       <select className={s.select} value={reason?.id ?? ''} onChange={(e) => setReason(reasons.find((r) => r.id === +e.target.value) ?? null)} style={{ height: 34 }}>
                         {reasons.map((r) => (
                           <option key={r.id} value={r.id}>
@@ -320,7 +321,7 @@ export function Users({ initialId }: { initialId?: number }) {
                       </select>
                     </label>
                     <div className={s.col4}>
-                      <span className={s.fieldT}>Срок</span>
+                      <span className={s.fieldT}>{L.users.srok}</span>
                       <div
                         style={{
                           display: 'flex',
@@ -338,7 +339,7 @@ export function Users({ initialId }: { initialId?: number }) {
                               key={l}
                               type="button"
                               disabled={locked}
-                              title={locked ? 'Блокировка навсегда — senior_moderator и admin' : ''}
+                              title={locked ? L.users.blokirovkaNavsegdaSeniorModerato : ''}
                               onClick={() => setTerm(v)}
                               style={{
                                 flex: 1,
@@ -357,18 +358,18 @@ export function Users({ initialId }: { initialId?: number }) {
                         })}
                       </div>
                     </div>
-                    <textarea className={s.textarea} rows={2} value={comment} onChange={(e) => setComment(e.target.value.slice(0, 500))} placeholder="Основание: номер жалобы, чат, факты (обязательно)" />
+                    <textarea className={s.textarea} rows={2} value={comment} onChange={(e) => setComment(e.target.value.slice(0, 500))} placeholder={L.users.osnovanieNomerZhalobyChat} />
                     {term === null && (
                       <div className={s.alertWarn}>
                         <TriangleAlert size={15} aria-hidden />
                         <span>
-                          {card.activeTasks ? `${card.activeTasks} активн. заданий будет снято, мастера с откликами получат уведомление. ` : ''}
-                          Номер нельзя будет зарегистрировать снова.
+                          {card.activeTasks ? L.users.aktivnZadaniyBudetSnyato(card.activeTasks) : ''}
+                          {L.users.nomerNelzyaBudetZaregistrirovat}
                         </span>
                       </div>
                     )}
                     <button type="button" className={cx(s.btn, s.btnRed)} disabled={comment.trim().length < 5 || busy || !reason} onClick={() => (term === null ? setForever(true) : block())}>
-                      {term === null ? 'Заблокировать навсегда' : `Заблокировать на ${TERMS.find((t) => t[1] === term)?.[0]}`}
+                      {term === null ? L.users.zablokirovatNavsegda : L.users.zablokirovatNa(TERMS.find((t) => t[1] === term)?.[0])}
                     </button>
                   </div>
                 )}
@@ -383,9 +384,9 @@ export function Users({ initialId }: { initialId?: number }) {
         <Modal
           icon={TriangleAlert}
           tone="red"
-          title={`Заблокировать ${cur.name} навсегда?`}
+          title={L.users.zablokirovatNavsegda2(cur.name)}
           sub={`${cur.id} · ${cur.phone} · ${cur.role.toLowerCase()} · ${cur.city}`}
-          okText="Заблокировать навсегда"
+          okText={L.users.zablokirovatNavsegda}
           okTone="red"
           okDisabled={digits !== last4}
           busy={busy}
@@ -393,20 +394,20 @@ export function Users({ initialId }: { initialId?: number }) {
           onOk={block}
         >
           <div className={s.bullets}>
-            <b>Что произойдёт сразу</b>
-            <span>· Выход со всех устройств, вход по этому номеру невозможен</span>
-            <span>· Открытые задания снимаются, мастера с откликами получат уведомление</span>
-            <span>· Отзывы пользователя скрываются, переписка сохраняется для споров</span>
-            <span>· Пользователь получит SMS с причиной и способом обжалования</span>
+            <b>{L.users.chtoProizoydetSrazu}</b>
+            <span>{L.users.vyhodSoVsehUstroystv}</span>
+            <span>{L.users.otkrytyeZadaniyaSnimayutsyaMaste}</span>
+            <span>{L.users.otzyvyPolzovatelyaSkryvayutsyaPe}</span>
+            <span>{L.users.polzovatelPoluchitSmsS}</span>
           </div>
           <div className={s.softBox}>
-            <span>Причина</span>
+            <span>{L.users.prichina2}</span>
             <b>{reason?.label}</b>
-            <span>Основание</span>
+            <span>{L.users.osnovanie}</span>
             <span>{comment.trim()}</span>
           </div>
           <div className={s.col4}>
-            <span className={s.fieldT}>Для подтверждения введите последние 4 цифры номера</span>
+            <span className={s.fieldT}>{L.users.dlyaPodtverzhdeniyaVveditePosled}</span>
             <input
               className={cx(s.input, digits.length > 0 && digits !== last4 && s.invalid)}
               style={{
@@ -419,13 +420,13 @@ export function Users({ initialId }: { initialId?: number }) {
               value={digits}
               onChange={(e) => setDigits(e.target.value.replace(/\D/g, '').slice(0, 4))}
               autoFocus
-              aria-label="Последние 4 цифры номера"
+              aria-label={L.users.poslednie4TsifryNomera}
             />
-            <span className={s.muted}>{digits.length < 4 ? `Нужна ${digits.length + 1}-я цифра` : digits === last4 ? 'Совпадает' : 'Цифры не совпадают'}</span>
+            <span className={s.muted}>{digits.length < 4 ? L.users.nuzhnaYaTsifra(digits.length + 1) : digits === last4 ? L.users.sovpadaet : L.users.tsifryNeSovpadayut}</span>
           </div>
           <div className={s.alertWarn}>
             <TriangleAlert size={15} aria-hidden />
-            <span>Снять вечную блокировку может только admin, через карточку пользователя</span>
+            <span>{L.users.snyatVechnuyuBlokirovkuMozhet2}</span>
           </div>
         </Modal>
       )}
@@ -433,9 +434,9 @@ export function Users({ initialId }: { initialId?: number }) {
         <Modal
           icon={MessageSquareWarning}
           tone="blue"
-          title={`Предупредить ${cur.name}?`}
-          sub={`${cur.id} · пользователь получит уведомление; запись попадёт в историю санкций и аудит-лог`}
-          okText="Отправить предупреждение"
+          title={L.users.predupredit2(cur.name)}
+          sub={L.users.polzovatelPoluchitUvedomlenieZap(cur.id)}
+          okText={L.users.otpravitPreduprezhdenie}
           okDisabled={warn.trim().length < 10}
           busy={busy}
           onClose={() => setWarn(null)}
@@ -444,7 +445,7 @@ export function Users({ initialId }: { initialId?: number }) {
             try {
               await adminApi.warn(cur.key, reason, warn.trim());
               setWarn(null);
-              toast('Предупреждение отправлено');
+              toast(L.users.preduprezhdenieOtpravleno);
               adminApi.user(cur).then(setCard, () => {});
             } catch (e) {
               toast(apiErrorText(e, 'ru'));
@@ -453,7 +454,7 @@ export function Users({ initialId }: { initialId?: number }) {
           }}
         >
           <label className={s.col4}>
-            <span className={s.fieldT}>Причина</span>
+            <span className={s.fieldT}>{L.users.prichina2}</span>
             <select className={s.select} value={reason?.id ?? ''} onChange={(e) => setReason(reasons.find((r) => r.id === +e.target.value) ?? null)} style={{ height: 34 }}>
               {reasons.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -464,9 +465,9 @@ export function Users({ initialId }: { initialId?: number }) {
           </label>
           <div className={s.col4}>
             <span className={s.fieldT}>
-              Текст предупреждения <span style={{ color: '#B03A2E' }}>*</span>
+              {L.users.tekstPreduprezhdeniya} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
-            <textarea className={s.textarea} rows={3} value={warn} onChange={(e) => setWarn(e.target.value.slice(0, 500))} placeholder="Что нарушено и что будет при повторе" autoFocus />
+            <textarea className={s.textarea} rows={3} value={warn} onChange={(e) => setWarn(e.target.value.slice(0, 500))} placeholder={L.users.chtoNarushenoIChto} autoFocus />
           </div>
         </Modal>
       )}
@@ -474,9 +475,9 @@ export function Users({ initialId }: { initialId?: number }) {
         <Modal
           icon={TriangleAlert}
           tone="blue"
-          title={`Разблокировать ${cur.name}?`}
+          title={L.users.razblokirovat2(cur.name)}
           sub={`${cur.id} · ${cur.status}`}
-          okText="Разблокировать"
+          okText={L.users.razblokirovat3}
           okDisabled={unblock.trim().length < 5}
           busy={busy}
           onClose={() => setUnblock(null)}
@@ -485,7 +486,7 @@ export function Users({ initialId }: { initialId?: number }) {
             try {
               await adminApi.unblock(cur, unblock.trim());
               setUnblock(null);
-              toast('Пользователь разблокирован');
+              toast(L.users.polzovatelRazblokirovan);
               await load();
             } catch (e) {
               toast(apiErrorText(e, 'ru'));
@@ -495,10 +496,10 @@ export function Users({ initialId }: { initialId?: number }) {
         >
           <div className={s.col4}>
             <span className={s.fieldT}>
-              Основание <span style={{ color: '#B03A2E' }}>*</span>
+              {L.users.osnovanie} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
             <textarea className={s.textarea} rows={3} value={unblock} onChange={(e) => setUnblock(e.target.value.slice(0, 500))} autoFocus />
-            <span className={s.muted}>Попадёт в аудит-лог</span>
+            <span className={s.muted}>{L.users.popadetVAuditLog}</span>
           </div>
         </Modal>
       )}

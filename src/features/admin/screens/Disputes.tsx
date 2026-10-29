@@ -10,17 +10,18 @@ import { adminApi } from '../data/api';
 import type { DisputeV, Lock, TimelineItem } from '../data/types';
 import { CheckRow, cx, Head, Label, Loading, Modal, Photo, Pill, Tabs } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 type Res = 'done' | 'not_done' | 'partial';
 const RES: [Res, string, string][] = [
-  ['done', 'Выполнено', 'Заказ завершён, отзыв открыт клиенту'],
-  ['not_done', 'Не выполнено', 'Заказ отменён, мастеру отметка в профиле'],
-  ['partial', 'Частично', 'Условия доработки и срок — в комментарии'],
+  ['done', L.disputes.vypolneno, L.disputes.zakazZavershenOtzyvOtkryt],
+  ['not_done', L.disputes.neVypolneno, L.disputes.zakazOtmenenMasteruOtmetka],
+  ['partial', L.disputes.chastichno, L.disputes.usloviyaDorabotkiISrok],
 ];
 const AFTER: Record<Res, [string, string, string[]]> = {
-  done: ['Push + SMS с решением. Отзыв откроется сразу.', 'Push + SMS. Заказ закроется как завершённый.', ['Клиент может оставить отзыв', 'Спор можно открыть повторно только через поддержку']],
-  not_done: ['Push + SMS с решением. Отзыв о мастере доступен.', 'Push + SMS. Заказ отменён, отметка в профиле.', ['Задание можно опубликовать снова', 'Мастер может обжаловать через поддержку']],
-  partial: ['Push + SMS с решением. Отзыв откроется после срока доработки.', 'Push + SMS. Заказ вернётся «В работу» до срока из комментария.', ['Мастер снова отметит «выполнено», клиент подтвердит', 'Если не выполнено — спор можно открыть повторно один раз']],
+  done: [L.disputes.pushSmsSResheniem, L.disputes.pushSmsZakazZakroetsya, [L.disputes.klientMozhetOstavitOtzyv, L.disputes.sporMozhnoOtkrytPovtorno]],
+  not_done: [L.disputes.pushSmsSResheniem2, L.disputes.pushSmsZakazOtmenen, [L.disputes.zadanieMozhnoOpublikovatSnova, L.disputes.masterMozhetObzhalovatCherez]],
+  partial: [L.disputes.pushSmsSResheniem3, L.disputes.pushSmsZakazVernetsya, [L.disputes.masterSnovaOtmetitVypolneno, L.disputes.esliNeVypolnenoSpor]],
 };
 
 /** 04 — споры (senior_moderator, admin); 17 — подтверждение решения */
@@ -77,13 +78,13 @@ export function Disputes() {
     if (row.open && (!row.lock || row.lock.mine))
       adminApi.lockDispute(row).then(
         (l) => l && setLock(l),
-        (e) => (e as { code?: string }).code === 'locked_by_other' && setLock({ name: 'другой сотрудник', mine: false }),
+        (e) => (e as { code?: string }).code === 'locked_by_other' && setLock({ name: L.disputes.drugoySotrudnik, mine: false }),
       );
   }, [row?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const by = lock && !lock.mine ? lock.name : null;
 
   const left = cur?.slaH != null ? cur.slaH * 60 - (now - loadedAt) / 60000 : null;
-  const leftText = left == null ? '' : left <= 0 ? 'SLA просрочен' : `осталось ${Math.floor(left / 60)} ч ${Math.round(left % 60)} мин`;
+  const leftText = left == null ? '' : left <= 0 ? L.disputes.slaProsrochen : L.disputes.ostalosChMin(Math.floor(left / 60), Math.round(left % 60));
   const resLabel = RES.find((r) => r[0] === res)?.[1].toLowerCase();
 
   const close = async () => {
@@ -93,7 +94,7 @@ export function Disputes() {
       await adminApi.resolveDispute(cur, res, comment.trim(), res === 'partial' && terms ? new Date(`${terms}T23:59:00`).toISOString() : null);
       setConfirm(false);
       setAgree(false);
-      toast('Спор закрыт. Стороны получили решение');
+      toast(L.disputes.sporZakrytStoronyPoluchili);
       await load();
       refreshCounts();
     } catch (e) {
@@ -107,10 +108,10 @@ export function Disputes() {
 
   return (
     <>
-      <Head title="Споры">
-        <Tabs value={tab} onChange={(k) => (setTab(k), setSelKey(null))} items={[['open', `Открытые ${nOpen}`], ['waiting', `Ждут ответа стороны ${nWait}`], ['resolved', 'Решённые']]} />
+      <Head title={L.disputes.spory}>
+        <Tabs value={tab} onChange={(k) => (setTab(k), setSelKey(null))} items={[['open', L.disputes.otkrytye(nOpen)], ['waiting', L.disputes.zhdutOtvetaStorony(nWait)], ['resolved', L.disputes.reshennye]]} />
         <span className={s.grow} />
-        <span className={s.note}>доступно: senior_moderator, admin</span>
+        <span className={s.note}>{L.disputes.dostupnoSeniorModeratorAdmin}</span>
       </Head>
       {!rows ? (
         <Loading />
@@ -118,7 +119,7 @@ export function Disputes() {
         <div className={s.split} style={{ gridTemplateColumns: '320px minmax(0,1fr) 340px' }}>
           <div className={s.list}>
             <div className={s.scroll}>
-              {shown.length === 0 && <div className={s.hint} style={{ padding: 16 }}>Споров нет</div>}
+              {shown.length === 0 && <div className={s.hint} style={{ padding: 16 }}>{L.disputes.sporovNet}</div>}
               {shown.map((d) => (
                 <div key={d.key} role="button" tabIndex={0} onClick={() => setSelKey(d.key)} onKeyDown={(e) => e.key === 'Enter' && setSelKey(d.key)} className={cx(s.card2, cur?.key === d.key && s.rowOn)}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -127,7 +128,7 @@ export function Disputes() {
                     <span className={s.grow} />
                     {d.slaH != null && (
                       <span className={s.num} style={{ color: d.slaH <= 6 ? '#B03A2E' : '#3B4756' }}>
-                        {d.slaH} ч
+                        {d.slaH} {L.disputes.ch}
                       </span>
                     )}
                   </div>
@@ -144,10 +145,10 @@ export function Disputes() {
               <div className={s.panelBody} style={{ padding: '16px 20px', gap: 14 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <span className={s.metaLine}>
-                    {cur.id} · заказ {cur.order}
+                    {cur.id} {L.disputes.zakaz} {cur.order}
                   </span>
                   <Pill big tone={cur.open ? 'bad' : 'grey'}>
-                    {cur.open ? 'Спор' : cur.status}
+                    {cur.open ? L.disputes.spor : cur.status}
                   </Pill>
                   <span className={s.grow} />
                   {cur.open && (
@@ -172,8 +173,8 @@ export function Disputes() {
                   {[
                     cur.client,
                     cur.master ?? {
-                      title: `Мастер · ${cur.masterName}`,
-                      text: 'Позиция мастера — в переписке по заказу.',
+                      title: L.disputes.master(cur.masterName),
+                      text: L.disputes.pozitsiyaMasteraVPerepiske,
                       meta: '',
                     },
                   ].map((p) => (
@@ -197,13 +198,13 @@ export function Disputes() {
                 {by && (
                   <div className={s.alertWarn}>
                     <TriangleAlert size={15} aria-hidden />
-                    <span>Этот спор сейчас смотрит {by}. Решение доступно, когда он закончит или через 10 минут.</span>
+                    <span>{L.disputes.etotSporSeychasSmotrit} {by}{L.disputes.reshenieDostupnoKogdaOn}</span>
                   </div>
                 )}
-                {cur.price && <span className={s.muted}>Цена заказа: {cur.price}</span>}
+                {cur.price && <span className={s.muted}>{L.disputes.tsenaZakaza} {cur.price}</span>}
                 {!!cur.requests?.length && (
                   <div className={s.col6}>
-                    <Label>Запросы сторонам · {cur.requests.length}</Label>
+                    <Label>{L.disputes.zaprosyStoronam} {cur.requests.length}</Label>
                     {cur.requests.map((q) => (
                       <div
                         key={q.id}
@@ -217,7 +218,7 @@ export function Disputes() {
                         }}
                       >
                         <span className={s.muted} style={{ fontSize: 12 }}>
-                          {q.to === 'client' ? 'Клиенту' : 'Мастеру'} · {q.meta}
+                          {q.to === 'client' ? L.disputes.klientu : L.disputes.masteru} · {q.meta}
                         </span>
                         <span style={{ lineHeight: 1.45 }}>{q.text}</span>
                         {q.answer ? (
@@ -232,7 +233,7 @@ export function Disputes() {
                               gap: 4,
                             }}
                           >
-                            <span className={s.fieldT}>Ответ · {q.answerMeta}</span>
+                            <span className={s.fieldT}>{L.disputes.otvet} {q.answerMeta}</span>
                             <span style={{ lineHeight: 1.45 }}>{q.answer}</span>
                             {q.photos.length > 0 && (
                               <div className={s.photos5}>
@@ -243,7 +244,7 @@ export function Disputes() {
                             )}
                           </div>
                         ) : (
-                          <Pill tone="warn">Ждём ответа</Pill>
+                          <Pill tone="warn">{L.disputes.zhdemOtveta}</Pill>
                         )}
                       </div>
                     ))}
@@ -258,7 +259,7 @@ export function Disputes() {
                 )}
                 {cur.open ? (
                   <div className={s.col6}>
-                    <Label>Решение</Label>
+                    <Label>{L.disputes.reshenie}</Label>
                     <div
                       style={{
                         display: 'grid',
@@ -282,22 +283,22 @@ export function Disputes() {
                         </button>
                       ))}
                     </div>
-                    <textarea className={s.textarea} rows={3} style={{ minHeight: 64 }} value={comment} onChange={(e) => setComment(e.target.value.slice(0, 1000))} placeholder="Обоснование и условия — увидят обе стороны (от 15 символов)" />
+                    <textarea className={s.textarea} rows={3} style={{ minHeight: 64 }} value={comment} onChange={(e) => setComment(e.target.value.slice(0, 1000))} placeholder={L.disputes.obosnovanieIUsloviyaUvidyat} />
                     {res === 'partial' && (
                       <label className={s.col4}>
                         <span className={s.fieldT}>
-                          Срок доработки <span style={{ color: '#B03A2E' }}>*</span>
+                          {L.disputes.srokDorabotki} <span style={{ color: '#B03A2E' }}>*</span>
                         </span>
                         <input type="date" className={s.input} style={{ width: 180 }} value={terms} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setTerms(e.target.value)} />
                       </label>
                     )}
-                    <span className={s.muted}>Комментарий увидят обе стороны. Решение необратимо и пишется в аудит-лог.</span>
+                    <span className={s.muted}>{L.disputes.kommentariyUvidyatObeStorony}</span>
                   </div>
                 ) : (
                   <div className={s.alertInfo}>
                     <span>
-                      Спор закрыт: {cur.status.replace('Решён: ', '')}.{cur.comment ? ` «${cur.comment}»` : ''}
-                      {cur.termsDeadline ? ` Срок доработки — до ${new Date(cur.termsDeadline).toLocaleDateString('ru-RU')}.` : ''} Запись — в аудит-логе.
+                      {L.disputes.sporZakryt} {cur.status.replace(L.disputes.reshen, '')}.{cur.comment ? ` «${cur.comment}»` : ''}
+                      {cur.termsDeadline ? L.disputes.srokDorabotkiDo(new Date(cur.termsDeadline).toLocaleDateString('ru-RU')) : ''} {L.disputes.zapisVAuditLoge}
                     </span>
                   </div>
                 )}
@@ -305,17 +306,17 @@ export function Disputes() {
               {cur.open && (
                 <div className={s.panelFoot} style={{ padding: '12px 20px' }}>
                   <button type="button" className={s.btn} disabled={!!by} onClick={() => setAsk({ side: 'master', text: '' })}>
-                    Запросить у стороны…
+                    {L.disputes.zaprositUStorony}
                   </button>
                   <span className={s.grow} />
                   <button type="button" className={cx(s.btn, s.btnBlue)} disabled={!res || comment.trim().length < 15 || (res === 'partial' && !terms) || !!by} onClick={() => setConfirm(true)}>
-                    {res ? `Закрыть спор: ${resLabel}` : 'Выберите решение'}
+                    {res ? L.disputes.zakrytSpor(resLabel) : L.disputes.vyberiteReshenie}
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            <div className={s.loading}>Выберите спор</div>
+            <div className={s.loading}>{L.disputes.vyberiteSpor}</div>
           )}
           <div
             className={s.panelBody}
@@ -325,8 +326,8 @@ export function Disputes() {
               gap: 12,
             }}
           >
-            <Label>Хронология заказа</Label>
-            {timeline.length === 0 && <span className={s.muted}>Событий пока нет</span>}
+            <Label>{L.disputes.hronologiyaZakaza}</Label>
+            {timeline.length === 0 && <span className={s.muted}>{L.disputes.sobytiyPokaNet}</span>}
             {timeline.map(([t, d, c], i) => (
               <div key={i} style={{ display: 'flex', gap: 10 }}>
                 <span
@@ -350,10 +351,10 @@ export function Disputes() {
             {cur?.chatId != null && (
               <>
                 <Link href={`/admin/complaints/D-${cur.key}/chat`} style={{ marginTop: 4, fontWeight: 600 }}>
-                  Открыть переписку →
+                  {L.disputes.otkrytPerepisku}
                 </Link>
                 <span className={s.muted} style={{ fontSize: 12, lineHeight: 1.4 }}>
-                  Просмотр чата логируется с причиной «спор {cur.id}»
+                  {L.disputes.prosmotrChataLogiruetsyaS} {cur.id}»
                 </span>
               </>
             )}
@@ -364,9 +365,9 @@ export function Disputes() {
         <Modal
           icon={MessageCircleQuestion}
           tone="blue"
-          title={`Запрос по спору ${cur.id}`}
-          sub="Сторона получит уведомление и ответит в приложении; ответ появится в карточке спора"
-          okText="Отправить запрос"
+          title={L.disputes.zaprosPoSporu(cur.id)}
+          sub={L.disputes.storonaPoluchitUvedomlenieI}
+          okText={L.disputes.otpravitZapros}
           okDisabled={ask.text.trim().length < 10}
           busy={busy}
           onClose={() => setAsk(null)}
@@ -375,7 +376,7 @@ export function Disputes() {
             try {
               await adminApi.requestDispute(cur, ask.side, ask.text.trim());
               setAsk(null);
-              toast(`Запрос отправлен ${ask.side === 'client' ? 'клиенту' : 'мастеру'}`);
+              toast(L.disputes.zaprosOtpravlen(ask.side === 'client' ? L.disputes.klientu2 : L.disputes.masteru2));
               loadCard(cur);
               load();
             } catch (e) {
@@ -409,20 +410,20 @@ export function Disputes() {
                   fontSize: 13,
                 }}
               >
-                {k === 'master' ? `Мастеру · ${cur.masterName}` : `Клиенту · ${cur.clientName}`}
+                {k === 'master' ? L.disputes.masteru3(cur.masterName) : L.disputes.klientu3(cur.clientName)}
               </button>
             ))}
           </div>
-          <textarea className={s.textarea} rows={4} value={ask.text} onChange={(e) => setAsk({ ...ask, text: e.target.value.slice(0, 1000) })} placeholder="Что нужно уточнить: фото результата, чек, объяснение" autoFocus />
+          <textarea className={s.textarea} rows={4} value={ask.text} onChange={(e) => setAsk({ ...ask, text: e.target.value.slice(0, 1000) })} placeholder={L.disputes.chtoNuzhnoUtochnitFoto} autoFocus />
         </Modal>
       )}
       {confirm && cur && res && (
-        <Modal icon={Scale} tone="blue" title={`Закрыть спор ${cur.id}: ${resLabel}`} sub={`${cur.title} · ${cur.clientName} ↔ ${cur.masterName}`} cancelText="Назад" okText="Закрыть спор" okDisabled={!agree} busy={busy} onClose={() => (setConfirm(false), setAgree(false))} onOk={close}>
+        <Modal icon={Scale} tone="blue" title={L.disputes.zakrytSpor2(cur.id, resLabel)} sub={`${cur.title} · ${cur.clientName} ↔ ${cur.masterName}`} cancelText={L.disputes.nazad} okText={L.disputes.zakrytSpor3} okDisabled={!agree} busy={busy} onClose={() => (setConfirm(false), setAgree(false))} onOk={close}>
           <div className={s.textBox} style={{ fontSize: 13, lineHeight: 1.5 }}>
             «{comment.trim()}»
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {(['Клиент получит', 'Мастер получит'] as const).map((h, i) => (
+            {([L.disputes.klientPoluchit, L.disputes.masterPoluchit] as const).map((h, i) => (
               <div
                 key={h}
                 style={{
@@ -441,13 +442,13 @@ export function Disputes() {
             ))}
           </div>
           <div className={s.bullets}>
-            <b>После решения</b>
+            <b>{L.disputes.posleResheniya}</b>
             {AFTER[res][2].map((x) => (
               <span key={x}>· {x}</span>
             ))}
           </div>
           <CheckRow on={agree} onClick={() => setAgree(!agree)}>
-            Я изучил позиции обеих сторон, фото и переписку. Решение необратимо.
+            {L.disputes.yaIzuchilPozitsiiObeih}
           </CheckRow>
         </Modal>
       )}

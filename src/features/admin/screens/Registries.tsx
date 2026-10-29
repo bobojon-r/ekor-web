@@ -14,6 +14,7 @@ import { downloadCsv, initials } from '../core';
 import { cx, Head, Loading, Modal, Pill, SearchBox, SelectChip, ToggleChip, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
 import r from './Registries.module.css';
+import { L } from '../i18n';
 
 /** Вкладки с числом: счётчики по статусам сервер пока не отдаёт — показываем, только если известны */
 function RegTabs<K extends string>({ value, onChange, items }: { value: K; onChange: (k: K) => void; items: [K, string, number | null][] }) {
@@ -34,15 +35,15 @@ function Pager({ from, count, total, canPrev, canNext, onPrev, onNext }: { from:
   return (
     <div className={r.pager}>
       <span className={s.muted}>
-        Показано {count ? `${from + 1}–${from + count}` : '0'}
-        {total != null ? ` из ${total.toLocaleString('ru-RU')}` : ''}
+        {L.registries.pokazano} {count ? `${from + 1}–${from + count}` : '0'}
+        {total != null ? L.registries.iz(total.toLocaleString('ru-RU')) : ''}
       </span>
       <span className={s.grow} />
       <button type="button" className={r.pageBtn} disabled={!canPrev} onClick={onPrev}>
-        ← Назад
+        {L.registries.nazad}
       </button>
       <button type="button" className={cx(r.pageBtn, r.pageNext)} disabled={!canNext} onClick={onNext}>
-        Далее →
+        {L.registries.dalee}
       </button>
     </div>
   );
@@ -66,7 +67,7 @@ const PAGE = 50;
 
 /* ============================== 23 — Все задания ============================== */
 
-const TASK_TABS: [string, string][] = [['all', 'Все'], ['review', 'На проверке'], ['open', 'Открыто'], ['chosen', 'В работе'], ['dispute', 'Спор'], ['done', 'Завершено'], ['closed', 'Закрыто']];
+const TASK_TABS: [string, string][] = [['all', L.registries.vse], ['review', L.registries.naProverke], ['open', L.registries.otkryto], ['chosen', L.registries.vRabote], ['dispute', L.registries.spor], ['done', L.registries.zaversheno], ['closed', L.registries.zakryto]];
 const TCOLS = '64px minmax(0,1fr) 120px 84px 56px 132px 64px';
 
 export function AllTasks() {
@@ -119,7 +120,7 @@ export function AllTasks() {
   useHotkeys({ j: () => view[idx + 1] && setSelKey(view[idx + 1].key), k: () => idx > 0 && setSelKey(view[idx - 1].key), Escape: () => setSelKey(null) });
 
   // Вкладки и счётчики — из counts_by_status сервера (демо: по загруженным строкам)
-  const tabs: [string, string][] = USE_API && srv.counts ? [['all', 'Все'], ...Object.keys(srv.counts).map((k): [string, string] => [k, TASK_TAB_LABEL[k] ?? k])] : TASK_TABS;
+  const tabs: [string, string][] = USE_API && srv.counts ? [['all', L.registries.vse], ...Object.keys(srv.counts).map((k): [string, string] => [k, TASK_TAB_LABEL[k] ?? k])] : TASK_TABS;
   const counts: Record<string, number> | null = USE_API
     ? srv.counts && { all: Object.values(srv.counts).reduce((a, b) => a + b, 0), ...srv.counts }
     : all.length
@@ -132,7 +133,7 @@ export function AllTasks() {
 
   return (
     <>
-      <Head title="Все задания">
+      <Head title={L.registries.vseZadaniya}>
         <RegTabs value={tab} onChange={(k) => (setTab(k), pages.reset(), setSelKey(null))} items={tabs.map(([k, l]) => [k, l, counts?.[k] ?? null])} />
         <span className={s.grow} />
         {canCsv && csvUrl && (
@@ -141,37 +142,37 @@ export function AllTasks() {
           </a>
         )}
         {canCsv && !csvUrl && (
-          <button type="button" className={s.hbtn} disabled={!view.length} onClick={() => downloadCsv('ekor-tasks.csv', [['ID', 'Задание', 'Категория · город', 'Клиент', 'Бюджет', 'Откликов', 'Статус', 'Создано'], ...view.map((x) => [x.id, x.title, x.sub, x.client, x.budget, x.responses, x.status, x.created])])}>
+          <button type="button" className={s.hbtn} disabled={!view.length} onClick={() => downloadCsv('ekor-tasks.csv', [['ID', L.registries.zadanie, L.registries.kategoriyaGorod, L.registries.klient, L.registries.byudzhet, L.registries.otklikov, L.registries.status, L.registries.sozdano], ...view.map((x) => [x.id, x.title, x.sub, x.client, x.budget, x.responses, x.status, x.created])])}>
             CSV
           </button>
         )}
       </Head>
       <div className={s.filters}>
-        <SearchBox value={q} onChange={setQ} placeholder="ID, текст, телефон клиента" slash />
-        <SelectChip label="Город" value={city} onChange={(v) => (setCity(v), pages.reset())} options={[['all', 'все'], ...cities.map((c): [string, string] => [String(c.id), c.name.ru])]} />
-        <SelectChip label="Категория" value={cat} onChange={(v) => (setCat(v), pages.reset())} options={[['all', 'все'], ...cats.map((c): [string, string] => [String(c.id), c.name.ru])]} />
-        <SelectChip label="Период" value={period} onChange={(v) => (setPeriod(v), pages.reset())} options={[['7', '7 дней'], ['30', '30 дней'], ['90', '90 дней'], ['0', 'всё время']]} />
+        <SearchBox value={q} onChange={setQ} placeholder={L.registries.idTekstTelefonKlienta} slash />
+        <SelectChip label={L.registries.gorod} value={city} onChange={(v) => (setCity(v), pages.reset())} options={[['all', L.registries.vse2], ...cities.map((c): [string, string] => [String(c.id), c.name.ru])]} />
+        <SelectChip label={L.registries.kategoriya} value={cat} onChange={(v) => (setCat(v), pages.reset())} options={[['all', L.registries.vse2], ...cats.map((c): [string, string] => [String(c.id), c.name.ru])]} />
+        <SelectChip label={L.registries.period} value={period} onChange={(v) => (setPeriod(v), pages.reset())} options={[['7', L.registries._7Dney], ['30', L.registries._30Dney], ['90', L.registries._90Dney], ['0', L.registries.vseVremya]]} />
         <ToggleChip on={flags} onClick={() => (setFlags(!flags), pages.reset())}>
-          Есть флаги
+          {L.registries.estFlagi}
         </ToggleChip>
-        {me.role === 'moderator' && <span className={s.muted}>Только ваши регионы</span>}
+        {me.role === 'moderator' && <span className={s.muted}>{L.registries.tolkoVashiRegiony}</span>}
         <span className={s.grow} />
-        <span className={s.muted}>Сортировка: новые</span>
+        <span className={s.muted}>{L.registries.sortirovkaNovye}</span>
       </div>
       <div className={s.split} style={{ gridTemplateColumns: cur ? 'minmax(0,1fr) 440px' : 'minmax(0,1fr)' }}>
         <div className={s.list} style={{ borderRight: cur ? undefined : 'none' }}>
           <div className={s.thead} style={{ gridTemplateColumns: TCOLS, padding: '0 16px' }}>
             <span>ID</span>
-            <span>Задание</span>
-            <span>Клиент</span>
-            <span className={s.right}>Бюджет</span>
-            <span className={s.right}>Откл.</span>
-            <span>Статус</span>
-            <span className={s.right}>Создано</span>
+            <span>{L.registries.zadanie}</span>
+            <span>{L.registries.klient}</span>
+            <span className={s.right}>{L.registries.byudzhet}</span>
+            <span className={s.right}>{L.registries.otkl}</span>
+            <span>{L.registries.status}</span>
+            <span className={s.right}>{L.registries.sozdano}</span>
           </div>
           <div className={s.scroll}>
             {!rows && <Loading />}
-            {rows && view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>Заданий не найдено</div>}
+            {rows && view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>{L.registries.zadaniyNeNaydeno}</div>}
             {view.map((x) => (
               <div key={x.key} role="button" tabIndex={0} onClick={() => setSelKey(x.key)} onKeyDown={(e) => e.key === 'Enter' && setSelKey(x.key)} className={cx(s.row, s.rowTall, cur?.key === x.key && s.rowOn)} style={{ gridTemplateColumns: TCOLS, padding: '0 16px' }}>
                 <span className={s.id}>{x.id}</span>
@@ -208,7 +209,7 @@ export function AllTasks() {
                     <span className={s.metaLine}>{card.id}</span>
                     <Pill tone={card.tone}>{card.status}</Pill>
                     <span className={s.grow} />
-                    <button type="button" className={r.x} aria-label="Закрыть" onClick={() => setSelKey(null)}>
+                    <button type="button" className={r.x} aria-label={L.registries.zakryt} onClick={() => setSelKey(null)}>
                       <X size={16} aria-hidden />
                     </button>
                   </div>
@@ -218,17 +219,17 @@ export function AllTasks() {
                   </div>
                   <KV
                     rows={[
-                      ['Клиент', card.client],
-                      ['Телефон', card.phone],
-                      ['Адрес', card.address],
-                      ['Мастер', card.master],
-                      ['Заказ', card.order],
-                      ['Флаги', card.flags],
+                      [L.registries.klient, card.client],
+                      [L.registries.telefon, card.phone],
+                      [L.registries.adres, card.address],
+                      [L.registries.master, card.master],
+                      [L.registries.zakaz, card.order],
+                      [L.registries.flagi, card.flags],
                     ]}
                   />
                   <div className={s.col6}>
-                    <span className={s.fieldT}>Отклики · {card.responses.length}</span>
-                    {card.responses.length === 0 && <span className={s.muted}>Откликов нет</span>}
+                    <span className={s.fieldT}>{L.registries.otkliki} {card.responses.length}</span>
+                    {card.responses.length === 0 && <span className={s.muted}>{L.registries.otklikovNet}</span>}
                     {card.responses.map((x, i) => (
                       <div key={i} className={cx(r.resp, x.chosen && r.respOn)}>
                         <span className={s.grow} style={{ fontWeight: x.chosen ? 600 : 400 }}>
@@ -244,7 +245,7 @@ export function AllTasks() {
                     ))}
                   </div>
                   <div className={s.col6}>
-                    <span className={s.fieldT}>История</span>
+                    <span className={s.fieldT}>{L.registries.istoriya}</span>
                     {card.history.map(([d, t], i) => (
                       <div key={i} style={{ display: 'grid', gridTemplateColumns: '86px minmax(0,1fr)', gap: 8 }}>
                         <span className={s.id} style={{ whiteSpace: 'pre-line' }}>
@@ -257,17 +258,17 @@ export function AllTasks() {
                 </div>
                 <div className={s.panelFoot} style={{ flexWrap: 'wrap' }}>
                   <button type="button" className={s.btn} onClick={() => router.push(`/admin/users?id=${card.clientId}`)}>
-                    Клиент
+                    {L.registries.klient}
                   </button>
                   <button type="button" className={s.btn} disabled={!card.masterId} onClick={() => card.masterId && router.push(`/admin/users?id=${card.masterId}`)}>
-                    Мастер
+                    {L.registries.master}
                   </button>
                   <Link href={`/admin/audit?object=${card.id}`} className={s.btn} style={{ textDecoration: 'none', color: '#0F1B2A' }}>
-                    <History size={15} aria-hidden />В аудите
+                    <History size={15} aria-hidden />{L.registries.vAudite}
                   </Link>
                   {card.canUnpublish && (
                     <button type="button" className={cx(s.btn, s.btnOutRed)} onClick={() => setUnpub({ reason: null, comment: '' })}>
-                      Снять с публикации
+                      {L.registries.snyatSPublikatsii}
                     </button>
                   )}
                 </div>
@@ -280,9 +281,9 @@ export function AllTasks() {
         <Modal
           icon={TriangleAlert}
           tone="red"
-          title={`Снять ${card.id} с публикации?`}
+          title={L.registries.snyatSPublikatsii2(card.id)}
           sub={card.title}
-          okText="Снять с публикации"
+          okText={L.registries.snyatSPublikatsii}
           okTone="red"
           busy={busy}
           okDisabled={!unpub.reason || unpub.comment.trim().length < 5}
@@ -292,7 +293,7 @@ export function AllTasks() {
             try {
               await adminApi.unpublishTask(card.key, unpub.reason!, unpub.comment.trim());
               setUnpub(null);
-              toast('Задание снято с публикации. Автор получил причину');
+              toast(L.registries.zadanieSnyatoSPublikatsii);
               load();
             } catch (e) {
               toast(apiErrorText(e, 'ru'));
@@ -302,7 +303,7 @@ export function AllTasks() {
         >
           <div className={s.col6}>
             <span className={s.fieldT}>
-              Причина <span style={{ color: '#B03A2E' }}>*</span>
+              {L.registries.prichina} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
             <div className={s.wrap4}>
               {reasons.map((x) => (
@@ -312,20 +313,20 @@ export function AllTasks() {
               ))}
             </div>
           </div>
-          <Basis value={unpub.comment} onChange={(v) => setUnpub({ ...unpub, comment: v })} hint="Автор увидит причину и комментарий" />
+          <Basis value={unpub.comment} onChange={(v) => setUnpub({ ...unpub, comment: v })} hint={L.registries.avtorUviditPrichinuI} />
         </Modal>
       )}
     </>
   );
 }
-const TASK_TAB_LABEL: Record<string, string> = { draft: 'Черновики', review: 'На проверке', open: 'Открыто', chosen: 'В работе', closed: 'Закрыто', rejected: 'Отклонено', expired: 'Истекли', cancelled: 'Отменено' };
+const TASK_TAB_LABEL: Record<string, string> = { draft: L.registries.chernoviki, review: L.registries.naProverke, open: L.registries.otkryto, chosen: L.registries.vRabote, closed: L.registries.zakryto, rejected: L.registries.otkloneno, expired: L.registries.istekli, cancelled: L.registries.otmeneno };
 function tabOf(status: string) {
-  return status === 'На проверке' ? 'review' : status === 'Открыто' ? 'open' : ['Мастер выбран', 'В работе', 'Ждёт подтверждения'].includes(status) ? 'chosen' : status === 'Спор' ? 'dispute' : status === 'Завершено' ? 'done' : 'closed';
+  return status === L.registries.naProverke ? 'review' : status === L.registries.otkryto ? 'open' : ([L.registries.masterVybran, L.registries.vRabote, L.registries.zhdetPodtverzhdeniya] as string[]).includes(status) ? 'chosen' : status === L.registries.spor ? 'dispute' : status === L.registries.zaversheno ? 'done' : 'closed';
 }
 
 /* ============================== 24 — Все мастера ============================== */
 
-const MASTER_TABS: [string, string][] = [['all', 'Все'], ['approved', 'Одобрены'], ['review', 'На проверке'], ['rejected', 'Отклонены'], ['suspended', 'Приостановлены']];
+const MASTER_TABS: [string, string][] = [['all', L.registries.vse], ['approved', L.registries.odobreny], ['review', L.registries.naProverke], ['rejected', L.registries.otkloneny], ['suspended', L.registries.priostanovleny]];
 const MCOLS = 'minmax(0,1fr) 128px 60px 56px 112px 70px 64px';
 
 export function AllMasters() {
@@ -382,7 +383,7 @@ export function AllMasters() {
   useHotkeys({ j: () => view[idx + 1] && setSelKey(view[idx + 1].key), k: () => idx > 0 && setSelKey(view[idx - 1].key), Escape: () => setSelKey(null) });
 
   const counts: Record<string, number> | null = all.length
-    ? Object.fromEntries(MASTER_TABS.map(([k]) => [k, k === 'all' ? all.length : all.filter((x) => x.status === ({ approved: 'Одобрен', review: 'На проверке', rejected: 'Отклонён', suspended: 'Приостановлен' } as Record<string, string>)[k]).length]))
+    ? Object.fromEntries(MASTER_TABS.map(([k]) => [k, k === 'all' ? all.length : all.filter((x) => x.status === ({ approved: L.registries.odobren, review: L.registries.naProverke, rejected: L.registries.otklonen, suspended: L.registries.priostanovlen } as Record<string, string>)[k]).length]))
     : null;
   const cities: [string, string][] = USE_API ? (ref.get()?.cities ?? []).map((c): [string, string] => [String(c.id), c.name.ru]) : [...new Set((rows ?? []).map((m) => m.city))].map((c): [string, string] => [c, c]);
   const canVerify = me.role !== 'moderator';
@@ -391,7 +392,7 @@ export function AllMasters() {
 
   return (
     <>
-      <Head title="Все мастера">
+      <Head title={L.registries.vseMastera}>
         <RegTabs value={tab} onChange={(k) => (setTab(k), pages.reset(), setSelKey(null))} items={MASTER_TABS.map(([k, l]) => [k, l, mcounts ? (mcounts[k] ?? 0) : null])} />
         <span className={s.grow} />
         {me.role !== 'moderator' && csvUrl && (
@@ -400,34 +401,34 @@ export function AllMasters() {
           </a>
         )}
         {me.role !== 'moderator' && !csvUrl && (
-          <button type="button" className={s.hbtn} disabled={!view.length} onClick={() => downloadCsv('ekor-masters.csv', [['ID', 'Мастер', 'Профессии', 'Город', 'Рейтинг', 'Заказов', 'Профиль', 'Проверен'], ...view.map((m) => [m.id, m.name, m.profs, m.city, m.rating, m.orders, m.status, m.verified ? 'да' : ''])])}>
+          <button type="button" className={s.hbtn} disabled={!view.length} onClick={() => downloadCsv('ekor-masters.csv', [['ID', L.registries.master, L.registries.professii, L.registries.gorod, L.registries.reyting, L.registries.zakazov, L.registries.profil, L.registries.proveren], ...view.map((m) => [m.id, m.name, m.profs, m.city, m.rating, m.orders, m.status, m.verified ? L.registries.da : ''])])}>
             CSV
           </button>
         )}
       </Head>
       <div className={s.filters}>
-        <SearchBox value={q} onChange={setQ} placeholder="Имя, телефон, M-ID" slash />
-        <SelectChip label="Город" value={city} onChange={(v) => (setCity(v), pages.reset())} options={[['all', 'все'], ...cities]} />
-        <SelectChip label="Рейтинг" value={rating} onChange={(v) => (setRating(v), pages.reset())} options={[['any', 'любой'], ['4.5', '4,5+'], ['4', '4+'], ['3', '3+']]} />
-        <SelectChip label="Проверен" value={verified} onChange={(v) => (setVerified(v), pages.reset())} options={[['all', 'все'], ['yes', 'да'], ['no', 'нет']]} />
-        {me.role === 'moderator' && <span className={s.muted}>Только ваши регионы</span>}
+        <SearchBox value={q} onChange={setQ} placeholder={L.registries.imyaTelefonMId} slash />
+        <SelectChip label={L.registries.gorod} value={city} onChange={(v) => (setCity(v), pages.reset())} options={[['all', L.registries.vse2], ...cities]} />
+        <SelectChip label={L.registries.reyting} value={rating} onChange={(v) => (setRating(v), pages.reset())} options={[['any', L.registries.lyuboy], ['4.5', '4,5+'], ['4', '4+'], ['3', '3+']]} />
+        <SelectChip label={L.registries.proveren} value={verified} onChange={(v) => (setVerified(v), pages.reset())} options={[['all', L.registries.vse2], ['yes', L.registries.da], ['no', L.registries.net]]} />
+        {me.role === 'moderator' && <span className={s.muted}>{L.registries.tolkoVashiRegiony}</span>}
         <span className={s.grow} />
-        <span className={s.muted}>Сортировка: заказы</span>
+        <span className={s.muted}>{L.registries.sortirovkaZakazy}</span>
       </div>
       <div className={s.split} style={{ gridTemplateColumns: cur ? 'minmax(0,1fr) 440px' : 'minmax(0,1fr)' }}>
         <div className={s.list} style={{ borderRight: cur ? undefined : 'none' }}>
           <div className={s.thead} style={{ gridTemplateColumns: MCOLS, padding: '0 16px' }}>
-            <span>Мастер</span>
-            <span>Город</span>
-            <span className={s.right}>Рейт.</span>
-            <span className={s.right}>Заказ.</span>
-            <span>Профиль</span>
-            <span>Проверен</span>
-            <span className={s.right}>Визит</span>
+            <span>{L.registries.master}</span>
+            <span>{L.registries.gorod}</span>
+            <span className={s.right}>{L.registries.reyt}</span>
+            <span className={s.right}>{L.registries.zakaz2}</span>
+            <span>{L.registries.profil}</span>
+            <span>{L.registries.proveren}</span>
+            <span className={s.right}>{L.registries.vizit}</span>
           </div>
           <div className={s.scroll}>
             {!rows && <Loading />}
-            {rows && view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>Мастеров не найдено</div>}
+            {rows && view.length === 0 && <div className={s.hint} style={{ padding: 16 }}>{L.registries.masterovNeNaydeno}</div>}
             {view.map((m) => (
               <div key={m.key} role="button" tabIndex={0} onClick={() => setSelKey(m.key)} onKeyDown={(e) => e.key === 'Enter' && setSelKey(m.key)} className={cx(s.row, s.rowTall, cur?.key === m.key && s.rowOn)} style={{ gridTemplateColumns: MCOLS, padding: '0 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -447,7 +448,7 @@ export function AllMasters() {
                 <span>
                   <Pill tone={m.tone}>{m.status}</Pill>
                 </span>
-                <span style={{ color: m.verified ? '#0B6E5E' : '#9AA5B4', fontWeight: m.verified ? 600 : 400 }}>{m.verified ? 'Проверен' : '—'}</span>
+                <span style={{ color: m.verified ? '#0B6E5E' : '#9AA5B4', fontWeight: m.verified ? 600 : 400 }}>{m.verified ? L.registries.proveren : '—'}</span>
                 <span className={s.right} style={{ color: '#3B4756' }}>
                   {m.seen}
                 </span>
@@ -472,7 +473,7 @@ export function AllMasters() {
                       </span>
                       <span className={s.muted}>{card.sub}</span>
                     </div>
-                    <button type="button" className={r.x} aria-label="Закрыть" onClick={() => setSelKey(null)}>
+                    <button type="button" className={r.x} aria-label={L.registries.zakryt} onClick={() => setSelKey(null)}>
                       <X size={16} aria-hidden />
                     </button>
                   </div>
@@ -487,12 +488,12 @@ export function AllMasters() {
                   <KV rows={card.rows} />
                   {card.orders.length > 0 && (
                     <div className={s.col6}>
-                      <span className={s.fieldT}>Последние заказы</span>
+                      <span className={s.fieldT}>{L.registries.poslednieZakazy}</span>
                       {card.orders.map(([id, t, st2]) => (
                         <div key={id} className={r.order}>
                           <span className={s.id}>{id}</span>
                           <span className={s.grow}>{t}</span>
-                          <span style={{ color: st2 === 'Завершено' ? '#0B6E5E' : '#2647D9' }}>{st2}</span>
+                          <span style={{ color: st2 === L.registries.zaversheno ? '#0B6E5E' : '#2647D9' }}>{st2}</span>
                         </div>
                       ))}
                     </div>
@@ -507,15 +508,15 @@ export function AllMasters() {
                 <div className={s.panelFoot} style={{ flexWrap: 'wrap' }}>
                   <a href={`/masters/${card.key}`} target="_blank" rel="noreferrer" className={s.btn} style={{ textDecoration: 'none', color: '#0F1B2A' }}>
                     <ExternalLink size={15} aria-hidden />
-                    Профиль на сайте
+                    {L.registries.profilNaSayte}
                   </a>
                   {canVerify && card.verified && (
                     <button type="button" className={s.btn} onClick={() => setAct({ kind: 'unverify', comment: '' })}>
-                      Снять «Проверен»
+                      {L.registries.snyatProveren}
                     </button>
                   )}
                   <button type="button" className={cx(s.btn, !card.suspended && s.btnOutRed)} onClick={() => setAct({ kind: card.suspended ? 'unsuspend' : 'suspend', comment: '' })}>
-                    {card.suspended ? 'Вернуть в каталог' : 'Приостановить'}
+                    {card.suspended ? L.registries.vernutVKatalog : L.registries.priostanovit}
                   </button>
                 </div>
               </>
@@ -527,9 +528,9 @@ export function AllMasters() {
         <Modal
           icon={act.kind === 'unverify' ? BadgeX : PauseCircle}
           tone={act.kind === 'unsuspend' ? 'blue' : 'red'}
-          title={act.kind === 'unverify' ? `Снять «Проверен» у ${card.name}?` : act.kind === 'suspend' ? `Приостановить ${card.name}?` : `Вернуть ${card.name} в каталог?`}
-          sub={act.kind === 'suspend' ? 'Мастер пропадёт из каталога и не сможет откликаться. Текущие заказы сохранятся.' : act.kind === 'unverify' ? 'Бейдж пропадёт из профиля и карточек.' : 'Мастер снова появится в каталоге и сможет откликаться.'}
-          okText={act.kind === 'unverify' ? 'Снять отметку' : act.kind === 'suspend' ? 'Приостановить' : 'Вернуть'}
+          title={act.kind === 'unverify' ? L.registries.snyatProverenU(card.name) : act.kind === 'suspend' ? L.registries.priostanovit2(card.name) : L.registries.vernutVKatalog2(card.name)}
+          sub={act.kind === 'suspend' ? L.registries.masterPropadetIzKataloga : act.kind === 'unverify' ? L.registries.beydzhPropadetIzProfilya : L.registries.masterSnovaPoyavitsyaV}
+          okText={act.kind === 'unverify' ? L.registries.snyatOtmetku : act.kind === 'suspend' ? L.registries.priostanovit : L.registries.vernut}
           okTone={act.kind === 'unsuspend' ? 'blue' : 'red'}
           busy={busy}
           okDisabled={act.comment.trim().length < 5}
@@ -540,7 +541,7 @@ export function AllMasters() {
               if (act.kind === 'unverify') await adminApi.unverifyMaster(card.key, act.comment.trim());
               else await adminApi.suspendMaster(card.key, act.kind === 'suspend', act.comment.trim());
               setAct(null);
-              toast(act.kind === 'unverify' ? 'Отметка «Проверен» снята' : act.kind === 'suspend' ? 'Мастер приостановлен' : 'Мастер возвращён в каталог');
+              toast(act.kind === 'unverify' ? L.registries.otmetkaProverenSnyata : act.kind === 'suspend' ? L.registries.masterPriostanovlen : L.registries.masterVozvraschenVKatalog);
               load();
               adminApi.masterRegCard(cur!).then(setCard, () => {});
             } catch (e) {
@@ -549,7 +550,7 @@ export function AllMasters() {
             setBusy(false);
           }}
         >
-          <Basis value={act.comment} onChange={(v) => setAct({ ...act, comment: v })} hint="Попадёт в аудит-лог" />
+          <Basis value={act.comment} onChange={(v) => setAct({ ...act, comment: v })} hint={L.registries.popadetVAuditLog} />
         </Modal>
       )}
     </>
@@ -564,7 +565,7 @@ function KV({ rows }: { rows: [string, ReactNode][] }) {
       {rows.map(([k, v]) => (
         <span key={k} style={{ display: 'contents' }}>
           <span>{k}</span>
-          <span style={{ fontWeight: k === 'Клиент' || k === 'Мастер' || k === 'Приём заказов' ? 600 : 400, fontFamily: k === 'Телефон' ? "'JetBrains Mono', monospace" : undefined }}>{v}</span>
+          <span style={{ fontWeight: k === L.registries.klient || k === L.registries.master || k === L.registries.priemZakazov ? 600 : 400, fontFamily: k === L.registries.telefon ? "'JetBrains Mono', monospace" : undefined }}>{v}</span>
         </span>
       ))}
     </div>
@@ -575,7 +576,7 @@ function Basis({ value, onChange, hint }: { value: string; onChange: (v: string)
   return (
     <div className={s.col4}>
       <span className={s.fieldT}>
-        Основание <span style={{ color: '#B03A2E' }}>*</span>
+        {L.registries.osnovanie} <span style={{ color: '#B03A2E' }}>*</span>
       </span>
       <textarea className={s.textarea} rows={3} value={value} onChange={(e) => onChange(e.target.value.slice(0, 1000))} autoFocus />
       <span className={s.muted}>{hint}</span>

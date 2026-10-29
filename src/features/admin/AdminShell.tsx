@@ -10,6 +10,7 @@ import type { Counts, Me } from './data/types';
 import { canSee, hhmm, NAV, ROLE_NAME, section, type Role, type SectionKey } from './core';
 import { alertNew, cx, Head, Loading, NoAccess } from './ui';
 import s from './Admin.module.css';
+import { L } from './i18n';
 
 type Ctx = { me: Me; counts: Counts; refreshCounts: () => void };
 const AdminCtx = createContext<Ctx | null>(null);
@@ -65,7 +66,7 @@ function AdminToasts({ children }: { children: ReactNode }) {
               <span className={s.grow}>{note.text}</span>
               {note.undo && (
                 <button type="button" className={s.toastUndo} onClick={note.undo}>
-                  Отменить
+                  {L.adminShell.otmenit}
                 </button>
               )}
             </div>
@@ -150,7 +151,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     if (me)
       adminApi.counts(me.role).then((c) => {
         const p = prev.current;
-        if (p && (c.tasks > p.tasks || c.masters > p.masters)) alertNew(c.tasks > p.tasks ? `Новые задания на проверке: ${c.tasks}` : `Новые профили на проверке: ${c.masters}`);
+        if (p && (c.tasks > p.tasks || c.masters > p.masters)) alertNew(c.tasks > p.tasks ? L.adminShell.novyeZadaniyaNaProverke(c.tasks) : L.adminShell.novyeProfiliNaProverke(c.masters));
         prev.current = c;
         setCounts(c);
       }, () => {});
@@ -165,9 +166,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const mobile = (
     <div className={s.mobile}>
       <Monitor size={40} color="#2647D9" aria-hidden />
-      <h1>Админка — только на компьютере</h1>
-      <p>Откройте eKor admin на экране шире 1280 px: очереди, споры и журнал рассчитаны на десктоп.</p>
-      <Link href="/">На главную</Link>
+      <h1>{L.adminShell.adminkaTolkoNaKompyutere}</h1>
+      <p>{L.adminShell.otkroyteEkorAdminNa}</p>
+      <Link href="/">{L.adminShell.naGlavnuyu}</Link>
     </div>
   );
 
@@ -183,10 +184,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
           ) : (
             <div className={s.center} style={{ background: '#F7F9FB' }}>
               <div className={s.denied}>
-                <span className={s.h20}>Сервер не ответил</span>
-                <span className={s.lead}>Обновите страницу через минуту.</span>
+                <span className={s.h20}>{L.adminShell.serverNeOtvetil}</span>
+                <span className={s.lead}>{L.adminShell.obnoviteStranitsuCherezMinutu}</span>
                 <button type="button" className={cx(s.deniedBtn, s.deniedBtnBlue)} style={{ width: '100%' }} onClick={() => location.reload()}>
-                  Обновить
+                  {L.adminShell.obnovit}
                 </button>
               </div>
             </div>
@@ -208,7 +209,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <AdminToasts>
       {mobile}
       <div className={s.root}>
-        <nav className={s.nav} aria-label="Разделы админки">
+        <nav className={s.nav} aria-label={L.adminShell.razdelyAdminki}>
           <div className={s.brand}>
             <span className={s.brandName}>eKor</span>
             <span className={s.brandTag}>ADMIN</span>
@@ -244,7 +245,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <span className={s.whoMeta}>{me.meta}</span>
             <button type="button" className={s.whoOut} onClick={logout}>
               <LogOut size={12} aria-hidden style={{ verticalAlign: '-1px', marginRight: 4 }} />
-              Выйти
+              {L.adminShell.vyyti}
             </button>
           </div>
         </nav>
@@ -252,9 +253,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
           {offline && (
             <div className={s.netBar} role="alert">
               <WifiOff size={15} aria-hidden />
-              <span className={s.grow}>Нет связи с сервером — данные могут быть устаревшими</span>
+              <span className={s.grow}>{L.adminShell.netSvyaziSServerom}</span>
               <button type="button" onClick={() => (setRetry((n) => n + 1), refreshCounts())}>
-                Повторить
+                {L.adminShell.povtorit}
               </button>
             </div>
           )}
@@ -286,11 +287,11 @@ export function Section({ k, children }: { k: SectionKey; children: ReactNode })
   const [at] = useState(() => hhmm(new Date().toISOString()));
   if (canSee(k, me.role)) return <>{children}</>;
   const sec = section(k);
-  const need = sec.roles.length === 1 ? 'admin' : 'senior_moderator и admin';
+  const need = sec.roles.length === 1 ? 'admin' : L.adminShell.seniorModeratorIAdmin;
   return (
     <>
       <Head title={sec.title} />
-      <NoAccess need={need} roleText={`${ROLE_NAME[me.role]}${me.meta.includes('·') ? ` (${me.meta.split('·')[1].trim()})` : ''}`} at={at} onRequest={() => toast('Запрос отправлен администратору')} />
+      <NoAccess need={need} roleText={`${ROLE_NAME[me.role]}${me.meta.includes('·') ? ` (${me.meta.split('·')[1].trim()})` : ''}`} at={at} onRequest={() => toast(L.adminShell.zaprosOtpravlenAdministratoru)} />
     </>
   );
 }

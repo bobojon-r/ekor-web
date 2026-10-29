@@ -10,10 +10,11 @@ import type { Check as Chk, Lock, MasterCard, MasterQ, Reason } from '../data/ty
 import { agoText, sla } from '../core';
 import { cx, EmptyQueue, Head, HotkeyHelp, Label, Loading, Marked, Modal, Photo, Pill, RefreshBtn, Switch, Tabs, useHotkeys } from '../ui';
 import s from '../Admin.module.css';
+import { L } from '../i18n';
 
 const COLS = '64px minmax(0,1fr) 120px 92px 56px';
 type TabK = 'new' | 'changes' | 'verify';
-const inTab = (m: MasterQ, t: TabK) => (t === 'new' ? m.type === 'Новый' || m.type === 'Повторно' : t === 'changes' ? m.type === 'Изменения' : m.type === '«Проверен»');
+const inTab = (m: MasterQ, t: TabK) => (t === 'new' ? m.type === L.mastersQueue.novyy || m.type === L.mastersQueue.povtorno : t === 'changes' ? m.type === L.mastersQueue.izmeneniya : m.type === L.mastersQueue.proveren);
 const CHK: Record<0 | 1 | 2, [string, typeof Check]> = {
   1: ['#E3F4F0', Check],
   0: ['#FBE3E0', X],
@@ -65,7 +66,7 @@ export function MastersQueue() {
     if (!cur.lock || cur.lock.mine)
       adminApi.lockMaster(cur).then(
         (l) => live && l && setLock(l),
-        (e) => live && (e as { code?: string }).code === 'locked_by_other' && setLock({ name: 'другой модератор', mine: false }),
+        (e) => live && (e as { code?: string }).code === 'locked_by_other' && setLock({ name: L.mastersQueue.drugoyModerator, mine: false }),
       );
     adminApi.masterCard(cur).then(
       (c) => live && (setCard(c), setChecks(c.checklist), setVerified(c.verified)),
@@ -79,7 +80,7 @@ export function MastersQueue() {
   const failed = checks.filter((c) => c[1] === 0).length;
   const by = lock && !lock.mine ? lock.name : null;
   const senior = me.role !== 'moderator';
-  const isReq = cur?.type === '«Проверен»';
+  const isReq = cur?.type === L.mastersQueue.proveren;
   const decide = async (ok: boolean, reason?: Reason, comment?: string, back = false) => {
     if (!cur || busy || by) return;
     if (ok && !back) {
@@ -87,7 +88,7 @@ export function MastersQueue() {
       const q = cur;
       setRows((r) => r?.filter((x) => x.key !== q.key) ?? r);
       return undo(
-        `Профиль одобрен: ${q.name}`,
+        L.mastersQueue.profilOdobren(q.name),
         () =>
           adminApi.moderateMaster(q, true).then(refreshCounts, (e) => {
             setRows((r) => (r && !r.some((x) => x.key === q.key) ? [q, ...r] : r));
@@ -102,14 +103,14 @@ export function MastersQueue() {
       else await adminApi.moderateMaster(cur, ok, reason, comment);
       setRows((r) => r?.filter((x) => x.key !== cur.key) ?? r);
       setRej(null);
-      toast(ok ? `Профиль одобрен: ${cur.name}` : back ? 'Профиль возвращён на правки с комментарием' : 'Отклонено. Мастер получил причину');
+      toast(ok ? L.mastersQueue.profilOdobren(cur.name) : back ? L.mastersQueue.profilVozvraschenNaPravki : L.mastersQueue.otklonenoMasterPoluchilPrichinu);
       refreshCounts();
     } catch (e) {
       const code = (e as { code?: string }).code;
       if (code === 'already_resolved' || code === 'locked_by_other') {
         setRows((r) => r?.filter((x) => x.key !== cur.key) ?? r);
         setRej(null);
-        toast(code === 'already_resolved' ? `Уже обработано: ${cur.id}` : `${cur.name} смотрит другой модератор`);
+        toast(code === 'already_resolved' ? L.mastersQueue.uzheObrabotano(cur.id) : L.mastersQueue.smotritDrugoyModerator(cur.name));
       } else toast(apiErrorText(e, 'ru'));
     }
     setBusy(false);
@@ -145,16 +146,16 @@ export function MastersQueue() {
 
   return (
     <>
-      <Head title="Модерация · Профили мастеров">
-        <HotkeyHelp keys={[["J / K", "следующий / предыдущий профиль"], ["A", "одобрить"], ["R", "отклонить с причиной"], ["Esc", "закрыть окно"], ["?", "эта подсказка"]]} />
-        <Tabs value={tab} onChange={(k) => (setTab(k), setSel(0))} items={[['new', `Новые ${counts.new}`], ['changes', `Изменения профиля ${counts.changes}`], ['verify', `Запрос «Проверен» ${counts.verify}`]]} />
+      <Head title={L.mastersQueue.moderatsiyaProfiliMasterov}>
+        <HotkeyHelp keys={[["J / K", L.mastersQueue.sleduyuschiyPredyduschiyProfil], ["A", L.mastersQueue.odobrit], ["R", L.mastersQueue.otklonitSPrichinoy], ["Esc", L.mastersQueue.zakrytOkno], ["?", L.mastersQueue.etaPodskazka]]} />
+        <Tabs value={tab} onChange={(k) => (setTab(k), setSel(0))} items={[['new', L.mastersQueue.novye(counts.new)], ['changes', L.mastersQueue.izmeneniyaProfilya(counts.changes)], ['verify', L.mastersQueue.zaprosProveren(counts.verify)]]} />
         <span className={s.grow} />
-        <span className={s.note}>SLA 24 ч</span>
+        <span className={s.note}>{L.mastersQueue.sla24Ch}</span>
       </Head>
       {!rows ? (
         <Loading />
       ) : view.length === 0 ? (
-        <EmptyQueue text="Все профили в этой вкладке проверены. Новые появятся здесь сами." stats={[[String(counts.new + counts.changes + counts.verify), 'в других вкладках'], ['—', 'ваша медиана'], ['0', 'просрочено']]}>
+        <EmptyQueue text={L.mastersQueue.vseProfiliVEtoy} stats={[[String(counts.new + counts.changes + counts.verify), L.mastersQueue.vDrugihVkladkah], ['—', L.mastersQueue.vashaMediana], ['0', L.mastersQueue.prosrocheno]]}>
           <RefreshBtn onClick={() => (setRows(null), load(), refreshCounts())} />
         </EmptyQueue>
       ) : (
@@ -162,9 +163,9 @@ export function MastersQueue() {
           <div className={s.list}>
             <div className={s.thead} style={{ gridTemplateColumns: COLS }}>
               <span>ID</span>
-              <span>Мастер · категории</span>
-              <span>Город</span>
-              <span>Подано</span>
+              <span>{L.mastersQueue.masterKategorii}</span>
+              <span>{L.mastersQueue.gorod}</span>
+              <span>{L.mastersQueue.podano}</span>
               <span className={s.right}>SLA</span>
             </div>
             <div className={s.scroll}>
@@ -183,7 +184,7 @@ export function MastersQueue() {
                     >
                       <span className={s.cell} style={{ fontWeight: 600 }}>
                         {m.name} <Pill tone={m.tone}>{m.type}</Pill>
-                        {m.lock && !m.lock.mine && <span className={s.lockTag}> Смотрит {m.lock.name}</span>}
+                        {m.lock && !m.lock.mine && <span className={s.lockTag}> {L.mastersQueue.smotrit} {m.lock.name}</span>}
                       </span>
                       <span className={cx(s.cell, s.muted)}>{m.cats}</span>
                     </div>
@@ -227,7 +228,7 @@ export function MastersQueue() {
                       <span style={{ color: '#3B4756' }}>{card.sub}</span>
                       <span className={s.metaLine}>{card.meta}</span>
                     </div>
-                    <Pill big tone={isReq ? 'ok' : 'warn'}>{isReq ? 'Запрос «Проверен»' : 'На проверке'}</Pill>
+                    <Pill big tone={isReq ? 'ok' : 'warn'}>{isReq ? L.mastersQueue.zaprosProveren2 : L.mastersQueue.naProverke}</Pill>
                   </div>
                   <div
                     className={s.kv}
@@ -236,19 +237,19 @@ export function MastersQueue() {
                       gap: '6px 12px',
                     }}
                   >
-                    <span>Город, районы</span>
+                    <span>{L.mastersQueue.gorodRayony}</span>
                     <span style={{ fontWeight: 400 }}>{card.city}</span>
-                    <span>Цены</span>
+                    <span>{L.mastersQueue.tseny}</span>
                     <span style={{ fontWeight: 400 }}>{card.prices}</span>
-                    <span>О себе</span>
+                    <span>{L.mastersQueue.oSebe}</span>
                     <span style={{ fontWeight: 400, lineHeight: 1.5 }}>
                       <Marked text={card.about} marks={card.marks} />
                     </span>
                   </div>
                   {card.verifyReq && (
                     <div className={s.col6}>
-                      <Label>Запрос «Проверен» · {card.verifyReq.meta}</Label>
-                      <span style={{ lineHeight: 1.5 }}>{card.verifyReq.comment || 'Без комментария'}</span>
+                      <Label>{L.mastersQueue.zaprosProveren3} {card.verifyReq.meta}</Label>
+                      <span style={{ lineHeight: 1.5 }}>{card.verifyReq.comment || L.mastersQueue.bezKommentariya}</span>
                       {card.verifyReq.photos.length ? (
                         <div className={s.photos6}>
                           {card.verifyReq.photos.map((p, i) => (
@@ -256,17 +257,17 @@ export function MastersQueue() {
                           ))}
                         </div>
                       ) : (
-                        <span className={s.muted}>Документы не приложены — сверьте по звонку</span>
+                        <span className={s.muted}>{L.mastersQueue.dokumentyNePrilozhenySverte}</span>
                       )}
                     </div>
                   )}
                   {!!card.changes?.length && (
                     <div className={s.col6}>
-                      <Label>Было → стало · {card.changes.length}</Label>
+                      <Label>{L.mastersQueue.byloStalo} {card.changes.length}</Label>
                       <div className={s.kv} style={{ gridTemplateColumns: '110px 1fr 1fr', gap: '6px 12px' }}>
                         <span />
-                        <span className={s.muted}>Было</span>
-                        <span className={s.muted}>Стало</span>
+                        <span className={s.muted}>{L.mastersQueue.bylo}</span>
+                        <span className={s.muted}>{L.mastersQueue.stalo}</span>
                         {card.changes.map((c) => (
                           <Fragment key={c.label}>
                             <span>{c.label}</span>
@@ -278,7 +279,7 @@ export function MastersQueue() {
                     </div>
                   )}
                   <div className={s.col6}>
-                    <Label>Портфолио · {card.photos.length} фото</Label>
+                    <Label>{L.mastersQueue.portfolio} {card.photos.length} {L.mastersQueue.foto}</Label>
                     {card.photos.length ? (
                       <div className={s.photos6}>
                         {card.photos.slice(0, 6).map((p, i) => (
@@ -286,7 +287,7 @@ export function MastersQueue() {
                         ))}
                       </div>
                     ) : (
-                      <span className={s.muted}>Фото работ нет</span>
+                      <span className={s.muted}>{L.mastersQueue.fotoRabotNet}</span>
                     )}
                   </div>
                   <div
@@ -305,7 +306,7 @@ export function MastersQueue() {
                         borderBottom: '1px solid #E1E6EC',
                       }}
                     >
-                      Чек-лист модератора
+                      {L.mastersQueue.chekListModeratora}
                     </div>
                     {checks.map(([t, ok, n], i) => {
                       const [bg, I] = CHK[ok];
@@ -314,7 +315,7 @@ export function MastersQueue() {
                           key={t}
                           type="button"
                           onClick={() => cycle(i)}
-                          title="Нажмите, чтобы изменить отметку"
+                          title={L.mastersQueue.nazhmiteChtobyIzmenitOtmetku}
                           style={{
                             display: 'flex',
                             gap: 10,
@@ -359,21 +360,21 @@ export function MastersQueue() {
                   {by && (
                     <div className={s.alertWarn}>
                       <TriangleAlert size={15} aria-hidden />
-                      <span>Этот профиль сейчас смотрит {by}. Решение доступно, когда он закончит или через 10 минут.</span>
+                      <span>{L.mastersQueue.etotProfilSeychasSmotrit} {by}{L.mastersQueue.reshenieDostupnoKogdaOn}</span>
                     </div>
                   )}
                   {isReq && !senior && (
                     <div className={s.alertWarn}>
                       <TriangleAlert size={15} aria-hidden />
-                      <span>Запрос «Проверен» решает старший модератор или администратор.</span>
+                      <span>{L.mastersQueue.zaprosProverenReshaetStarshiy}</span>
                     </div>
                   )}
                   {senior && !isReq && (
                     <div className={s.swRow}>
-                      <Switch on={verified} onClick={() => setVer({ on: !verified, comment: '' })} label="Отметка «Проверен»" />
+                      <Switch on={verified} onClick={() => setVer({ on: !verified, comment: '' })} label={L.mastersQueue.otmetkaProveren} />
                       <div className={s.col4} style={{ gap: 2 }}>
-                        <span className={s.fieldT}>Отметка «Проверен»</span>
-                        <span className={s.muted}>Только после звонка и сверки документа. Подтверждённый телефон — не проверка.</span>
+                        <span className={s.fieldT}>{L.mastersQueue.otmetkaProveren}</span>
+                        <span className={s.muted}>{L.mastersQueue.tolkoPosleZvonkaI}</span>
                       </div>
                     </div>
                   )}
@@ -381,24 +382,24 @@ export function MastersQueue() {
                 {isReq ? (
                   <div className={s.panelFoot} style={{ padding: '12px 20px' }}>
                     <button type="button" className={cx(s.btn, s.btnOutRed)} disabled={!!by || !senior} onClick={() => setVer({ on: false, comment: '', decline: true })}>
-                      Отказать…
+                      {L.mastersQueue.otkazat}
                     </button>
                     <span className={s.grow} />
                     <button type="button" className={cx(s.btn, s.btnGreen)} disabled={!!by || !senior || verified} onClick={() => setVer({ on: true, comment: '' })}>
-                      {verified ? 'Уже «Проверен»' : 'Отметить «Проверен»…'}
+                      {verified ? L.mastersQueue.uzheProveren : L.mastersQueue.otmetitProveren}
                     </button>
                   </div>
                 ) : (
                 <div className={s.panelFoot} style={{ padding: '12px 20px' }}>
                   <button type="button" className={cx(s.btn, s.btnOutRed)} disabled={!!by} onClick={() => setRej({ back: false, reason: null, comment: '' })}>
-                    Отклонить…
+                    {L.mastersQueue.otklonit}
                   </button>
                   <button type="button" className={s.btn} disabled={!!by} onClick={openBack}>
-                    Вернуть на правки
+                    {L.mastersQueue.vernutNaPravki}
                   </button>
                   <span className={s.grow} />
                   <button type="button" className={cx(s.btn, s.btnGreen)} disabled={!!failed || busy || !!by} onClick={() => decide(true)}>
-                    {failed ? `Одобрить — ${failed} ${failed === 1 ? 'пункт не пройден' : 'пункта не пройдено'}` : 'Одобрить'}
+                    {failed ? L.mastersQueue.odobrit2(failed, failed === 1 ? L.mastersQueue.punktNeProyden : L.mastersQueue.punktaNeProydeno) : L.mastersQueue.odobrit3}
                   </button>
                 </div>
                 )}
@@ -411,9 +412,9 @@ export function MastersQueue() {
         <Modal
           icon={UserX}
           tone="red"
-          title={rej.back ? `Вернуть ${cur.name} на правки?` : `Отклонить профиль ${cur.name}?`}
+          title={rej.back ? L.mastersQueue.vernutNaPravki2(cur.name) : L.mastersQueue.otklonitProfil(cur.name)}
           sub={`${cur.id} · ${cur.cats} · ${cur.city}`}
-          okText={rej.back ? 'Вернуть на правки' : 'Отклонить'}
+          okText={rej.back ? L.mastersQueue.vernutNaPravki : L.mastersQueue.otklonit2}
           okTone="red"
           busy={busy}
           okDisabled={rej.back ? rej.comment.trim().length < 10 : !rej.reason || ((rej.reason.needComment || rej.reason.code === 'other') && rej.comment.trim().length < 5)}
@@ -423,7 +424,7 @@ export function MastersQueue() {
           {!rej.back && (
             <div className={s.col6}>
               <span className={s.fieldT}>
-                Причина <span style={{ color: '#B03A2E' }}>*</span>
+                {L.mastersQueue.prichina} <span style={{ color: '#B03A2E' }}>*</span>
               </span>
               <div className={s.wrap4}>
                 {reasons.map((r) => (
@@ -435,9 +436,9 @@ export function MastersQueue() {
             </div>
           )}
           <div className={s.col4}>
-            <span className={s.fieldT}>Комментарий мастеру {(rej.back || rej.reason?.needComment || rej.reason?.code === 'other') && <span style={{ color: '#B03A2E' }}>*</span>}</span>
-            <textarea className={s.textarea} rows={3} value={rej.comment} onChange={(e) => setRej({ ...rej, comment: e.target.value.slice(0, 500) })} placeholder="Что исправить, чтобы профиль прошёл проверку" />
-            <span className={s.muted}>Мастер увидит причину и комментарий. Запись — в аудит-логе.</span>
+            <span className={s.fieldT}>{L.mastersQueue.kommentariyMasteru} {(rej.back || rej.reason?.needComment || rej.reason?.code === 'other') && <span style={{ color: '#B03A2E' }}>*</span>}</span>
+            <textarea className={s.textarea} rows={3} value={rej.comment} onChange={(e) => setRej({ ...rej, comment: e.target.value.slice(0, 500) })} placeholder={L.mastersQueue.chtoIspravitChtobyProfil} />
+            <span className={s.muted}>{L.mastersQueue.masterUviditPrichinuI}</span>
           </div>
         </Modal>
       )}
@@ -445,9 +446,9 @@ export function MastersQueue() {
         <Modal
           icon={BadgeCheck}
           tone={ver.decline ? 'red' : 'blue'}
-          title={ver.decline ? `Отказать ${cur.name} в «Проверен»?` : ver.on ? `Отметить ${cur.name} «Проверен»?` : 'Снять отметку «Проверен»?'}
-          sub={ver.decline ? 'Мастер увидит объяснение и сможет запросить снова' : 'Только после звонка и сверки документа'}
-          okText={ver.decline ? 'Отказать' : ver.on ? 'Поставить отметку' : 'Снять отметку'}
+          title={ver.decline ? L.mastersQueue.otkazatVProveren(cur.name) : ver.on ? L.mastersQueue.otmetitProveren2(cur.name) : L.mastersQueue.snyatOtmetkuProveren}
+          sub={ver.decline ? L.mastersQueue.masterUviditObyasnenieI : L.mastersQueue.tolkoPosleZvonkaI2}
+          okText={ver.decline ? L.mastersQueue.otkazat2 : ver.on ? L.mastersQueue.postavitOtmetku : L.mastersQueue.snyatOtmetku}
           okTone={ver.decline ? 'red' : undefined}
           okDisabled={ver.comment.trim().length < 10}
           busy={busy}
@@ -459,7 +460,7 @@ export function MastersQueue() {
               else await adminApi.verifyMaster(cur, ver.on, ver.comment.trim());
               setVerified(ver.on && !ver.decline);
               setVer(null);
-              toast(ver.decline ? 'Отказано. Мастер получил объяснение' : ver.on ? 'Отметка «Проверен» поставлена' : 'Отметка снята');
+              toast(ver.decline ? L.mastersQueue.otkazanoMasterPoluchilObyasnenie : ver.on ? L.mastersQueue.otmetkaProverenPostavlena : L.mastersQueue.otmetkaSnyata);
               // Запрос решён — уходит из очереди
               if (isReq) (setRows((r) => r?.filter((x) => x.key !== cur.key) ?? r), refreshCounts());
             } catch (e) {
@@ -470,10 +471,10 @@ export function MastersQueue() {
         >
           <div className={s.col4}>
             <span className={s.fieldT}>
-              {ver.decline ? 'Почему отказано' : 'Что проверено'} <span style={{ color: '#B03A2E' }}>*</span>
+              {ver.decline ? L.mastersQueue.pochemuOtkazano : L.mastersQueue.chtoProvereno} <span style={{ color: '#B03A2E' }}>*</span>
             </span>
-            <textarea className={s.textarea} rows={3} value={ver.comment} onChange={(e) => setVer({ ...ver, comment: e.target.value.slice(0, 300) })} placeholder={ver.decline ? 'Например: на фото документа не видно имени' : 'Например: звонок + паспорт, совпадает с фото'} autoFocus />
-            <span className={s.muted}>{ver.decline ? 'Мастер увидит это объяснение. Запись — в аудит-логе' : 'Попадёт в аудит-лог (master.verify)'}</span>
+            <textarea className={s.textarea} rows={3} value={ver.comment} onChange={(e) => setVer({ ...ver, comment: e.target.value.slice(0, 300) })} placeholder={ver.decline ? L.mastersQueue.naprimerNaFotoDokumenta : L.mastersQueue.naprimerZvonokPasportSovpadaet} autoFocus />
+            <span className={s.muted}>{ver.decline ? L.mastersQueue.masterUviditEtoObyasnenie : L.mastersQueue.popadetVAuditLog}</span>
           </div>
         </Modal>
       )}

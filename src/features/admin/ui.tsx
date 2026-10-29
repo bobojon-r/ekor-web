@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Check, ChevronDown, Inbox, Keyboard, Lock, RefreshCw, Search, type LucideIcon } from 'lucide-react';
 import { splitContact, ST, type Tone } from './core';
 import s from './Admin.module.css';
+import { L } from './i18n';
 
 export const cx = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(' ');
 
@@ -159,7 +160,7 @@ export function Switch({ on, onClick, label }: { on: boolean; onClick: () => voi
  * пока условие не выполнено (основание, 4 цифры номера, галочка). Esc — закрыть.
  */
 export function Modal({
-  icon: I, tone, title, sub, children, onClose, okText, okTone = 'blue', okDisabled, busy, onOk, cancelText = 'Отмена',
+  icon: I, tone, title, sub, children, onClose, okText, okTone = 'blue', okDisabled, busy, onOk, cancelText = L.ui.otmena,
 }: {
   icon: LucideIcon; tone: 'blue' | 'red'; title: string; sub?: ReactNode; children: ReactNode; onClose: () => void; okText: string; okTone?: 'blue' | 'red';
   okDisabled?: boolean; busy?: boolean; onOk: () => void; cancelText?: string;
@@ -184,7 +185,7 @@ export function Modal({
             {cancelText}
           </button>
           <button type="button" className={cx(s.btn, okTone === 'red' ? s.btnRed : s.btnBlue)} disabled={okDisabled || busy} onClick={onOk}>
-            {busy ? 'Сохраняем…' : okText}
+            {busy ? L.ui.sohranyaem : okText}
           </button>
         </div>
       </div>
@@ -237,7 +238,7 @@ export function HotkeyHelp({ keys }: { keys: [string, string][] }) {
   useHotkeys({ '?': () => setOpen((o) => !o) });
   if (!open) return null;
   return (
-    <Modal icon={Keyboard} tone="blue" title="Горячие клавиши" sub="Не работают, пока курсор в поле ввода" okText="Понятно" cancelText="Закрыть" onClose={() => setOpen(false)} onOk={() => setOpen(false)}>
+    <Modal icon={Keyboard} tone="blue" title={L.ui.goryachieKlavishi} sub={L.ui.neRabotayutPokaKursor} okText={L.ui.ponyatno} cancelText={L.ui.zakryt} onClose={() => setOpen(false)} onOk={() => setOpen(false)}>
       <div className={s.keysList}>
         {keys.map(([k, d]) => (
           <div key={k} className={s.keysRow}>
@@ -279,7 +280,7 @@ export function EmptyQueue({ text, stats, children }: { text: string; stats: [st
         <span className={s.bigIco} style={{ background: '#E3F4F0' }}>
           <Inbox size={32} color="#0B6E5E" aria-hidden />
         </span>
-        <span className={s.h20}>Очередь пуста</span>
+        <span className={s.h20}>{L.ui.ocheredPusta}</span>
         <span className={s.lead}>{text}</span>
         <div className={s.stats3}>
           {stats.map(([v, l]) => (
@@ -314,10 +315,10 @@ function QueueAlerts() {
   };
   return (
     <div className={s.qAlerts}>
-      <span>Проверено в {String(at.getHours()).padStart(2, '0')}:{String(at.getMinutes()).padStart(2, '0')}</span>
+      <span>{L.ui.proverenoV} {String(at.getHours()).padStart(2, '0')}:{String(at.getMinutes()).padStart(2, '0')}</span>
       <span>·</span>
       <button type="button" className={s.linkBtn} onClick={toggle}>
-        {on ? 'Звук и уведомления включены — выключить' : 'Сообщать звуком и уведомлением о новых'}
+        {on ? L.ui.zvukIUvedomleniyaVklyucheny : L.ui.soobschatZvukomIUvedomleniem}
       </button>
     </div>
   );
@@ -368,7 +369,7 @@ export function RefreshBtn({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" className={s.btn} onClick={onClick}>
       <RefreshCw size={15} aria-hidden />
-      Обновить
+      {L.ui.obnovit}
     </button>
   );
 }
@@ -381,24 +382,24 @@ export function NoAccess({ need, roleText, admin, at, onRequest }: { need: strin
         <span className={s.bigIco} style={{ background: '#EEF1F4' }}>
           <Lock size={32} color="#3B4756" aria-hidden />
         </span>
-        <span className={s.h20}>Раздел доступен только {need}</span>
-        <span className={s.lead}>Ваша роль — {roleText}. Изменения в этом разделе влияют на всех пользователей и сотрудников.</span>
+        <span className={s.h20}>{L.ui.razdelDostupenTolko} {need}</span>
+        <span className={s.lead}>{L.ui.vashaRol} {roleText}{L.ui.izmeneniyaVEtomRazdele}</span>
         <div className={s.softBox} style={{ width: '100%', textAlign: 'left', boxSizing: 'border-box' }}>
           {admin && (
             <>
-              <span>Администратор</span>
+              <span>{L.ui.administrator}</span>
               <b>{admin}</b>
             </>
           )}
-          <span>Попытка</span>
-          <span>записана в аудит-лог · {at}</span>
+          <span>{L.ui.popytka}</span>
+          <span>{L.ui.zapisanaVAuditLog} {at}</span>
         </div>
         <div style={{ display: 'flex', gap: 8, width: '100%' }}>
           <Link href="/admin" className={s.deniedBtn}>
-            На дашборд
+            {L.ui.naDashbord}
           </Link>
           <button type="button" className={cx(s.deniedBtn, s.deniedBtnBlue)} onClick={onRequest}>
-            Запросить доступ
+            {L.ui.zaprositDostup}
           </button>
         </div>
       </div>
@@ -414,7 +415,7 @@ export function Loading({ rows = 8 }: { rows?: number }) {
     return () => clearTimeout(id);
   }, []);
   return (
-    <div className={s.skel} aria-busy="true" aria-label="Загрузка">
+    <div className={s.skel} aria-busy="true" aria-label={L.ui.zagruzka}>
       {show && Array.from({ length: rows }, (_, i) => <span key={i} className={s.skelRow} style={{ width: `${92 - ((i * 17) % 35)}%` }} />)}
     </div>
   );
