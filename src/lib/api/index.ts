@@ -21,7 +21,7 @@ export { masterProfile, type MasterProfileData } from './masterProfile';
 export { masterCabinet, type MasterOrder, type MasterProp, type MasterReview, type OrderStatus, type PropStatus } from './masterCabinet';
 export { clientTasks, isArchived, type ClientTask, type ClientTaskStatus, type TaskResponse } from './clientTasks';
 
-export type VerifyReq = { id: number; status: string; comment: string | null; decision_comment: string | null; created_at: string; resolved_at: string | null };
+export type VerifyReq = { id: number; status: 'pending' | 'approved' | 'declined'; comment: string | null; decision_comment: string | null; created_at: string; resolved_at: string | null };
 export type MyDispute = {
   id: number; status: 'open' | 'resolved'; resolution: 'done' | 'not_done' | 'partial' | null; deadline: string | null; terms_deadline: string | null; moderator_comment: string | null;
   requests: { id: number; text: string; created_at: string; answer: string | null; answered_at: string | null }[];

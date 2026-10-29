@@ -13,11 +13,13 @@ const dict = {
     h: 'Отметка «Проверен»', p: 'Клиенты чаще выбирают проверенных мастеров. Модератор позвонит вам и сверит документ.', ask: 'Запросить проверку',
     comment: 'Комментарий модератору', commentPh: 'Например: готов показать паспорт по видео', photos: 'Фото документа — по желанию, до 3', send: 'Отправить запрос', cancel: 'Отмена',
     sent: 'Запрос отправлен модератору', pending: 'Запрос отправлен. Модератор свяжется с вами — обычно в течение суток.', declined: 'Модератор отказал', again: 'Запросить снова', upErr: 'Не удалось загрузить фото',
+    err409: { verify_request_pending: 'Запрос уже на проверке', already_verified: 'Профиль уже отмечен «Проверен»', master_not_approved: 'Запросить проверку можно после одобрения профиля' },
   },
   tj: {
     h: 'Нишони «Санҷидашуда»', p: 'Мизоҷон бештар устоҳои санҷидашударо интихоб мекунанд. Модератор ба шумо занг зада, ҳуҷҷатро месанҷад.', ask: 'Дархости санҷиш',
     comment: 'Шарҳ ба модератор', commentPh: 'Масалан: шиносномаро бо видео нишон дода метавонам', photos: 'Акси ҳуҷҷат — ихтиёрӣ, то 3', send: 'Фиристодани дархост', cancel: 'Бекор',
     sent: 'Дархост ба модератор фиристода шуд', pending: 'Дархост фиристода шуд. Модератор бо шумо тамос мегирад — одатан дар давоми як шабонарӯз.', declined: 'Модератор рад кард', again: 'Боз дархост кардан', upErr: 'Акс бор нашуд',
+    err409: { verify_request_pending: 'Дархост аллакай дар санҷиш аст', already_verified: 'Профил аллакай «Санҷидашуда» аст', master_not_approved: 'Санҷишро пас аз тасдиқи профил дархост кардан мумкин аст' },
   },
 };
 
@@ -39,8 +41,10 @@ export function VerifyRequest() {
   }, []);
   if (!USE_API || req === undefined) return null;
 
-  const pending = !!req && !req.resolved_at;
-  const declined = !!req && !!req.resolved_at;
+  // Состояние — по status последнего запроса; значок «Проверен» — только из verified профиля.
+  // approved без отметки (её сняли позже) — можно запросить заново, как в первый раз
+  const pending = req?.status === 'pending';
+  const declined = req?.status === 'declined';
   const add = async (f: File | undefined) => {
     if (!f) return;
     setBusy(true);
@@ -60,7 +64,10 @@ export function VerifyRequest() {
       setForm(false);
       toast(t.sent);
     } catch (e) {
-      setErr(apiErrorText(e, lang));
+      const code = (e as { code?: string }).code as keyof typeof t.err409 | undefined;
+      setErr(code && t.err409[code] ? t.err409[code] : apiErrorText(e, lang));
+      // Запрос уже есть — показываем его состояние
+      if (code === 'verify_request_pending') api.verifyRequest().then((r) => (setReq(r), setForm(false)), () => {});
     }
     setBusy(false);
   };
