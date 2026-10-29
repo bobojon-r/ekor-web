@@ -59,8 +59,10 @@ export const api = {
     sendCode: (phone: string): Promise<{ phone: string; resendIn: number; tries: number; error?: string }> =>
       USE_API ? realAuth.sendCode(phone) : delay({ phone, resendIn: 60, tries: 3 }, 700),
     /** ok:false — неверный код; name:null — новый пользователь, спросим имя */
-    verify: (phone: string, code: string): Promise<{ ok: boolean; name: string | null; error?: string }> =>
+    verify: (phone: string, code: string): Promise<{ ok: boolean; name: string | null; master?: boolean; error?: string }> =>
       USE_API ? realAuth.verify(phone, code) : delay(code === TEST_OTP ? { ok: true, name: null } : { ok: false, name: null }, 600),
+    /** Имя нового пользователя — сохраняем до перехода дальше, чтобы не спрашивать снова */
+    saveName: (name: string): Promise<void> => (USE_API ? realAuth.updateMe({ name }).then(() => undefined) : delay(undefined, 200)),
     /** Смена номера в настройках */
     changePhoneSend: (phone: string): Promise<{ error?: string }> => (USE_API ? realAuth.changePhoneSend(phone) : delay({}, 700)),
     changePhoneConfirm: (phone: string, code: string): Promise<{ ok: boolean; error?: string }> =>

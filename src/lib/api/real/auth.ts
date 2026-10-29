@@ -28,7 +28,7 @@ export const realAuth = {
       tokens.set({ access: r.access_token, refresh: r.refresh_token });
       me = r.user;
       realtime.reset();
-      return { ok: true as const, name: r.needs_name ? null : r.user.name };
+      return { ok: true as const, name: r.needs_name ? null : r.user.name, master: r.user.is_master };
     } catch (e) {
       return { ok: false as const, name: null, error: msg(e) };
     }

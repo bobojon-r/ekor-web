@@ -4,8 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronLeft, ShieldCheck } from 'lucide-react';
-import { api } from '@/lib/api';
-import { phoneMask, useDict } from '@/lib/i18n';
+import { api, apiErrorText } from '@/lib/api';
+import { phoneMask, useDict, useLang } from '@/lib/i18n';
 import { common } from '@/lib/i18n/common';
 import { useSession } from '@/lib/session/SessionProvider';
 import { Button, ButtonLink, LangSwitch, OtpInput, PhoneField, TestCodeNotice, TextField, useToast } from '@/components/ui';
@@ -51,6 +51,7 @@ export function LoginView({ next }: { next?: string }) {
   const [phoneErr, setPhoneErr] = useState<'len' | 'op' | null>(null);
   const [sending, setSending] = useState(false);
   const toast = useToast();
+  const { lang } = useLang();
   const [code, setCode] = useState('');
   const [codeErr, setCodeErr] = useState(false);
   const [tries, setTries] = useState(3);
@@ -58,6 +59,7 @@ export function LoginView({ next }: { next?: string }) {
   const [checking, setChecking] = useState(false);
   const [name, setName] = useState('');
   const [nameErr, setNameErr] = useState(false);
+  const [saving, setSaving] = useState(false);
   const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : null;
 
   useEffect(() => {
@@ -92,7 +94,8 @@ export function LoginView({ next }: { next?: string }) {
     // Неверный код показываем у поля; прочее (лимит попыток, сеть) — тостом
     if (r.error && !/код/i.test(r.error)) toast(r.error);
     if (r.ok) {
-      if (r.name) finish(r.name);
+      // Имя уже есть — пользователь вернулся: сразу туда, откуда пришёл, или в свой кабинет
+      if (r.name) finish(r.name, r.master ? '/master' : '/client');
       else setStep('name');
     } else {
       setCode('');
@@ -101,15 +104,23 @@ export function LoginView({ next }: { next?: string }) {
     }
   };
 
-  const finish = (n: string) => {
+  const finish = (n: string, home?: string) => {
     signIn({ id: `u${phone}`, name: n, phone, roles: ['client'], activeRole: 'client' });
-    if (safeNext) router.replace(safeNext);
+    if (safeNext ?? home) router.replace((safeNext ?? home)!);
     else setStep('done');
   };
 
-  const submitName = () => {
+  const submitName = async () => {
     if (name.trim().length < 2) return setNameErr(true);
-    finish(name.trim());
+    if (saving) return;
+    setSaving(true);
+    try {
+      await api.auth.saveName(name.trim());
+      finish(name.trim());
+    } catch (e) {
+      toast(apiErrorText(e, lang));
+    }
+    setSaving(false);
   };
 
   const resend = async () => {
@@ -217,7 +228,7 @@ export function LoginView({ next }: { next?: string }) {
         {t.getCode}
       </Button>
     ) : step === 'name' ? (
-      <Button size="lg" block onClick={submitName}>
+      <Button size="lg" block busy={saving} onClick={submitName}>
         {t.save}
       </Button>
     ) : step === 'done' ? (
