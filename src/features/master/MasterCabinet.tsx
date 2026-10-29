@@ -17,6 +17,7 @@ import { Button, LangSwitch, RadioCard, Sheet, useToast } from '@/components/ui'
 import { ComplaintSheet, type ComplaintTarget } from '@/components/ComplaintSheet';
 import { DisputeRequests } from '@/components/DisputeRequests';
 import { masterDict } from './i18n';
+import { CHAT } from '@/lib/features';
 import s from './Master.module.css';
 
 type T = (typeof masterDict)['ru'];
@@ -305,10 +306,12 @@ function OrderCard({ o, t, lang, desktop, onStart, onDone, onDecline, onRemind, 
               {t.call}
             </a>
           )}
-          <Link href={o.chatId ? `/chats/${o.chatId}` : '/chats'} className={s.secBtn}>
-            <MessageCircle size={18} color="var(--brand-600)" aria-hidden />
-            {t.chat}
-          </Link>
+          {CHAT && (
+            <Link href={o.chatId ? `/chats/${o.chatId}` : '/chats'} className={s.secBtn}>
+              <MessageCircle size={18} color="var(--brand-600)" aria-hidden />
+              {t.chat}
+            </Link>
+          )}
           {secondary && (
             <button type="button" className={s.secBtn} onClick={secondary.fn}>
               {secondary.label}

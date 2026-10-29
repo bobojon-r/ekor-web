@@ -14,6 +14,7 @@ import { masterSideItems } from '@/features/master/MasterCabinet';
 import { masterDict } from '@/features/master/i18n';
 import { profs } from '@/features/onboarding/i18n';
 import { ALL_AREAS, phoneDict, settingsDict } from './i18n';
+import { CHAT } from '@/lib/features';
 import s from './Settings.module.css';
 
 const DEFAULT: MasterProfileData = {
@@ -248,7 +249,7 @@ export function MasterSettings() {
     <section className={s.card}>
       {desktop && <h2 className={s.cardH}>{t.notif}</h2>}
       {row(t.nTasks, null, <Switch checked={p.notifyTasks !== false} onChange={(v) => patch({ notifyTasks: v })} label={t.nTasks} />)}
-      {row(t.nChat, null, <Switch checked={p.notifyChat !== false} onChange={(v) => patch({ notifyChat: v })} label={t.nChat} />)}
+      {CHAT && row(t.nChat, null, <Switch checked={p.notifyChat !== false} onChange={(v) => patch({ notifyChat: v })} label={t.nChat} />)}
       {row(t.nChosen, t.always, <Lock size={18} color="var(--ink-400)" aria-hidden />)}
       <div className={s.channel}>
         <span className={s.muted14}>{t.channel}</span>

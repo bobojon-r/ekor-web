@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { http, loadChats, realtime, USE_API } from '@/lib/api';
 import { useSession } from '@/lib/session/SessionProvider';
+import { CHAT } from '@/lib/features';
 
 /** Непрочитанные сообщения во всех чатах активной роли (бейдж в меню) */
 export function useChatUnread() {
@@ -10,7 +11,7 @@ export function useChatUnread() {
   const [n, setN] = useState(0);
   const role = user?.activeRole === 'master' ? 'master' : 'client';
   useEffect(() => {
-    if (!user) return setN(0);
+    if (!user || !CHAT) return setN(0);
     if (!USE_API) return setN(loadChats()[role].reduce((a, t) => a + t.unread, 0));
     let live = true;
     const load = () =>

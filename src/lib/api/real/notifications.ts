@@ -1,6 +1,7 @@
 /** Уведомления с бэкенда: кэш в памяти + подписчики (шапка и страница), обновление по WebSocket */
 import { http, tokens } from '../http';
 import { realtime } from '../realtime';
+import { CHAT } from '@/lib/features';
 import type { Notif, NotifAct, NotifRole, NotifType } from '../notifications';
 
 type NotificationOut = {
@@ -19,7 +20,7 @@ function href(n: NotificationOut): string | undefined {
   switch (n.target_type) {
     case 'task': return m ? `/tasks/${id}` : n.action === 'fix' || n.action === 'edit' || n.action === 'republish' ? `/client/tasks/${id}/manage` : `/client/tasks/${id}`;
     case 'order': return m ? '/master/orders' : '/client';
-    case 'chat': return `/chats/${id}`;
+    case 'chat': return CHAT ? `/chats/${id}` : m ? '/master/orders' : '/client';
     case 'invite': return m ? `/master/invites/${id}` : `/client/invites/${id}`;
     case 'review': return m ? '/master/reviews' : '/client/reviews';
     case 'profile': return '/master/profile';

@@ -6,6 +6,7 @@ import { http } from '../http';
 import { ref } from '../ref';
 import { catKey, cityKey, nm, WHEN, YEARS, type NR, type TaskCardOut } from '../remote';
 import type { ClientTask, ClientTaskStatus, TaskResponse } from '../clientTasks';
+import { CHAT } from '@/lib/features';
 import { budgetStr, digits, monthYear, reasonId, termIdx, upload } from './common';
 
 type Reason = { code: string; text_ru: string; user_message_ru: string | null } | null;
@@ -51,7 +52,7 @@ async function build(): Promise<ClientTask[]> {
     http<{ items: OrderOut[] }>('/me/orders', { query: { role: 'client', tab: 'active', limit: 50 } }),
     http<{ items: OrderOut[] }>('/me/orders', { query: { role: 'client', tab: 'archive', limit: 50 } }),
     http<{ items: MyReview[] }>('/me/reviews', { query: { role: 'client', limit: 50 } }).catch(() => ({ items: [] as MyReview[] })),
-    http<{ items: Chat[] }>('/chats').catch(() => ({ items: [] as Chat[] })),
+    CHAT ? http<{ items: Chat[] }>('/chats').catch(() => ({ items: [] as Chat[] })) : { items: [] as Chat[] },
   ]);
   const tasks = [...active.items, ...archive.items];
   // Последний живой заказ по заданию (отменённые/отказ не считаем — задание снова открыто)

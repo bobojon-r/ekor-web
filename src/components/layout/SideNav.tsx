@@ -35,7 +35,7 @@ export function SideNav({ items, footer }: { items: SideItem[]; footer?: ReactNo
         {items.map((it) => {
           const on = it.exact ? path === it.href : path === it.href || path.startsWith(it.href + '/');
           const Ico = it.icon;
-          const count = it.href === '/chats' ? chats : it.count;
+          const count = it.href === '/chats' ? chats : it.count; // чат выключен — пункта нет, хук вернёт 0
           return (
             <Link key={it.href} href={it.href} className={[s.sideItem, on && s.sideOn].filter(Boolean).join(' ')} aria-current={on ? 'page' : undefined}>
               <Ico size={18} aria-hidden />

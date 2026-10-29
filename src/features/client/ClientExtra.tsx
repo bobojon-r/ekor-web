@@ -13,6 +13,7 @@ import { PhoneChange } from '@/features/settings/MasterSettings';
 import { inviteDict } from '@/features/invite/i18n';
 import { clientSide } from './ClientCabinet';
 import { clientDict } from './i18n';
+import { CHAT } from '@/lib/features';
 import s from './ClientExtra.module.css';
 
 const dict = {
@@ -22,7 +23,7 @@ const dict = {
     settings: 'Настройки', profile: 'Профиль', name: 'Имя', nameHint: 'Мастера видят только имя', save: 'Сохранить', saved: 'Сохранено', errName: 'Введите имя — от 2 букв',
     phone: 'Телефон', change: 'Изменить', notif: 'Уведомления', nResp: 'Новые отклики на мои задания', nChat: 'Сообщения в чате', nDone: 'Мастер отметил работу выполненной', always: 'Всегда включено',
     channel: 'Куда присылать', lang: 'Язык', langSub: 'Сохраняется в профиле', app: 'Приложение', toMaster: 'Перейти в режим мастера', becomeMaster: 'Стать мастером', roleSub: 'Аккаунт один — тот же номер',
-    help: 'Поддержка', rules: 'Правила', logout: 'Выйти', logoutH: 'Выйти из аккаунта?', logoutB: 'Задания и чаты сохранятся. Войти снова — по номеру и SMS-коду.', cancel: 'Отмена',
+    help: 'Поддержка', rules: 'Правила', logout: 'Выйти', logoutH: 'Выйти из аккаунта?', logoutB: 'Задания сохранятся. Войти снова — по номеру и SMS-коду.', cancel: 'Отмена',
   },
   tj: {
     invites: 'Даъват ба устоҳо', invitesEmpty: 'Шумо ҳанӯз касеро даъват накардаед', invitesEmptyB: 'Усторо дар каталог ёбед ва «Кор пешниҳод кардан»-ро пахш кунед.', toCatalog: 'Усторо ёбед',
@@ -30,7 +31,7 @@ const dict = {
     settings: 'Танзимот', profile: 'Профил', name: 'Ном', nameHint: 'Устоҳо танҳо номро мебинанд', save: 'Захира', saved: 'Захира шуд', errName: 'Номро ворид кунед — аз 2 ҳарф',
     phone: 'Телефон', change: 'Иваз кардан', notif: 'Огоҳиномаҳо', nResp: 'Ҷавобҳои нав ба супоришҳои ман', nChat: 'Паёмҳо дар чат', nDone: 'Усто корро иҷрошуда қайд кард', always: 'Ҳамеша фаъол',
     channel: 'Ба куҷо фиристем', lang: 'Забон', langSub: 'Дар профил нигоҳ дошта мешавад', app: 'Барнома', toMaster: 'Ба реҷаи усто гузаштан', becomeMaster: 'Усто шудан', roleSub: 'Як аккаунт — ҳамон рақам',
-    help: 'Дастгирӣ', rules: 'Қоидаҳо', logout: 'Баромадан', logoutH: 'Аз аккаунт мебароед?', logoutB: 'Супоришҳо ва чатҳо нигоҳ дошта мешаванд. Боз ворид шудан — бо рақам ва рамзи SMS.', cancel: 'Бекор',
+    help: 'Дастгирӣ', rules: 'Қоидаҳо', logout: 'Баромадан', logoutH: 'Аз аккаунт мебароед?', logoutB: 'Супоришҳо нигоҳ дошта мешаванд. Боз ворид шудан — бо рақам ва рамзи SMS.', cancel: 'Бекор',
   },
 };
 type D = (typeof dict)['ru'];
@@ -221,7 +222,7 @@ export function ClientSettings() {
       <section className={s.card}>
         <span className={s.cardH}>{t.notif}</span>
         {row(t.nResp, null, <Switch checked={prefs.nResp} onChange={(v) => setPref({ nResp: v })} label={t.nResp} />)}
-        {row(t.nChat, null, <Switch checked={prefs.nChat} onChange={(v) => setPref({ nChat: v })} label={t.nChat} />)}
+        {CHAT && row(t.nChat, null, <Switch checked={prefs.nChat} onChange={(v) => setPref({ nChat: v })} label={t.nChat} />)}
         {row(t.nDone, t.always, null)}
         <div className={s.stack}>
           <span className={s.muted14}>{t.channel}</span>

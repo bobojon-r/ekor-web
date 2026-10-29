@@ -16,6 +16,7 @@ import { LoadState } from '@/features/system/SystemStates';
 import { Button, ButtonLink, LangSwitch, Segmented, Sheet, Skeleton, useToast } from '@/components/ui';
 import { clientDict } from './i18n';
 import { DisputeRequests } from '@/components/DisputeRequests';
+import { CHAT } from '@/lib/features';
 import s from './Cabinet.module.css';
 
 type T = (typeof clientDict)['ru'];
@@ -33,10 +34,10 @@ export function clientSide(t: T): SideItem[] {
   return [
     { href: '/client', label: t.side[0], icon: ClipboardList, exact: true },
     { href: '/client/invites', label: t.side[1], icon: Mail },
-    { href: '/chats', label: t.side[2], icon: MessagesSquare },
-    { href: '/client/reviews', label: t.side[3], icon: Star },
-    { href: '/notifications', label: t.side[4], icon: BellIco },
-    { href: '/client/settings', label: t.side[5], icon: Settings },
+    ...(CHAT ? [{ href: '/chats', label: t.chats, icon: MessagesSquare }] : []),
+    { href: '/client/reviews', label: t.side[2], icon: Star },
+    { href: '/notifications', label: t.side[3], icon: BellIco },
+    { href: '/client/settings', label: t.side[4], icon: Settings },
   ];
 }
 
@@ -494,11 +495,13 @@ function TaskDetail({ k, wide, t, lang, act, openModal }: { k: ClientTask; wide:
                 )}
               </div>
               <div className={s.masterBtns}>
-                <Link href={k.chatId ? `/chats/${k.chatId}` : '/chats'} className={s.chatBtn}>
-                  <MessageCircle size={18} aria-hidden />
-                  {t.chat}
-                  {!!k.unread && <span className={s.chatCount}>{k.unread}</span>}
-                </Link>
+                {CHAT && (
+                  <Link href={k.chatId ? `/chats/${k.chatId}` : '/chats'} className={s.chatBtn}>
+                    <MessageCircle size={18} aria-hidden />
+                    {t.chat}
+                    {!!k.unread && <span className={s.chatCount}>{k.unread}</span>}
+                  </Link>
+                )}
                 <a href={`tel:+992${k.master.phone}`} className={s.callBtn}>
                   <Phone size={18} color="var(--brand-600)" aria-hidden />
                   {t.call}

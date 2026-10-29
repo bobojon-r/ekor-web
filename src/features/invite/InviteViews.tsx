@@ -12,6 +12,7 @@ import { masterSideItems } from '@/features/master/MasterCabinet';
 import { masterDict } from '@/features/master/i18n';
 import { useRequireMaster } from '@/lib/session/SessionProvider';
 import { inviteDict } from './i18n';
+import { CHAT } from '@/lib/features';
 import s from './Invite.module.css';
 
 type T = (typeof inviteDict)['ru'];
@@ -252,7 +253,7 @@ export function MasterInviteView({ id }: { id: number }) {
             {st === 'sent' && mode === 'form' && termsForm(false)}
             {st === 'sent' && mode === 'decl' && declForm(false)}
             {note && <Note tone={good ? 'good' : st === 'accepted' ? 'warn' : 'neutral'}>{note}</Note>}
-            {good && (
+            {CHAT && good && (
               <ButtonLink href="/chats" size="md" block icon={<MessageCircle size={18} aria-hidden />}>
                 {t.openChat}
               </ButtonLink>
@@ -308,7 +309,7 @@ export function MasterInviteView({ id }: { id: number }) {
               {st === 'sent' && mode === 'decl' && declForm(true)}
             </div>
             {note && <Note tone={good ? 'good' : st === 'accepted' ? 'warn' : 'neutral'}>{note}</Note>}
-            {good && (
+            {CHAT && good && (
               <ButtonLink href="/chats" size="md" icon={<MessageCircle size={18} aria-hidden />} className={s.selfStart}>
                 {t.openChat}
               </ButtonLink>
@@ -379,13 +380,13 @@ export function ClientInviteView({ id }: { id: number }) {
           {t.cancelInv}
         </Button>
       )}
-      {good && (
+      {CHAT && good && (
         <ButtonLink href="/chats" size="lg" block icon={<MessageCircle size={18} aria-hidden />}>
           {t.openChat}
         </ButtonLink>
       )}
-      {(st === 'public' || st === 'cancelled') && (
-        <ButtonLink href="/client" variant="secondary" size="lg" block>
+      {(st === 'public' || st === 'cancelled' || (!CHAT && good)) && (
+        <ButtonLink href="/client" variant={good ? 'primary' : 'secondary'} size="lg" block>
           {t.toMyTasks}
         </ButtonLink>
       )}
