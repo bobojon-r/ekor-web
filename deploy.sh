@@ -13,7 +13,7 @@ TAG="$(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty)"
 CHECK="http://127.0.0.1:${BIND##*:}/"
 
 if [[ "${1:-}" == "rollback" ]]; then
-  ssh "$HOST" "set -e; PREV=\$(docker inspect -f '{{.Config.Image}}' $NAME-prev 2>/dev/null || true)
+  ssh "$HOST" "set -e; PREV=\$(docker container inspect -f '{{.Config.Image}}' $NAME-prev 2>/dev/null || true)
     [ -n \"\$PREV\" ] || { echo 'Нет предыдущей версии'; exit 1; }
     docker rm -f $NAME >/dev/null; docker rename $NAME-prev $NAME; docker start $NAME >/dev/null; echo \"Откат на \$PREV\""
   exit
@@ -33,7 +33,7 @@ ssh "$HOST" "set -e; cd $DIR
 echo "▸ Перезапуск контейнера ($BIND)"
 ssh "$HOST" "set -e
   docker rm -f $NAME-prev >/dev/null 2>&1 || true
-  if docker inspect $NAME >/dev/null 2>&1; then docker stop $NAME >/dev/null; docker rename $NAME $NAME-prev; fi
+  if docker container inspect $NAME >/dev/null 2>&1; then docker stop $NAME >/dev/null; docker rename $NAME $NAME-prev; fi
   docker run -d --name $NAME --restart unless-stopped -p $BIND:3000 \
     --memory 512m --log-opt max-size=10m --log-opt max-file=3 $NAME:$TAG >/dev/null
   for i in \$(seq 1 30); do
@@ -42,7 +42,7 @@ ssh "$HOST" "set -e
   done
   echo '✗ Не поднялся — возвращаю предыдущую версию'; docker logs --tail 50 $NAME
   docker rm -f $NAME >/dev/null
-  if docker inspect $NAME-prev >/dev/null 2>&1; then docker rename $NAME-prev $NAME; docker start $NAME >/dev/null; fi
+  if docker container inspect $NAME-prev >/dev/null 2>&1; then docker rename $NAME-prev $NAME; docker start $NAME >/dev/null; fi
   exit 1"
 # Старые образы, кроме текущего и предыдущего, не копим
 ssh "$HOST" "docker image prune -f >/dev/null; docker images $NAME --format '{{.Tag}}' | grep -v -e latest -e $TAG | tail -n +2 | xargs -r -I{} docker rmi $NAME:{} >/dev/null 2>&1 || true"
